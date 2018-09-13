@@ -8,8 +8,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// KubeApiserverOperatorConfigs returns a KubeApiserverOperatorConfigInformer.
-	KubeApiserverOperatorConfigs() KubeApiserverOperatorConfigInformer
+	// OpenShiftAPIServerOperatorConfigs returns a OpenShiftAPIServerOperatorConfigInformer.
+	OpenShiftAPIServerOperatorConfigs() OpenShiftAPIServerOperatorConfigInformer
 }
 
 type version struct {
@@ -23,7 +23,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// KubeApiserverOperatorConfigs returns a KubeApiserverOperatorConfigInformer.
-func (v *version) KubeApiserverOperatorConfigs() KubeApiserverOperatorConfigInformer {
-	return &kubeApiserverOperatorConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// OpenShiftAPIServerOperatorConfigs returns a OpenShiftAPIServerOperatorConfigInformer.
+func (v *version) OpenShiftAPIServerOperatorConfigs() OpenShiftAPIServerOperatorConfigInformer {
+	return &openShiftAPIServerOperatorConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

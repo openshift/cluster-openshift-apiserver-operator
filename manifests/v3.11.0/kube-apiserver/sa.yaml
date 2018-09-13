@@ -1,5 +1,0 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  namespace: openshift-openshift-apiserver
-  name: openshift-openshift-apiserver-sa

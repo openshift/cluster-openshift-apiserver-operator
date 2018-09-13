@@ -52,21 +52,21 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
 
-var _v3110KubeApiserverCmYaml = []byte(`apiVersion: v1
+var _v3110OpenshiftApiserverCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: openshift-openshift-apiserver
+  namespace: openshift-apiserver
   name: deployment-apiserver-config
 data:
   config.yaml:
 `)
 
-func v3110KubeApiserverCmYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverCmYaml, nil
+func v3110OpenshiftApiserverCmYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverCmYaml, nil
 }
 
-func v3110KubeApiserverCmYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverCmYamlBytes()
+func v3110OpenshiftApiserverCmYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverCmYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -76,16 +76,16 @@ func v3110KubeApiserverCmYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverDefaultconfigYaml = []byte(`apiVersion: kubecontrolplane.config.openshift.io/v1
-kind: KubeAPIServerConfig
+var _v3110OpenshiftApiserverDefaultconfigYaml = []byte(`apiVersion: openshiftcontrolplane.config.openshift.io/v1
+kind: OpenShiftAPIServerConfig
 `)
 
-func v3110KubeApiserverDefaultconfigYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverDefaultconfigYaml, nil
+func v3110OpenshiftApiserverDefaultconfigYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverDefaultconfigYaml, nil
 }
 
-func v3110KubeApiserverDefaultconfigYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverDefaultconfigYamlBytes()
+func v3110OpenshiftApiserverDefaultconfigYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverDefaultconfigYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -95,34 +95,34 @@ func v3110KubeApiserverDefaultconfigYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverDeploymentYaml = []byte(`apiVersion: apps/v1
+var _v3110OpenshiftApiserverDeploymentYaml = []byte(`apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: openshift-openshift-apiserver
+  namespace: openshift-apiserver
   name: apiserver
   labels:
-    app: openshift-openshift-apiserver
+    app: openshift-apiserver
     apiserver: "true"
 spec:
   strategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: openshift-openshift-apiserver
+      app: openshift-apiserver
       apiserver: "true"
   template:
     metadata:
-      name: openshift-openshift-apiserver
+      name: openshift-apiserver
       labels:
-        app: openshift-openshift-apiserver
+        app: openshift-apiserver
         apiserver: "true"
     spec:
-      serviceAccountName: openshift-openshift-apiserver-sa
+      serviceAccountName: openshift-apiserver-sa
       containers:
       - name: apiserver
         image: ${IMAGE}
         imagePullPolicy: IfNotPresent
-        command: ["hypershift", "openshift-openshift-apiserver"]
+        command: ["hypershift", "openshift-apiserver"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
         ports:
@@ -184,12 +184,12 @@ spec:
 
 `)
 
-func v3110KubeApiserverDeploymentYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverDeploymentYaml, nil
+func v3110OpenshiftApiserverDeploymentYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverDeploymentYaml, nil
 }
 
-func v3110KubeApiserverDeploymentYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverDeploymentYamlBytes()
+func v3110OpenshiftApiserverDeploymentYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverDeploymentYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -199,19 +199,19 @@ func v3110KubeApiserverDeploymentYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverNsYaml = []byte(`apiVersion: v1
+var _v3110OpenshiftApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
-  name: openshift-openshift-apiserver
+  name: openshift-apiserver
   labels:
-    openshift.io/run-level: "0"`)
+    openshift.io/run-level: "1"`)
 
-func v3110KubeApiserverNsYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverNsYaml, nil
+func v3110OpenshiftApiserverNsYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverNsYaml, nil
 }
 
-func v3110KubeApiserverNsYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverNsYamlBytes()
+func v3110OpenshiftApiserverNsYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverNsYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -221,10 +221,10 @@ func v3110KubeApiserverNsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverPublicInfoRoleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _v3110OpenshiftApiserverPublicInfoRoleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  namespace: openshift-openshift-apiserver
+  namespace: openshift-apiserver
   name: system:openshift:operator:openshift-apiserver:public
 rules:
 - apiGroups:
@@ -239,12 +239,12 @@ rules:
   - public-info
 `)
 
-func v3110KubeApiserverPublicInfoRoleYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverPublicInfoRoleYaml, nil
+func v3110OpenshiftApiserverPublicInfoRoleYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverPublicInfoRoleYaml, nil
 }
 
-func v3110KubeApiserverPublicInfoRoleYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverPublicInfoRoleYamlBytes()
+func v3110OpenshiftApiserverPublicInfoRoleYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverPublicInfoRoleYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -254,10 +254,10 @@ func v3110KubeApiserverPublicInfoRoleYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverPublicInfoRolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _v3110OpenshiftApiserverPublicInfoRolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  namespace: openshift-openshift-apiserver
+  namespace: openshift-apiserver
   name: system:openshift:operator:openshift-apiserver:public
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -268,12 +268,12 @@ subjects:
   name: system:authenticated
 `)
 
-func v3110KubeApiserverPublicInfoRolebindingYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverPublicInfoRolebindingYaml, nil
+func v3110OpenshiftApiserverPublicInfoRolebindingYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverPublicInfoRolebindingYaml, nil
 }
 
-func v3110KubeApiserverPublicInfoRolebindingYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverPublicInfoRolebindingYamlBytes()
+func v3110OpenshiftApiserverPublicInfoRolebindingYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverPublicInfoRolebindingYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -283,30 +283,22 @@ func v3110KubeApiserverPublicInfoRolebindingYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverPublicInfoYaml = []byte(`apiVersion: v1
+var _v3110OpenshiftApiserverPublicInfoYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
-  namespace: openshift-openshift-apiserver
+  namespace: openshift-apiserver
   name: public-info
 data:
   # version is the current of the openshift-apiserver.  It is updated *after* it is being served consistently.
   version:
-  # imagePolicyConfig.internalRegistryHostname is internal registry used for imagePolicyAdmission
-  # TODO this probably won't make it to 4.0, we're likely to stuff the entire imagePolicyAdmission config in here
-  imagePolicyConfig.internalRegistryHostname:
-  # imagePolicyConfig.externalRegistryHostname is external registry used for imagePolicyAdmission
-  # TODO this probably won't make it to 4.0, we're likely to stuff the entire imagePolicyAdmission config in here
-  imagePolicyConfig.externalRegistryHostname:
-  # defaultNodeSelector is used when no specific node selector is on a namespace
-  # TODO we'd really like to see this collapsed onto upstream values
-  projectConfig.defaultNodeSelector:`)
+`)
 
-func v3110KubeApiserverPublicInfoYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverPublicInfoYaml, nil
+func v3110OpenshiftApiserverPublicInfoYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverPublicInfoYaml, nil
 }
 
-func v3110KubeApiserverPublicInfoYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverPublicInfoYamlBytes()
+func v3110OpenshiftApiserverPublicInfoYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverPublicInfoYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -316,19 +308,19 @@ func v3110KubeApiserverPublicInfoYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverSaYaml = []byte(`apiVersion: v1
+var _v3110OpenshiftApiserverSaYaml = []byte(`apiVersion: v1
 kind: ServiceAccount
 metadata:
-  namespace: openshift-openshift-apiserver
-  name: openshift-openshift-apiserver-sa
+  namespace: openshift-apiserver
+  name: openshift-apiserver-sa
 `)
 
-func v3110KubeApiserverSaYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverSaYaml, nil
+func v3110OpenshiftApiserverSaYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverSaYaml, nil
 }
 
-func v3110KubeApiserverSaYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverSaYamlBytes()
+func v3110OpenshiftApiserverSaYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverSaYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -338,10 +330,10 @@ func v3110KubeApiserverSaYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110KubeApiserverSvcYaml = []byte(`apiVersion: v1
+var _v3110OpenshiftApiserverSvcYaml = []byte(`apiVersion: v1
 kind: Service
 metadata:
-  namespace: openshift-openshift-apiserver
+  namespace: openshift-apiserver
   name: apiserver
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: serving-cert
@@ -356,12 +348,12 @@ spec:
     targetPort: 8443
 `)
 
-func v3110KubeApiserverSvcYamlBytes() ([]byte, error) {
-	return _v3110KubeApiserverSvcYaml, nil
+func v3110OpenshiftApiserverSvcYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverSvcYaml, nil
 }
 
-func v3110KubeApiserverSvcYaml() (*asset, error) {
-	bytes, err := v3110KubeApiserverSvcYamlBytes()
+func v3110OpenshiftApiserverSvcYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverSvcYamlBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -423,15 +415,15 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/openshift-apiserver/cm.yaml": v3110KubeApiserverCmYaml,
-	"v3.11.0/openshift-apiserver/defaultconfig.yaml": v3110KubeApiserverDefaultconfigYaml,
-	"v3.11.0/openshift-apiserver/deployment.yaml": v3110KubeApiserverDeploymentYaml,
-	"v3.11.0/openshift-apiserver/ns.yaml": v3110KubeApiserverNsYaml,
-	"v3.11.0/openshift-apiserver/public-info-role.yaml": v3110KubeApiserverPublicInfoRoleYaml,
-	"v3.11.0/openshift-apiserver/public-info-rolebinding.yaml": v3110KubeApiserverPublicInfoRolebindingYaml,
-	"v3.11.0/openshift-apiserver/public-info.yaml": v3110KubeApiserverPublicInfoYaml,
-	"v3.11.0/openshift-apiserver/sa.yaml": v3110KubeApiserverSaYaml,
-	"v3.11.0/openshift-apiserver/svc.yaml": v3110KubeApiserverSvcYaml,
+	"v3.11.0/openshift-apiserver/cm.yaml": v3110OpenshiftApiserverCmYaml,
+	"v3.11.0/openshift-apiserver/defaultconfig.yaml": v3110OpenshiftApiserverDefaultconfigYaml,
+	"v3.11.0/openshift-apiserver/deployment.yaml": v3110OpenshiftApiserverDeploymentYaml,
+	"v3.11.0/openshift-apiserver/ns.yaml": v3110OpenshiftApiserverNsYaml,
+	"v3.11.0/openshift-apiserver/public-info-role.yaml": v3110OpenshiftApiserverPublicInfoRoleYaml,
+	"v3.11.0/openshift-apiserver/public-info-rolebinding.yaml": v3110OpenshiftApiserverPublicInfoRolebindingYaml,
+	"v3.11.0/openshift-apiserver/public-info.yaml": v3110OpenshiftApiserverPublicInfoYaml,
+	"v3.11.0/openshift-apiserver/sa.yaml": v3110OpenshiftApiserverSaYaml,
+	"v3.11.0/openshift-apiserver/svc.yaml": v3110OpenshiftApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -476,15 +468,15 @@ type bintree struct {
 var _bintree = &bintree{nil, map[string]*bintree{
 	"v3.11.0": &bintree{nil, map[string]*bintree{
 		"openshift-apiserver": &bintree{nil, map[string]*bintree{
-			"cm.yaml": &bintree{v3110KubeApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml": &bintree{v3110KubeApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"deployment.yaml": &bintree{v3110KubeApiserverDeploymentYaml, map[string]*bintree{}},
-			"ns.yaml": &bintree{v3110KubeApiserverNsYaml, map[string]*bintree{}},
-			"public-info-role.yaml": &bintree{v3110KubeApiserverPublicInfoRoleYaml, map[string]*bintree{}},
-			"public-info-rolebinding.yaml": &bintree{v3110KubeApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
-			"public-info.yaml": &bintree{v3110KubeApiserverPublicInfoYaml, map[string]*bintree{}},
-			"sa.yaml": &bintree{v3110KubeApiserverSaYaml, map[string]*bintree{}},
-			"svc.yaml": &bintree{v3110KubeApiserverSvcYaml, map[string]*bintree{}},
+			"cm.yaml": &bintree{v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml": &bintree{v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"deployment.yaml": &bintree{v3110OpenshiftApiserverDeploymentYaml, map[string]*bintree{}},
+			"ns.yaml": &bintree{v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
+			"public-info-role.yaml": &bintree{v3110OpenshiftApiserverPublicInfoRoleYaml, map[string]*bintree{}},
+			"public-info-rolebinding.yaml": &bintree{v3110OpenshiftApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
+			"public-info.yaml": &bintree{v3110OpenshiftApiserverPublicInfoYaml, map[string]*bintree{}},
+			"sa.yaml": &bintree{v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
+			"svc.yaml": &bintree{v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}

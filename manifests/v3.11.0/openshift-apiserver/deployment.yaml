@@ -1,31 +1,31 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: openshift-openshift-apiserver
+  namespace: openshift-apiserver
   name: apiserver
   labels:
-    app: openshift-openshift-apiserver
+    app: openshift-apiserver
     apiserver: "true"
 spec:
   strategy:
     type: RollingUpdate
   selector:
     matchLabels:
-      app: openshift-openshift-apiserver
+      app: openshift-apiserver
       apiserver: "true"
   template:
     metadata:
-      name: openshift-openshift-apiserver
+      name: openshift-apiserver
       labels:
-        app: openshift-openshift-apiserver
+        app: openshift-apiserver
         apiserver: "true"
     spec:
-      serviceAccountName: openshift-openshift-apiserver-sa
+      serviceAccountName: openshift-apiserver-sa
       containers:
       - name: apiserver
         image: ${IMAGE}
         imagePullPolicy: IfNotPresent
-        command: ["hypershift", "openshift-openshift-apiserver"]
+        command: ["hypershift", "openshift-apiserver"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
         ports:

@@ -12,8 +12,8 @@ type FakeOpenshiftapiserverV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeOpenshiftapiserverV1alpha1) KubeApiserverOperatorConfigs() v1alpha1.KubeApiserverOperatorConfigInterface {
-	return &FakeKubeApiserverOperatorConfigs{c}
+func (c *FakeOpenshiftapiserverV1alpha1) OpenShiftAPIServerOperatorConfigs() v1alpha1.OpenShiftAPIServerOperatorConfigInterface {
+	return &FakeOpenShiftAPIServerOperatorConfigs{c}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-apiserver
+  name: public-info
+data:
+  # version is the current of the openshift-apiserver.  It is updated *after* it is being served consistently.
+  version:
