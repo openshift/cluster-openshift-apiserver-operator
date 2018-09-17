@@ -15,12 +15,14 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
+	kubeinformers "k8s.io/client-go/informers"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	rbacclientv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
+	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	operatorsv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/typed/openshiftapiserver/v1alpha1"
@@ -30,16 +32,18 @@ import (
 )
 
 const (
-	targetNamespaceName = "openshift-apiserver"
-	workQueueKey        = "key"
+	kubeAPIServerNamespaceName = "openshift-kube-apiserver"
+	targetNamespaceName        = "openshift-apiserver"
+	workQueueKey               = "key"
 )
 
 type OpenShiftAPIServerOperator struct {
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface
 
-	appsv1Client appsclientv1.AppsV1Interface
-	corev1Client coreclientv1.CoreV1Interface
-	rbacv1Client rbacclientv1.RbacV1Interface
+	appsv1Client            appsclientv1.AppsV1Interface
+	corev1Client            coreclientv1.CoreV1Interface
+	rbacv1Client            rbacclientv1.RbacV1Interface
+	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -47,29 +51,36 @@ type OpenShiftAPIServerOperator struct {
 
 func NewKubeApiserverOperator(
 	operatorConfigInformer operatorconfiginformerv1alpha1.OpenShiftAPIServerOperatorConfigInformer,
-	namespacedKubeInformers informers.SharedInformerFactory,
+	locallyNamespacedKubeInformers kubeinformers.SharedInformerFactory,
+	kubeAPIServerNamespacedKubeInformers kubeinformers.SharedInformerFactory,
+	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
 	appsv1Client appsclientv1.AppsV1Interface,
 	corev1Client coreclientv1.CoreV1Interface,
 	rbacv1Client rbacclientv1.RbacV1Interface,
+	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
 ) *OpenShiftAPIServerOperator {
 	c := &OpenShiftAPIServerOperator{
-		operatorConfigClient: operatorConfigClient,
-		appsv1Client:         appsv1Client,
-		corev1Client:         corev1Client,
-		rbacv1Client:         rbacv1Client,
+		operatorConfigClient:    operatorConfigClient,
+		appsv1Client:            appsv1Client,
+		corev1Client:            corev1Client,
+		rbacv1Client:            rbacv1Client,
+		apiregistrationv1Client: apiregistrationv1Client,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "OpenShiftAPIServerOperator"),
 	}
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
-	namespacedKubeInformers.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
+	kubeAPIServerNamespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeAPIServerNamespacedKubeInformers.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
+	locallyNamespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	locallyNamespacedKubeInformers.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
+	locallyNamespacedKubeInformers.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
+	locallyNamespacedKubeInformers.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
+	apiregistrationInformers.Apiregistration().V1().APIServices().Informer().AddEventHandler(c.eventHandler())
 
 	// we only watch some namespaces
-	namespacedKubeInformers.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
+	locallyNamespacedKubeInformers.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
 
 	return c
 }

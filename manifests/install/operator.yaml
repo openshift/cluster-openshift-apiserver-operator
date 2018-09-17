@@ -20,6 +20,8 @@ items:
       kind: OpenShiftAPIServerOperatorConfig
       plural: openshiftapiserveroperatorconfigs
       singular: openshiftapiserveroperatorconfig
+      categories:
+      - coreoperators
     subresources:
       status: {}
 
