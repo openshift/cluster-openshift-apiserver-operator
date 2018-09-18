@@ -11,7 +11,7 @@ import (
 
 type OpenshiftapiserverV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	KubeApiserverOperatorConfigsGetter
+	OpenShiftAPIServerOperatorConfigsGetter
 }
 
 // OpenshiftapiserverV1alpha1Client is used to interact with features provided by the openshiftapiserver.operator.openshift.io group.
@@ -19,8 +19,8 @@ type OpenshiftapiserverV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *OpenshiftapiserverV1alpha1Client) KubeApiserverOperatorConfigs() KubeApiserverOperatorConfigInterface {
-	return newKubeApiserverOperatorConfigs(c)
+func (c *OpenshiftapiserverV1alpha1Client) OpenShiftAPIServerOperatorConfigs() OpenShiftAPIServerOperatorConfigInterface {
+	return newOpenShiftAPIServerOperatorConfigs(c)
 }
 
 // NewForConfig creates a new OpenshiftapiserverV1alpha1Client for the given config.

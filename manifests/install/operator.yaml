@@ -17,9 +17,11 @@ items:
     group: openshiftapiserver.operator.openshift.io
     version: v1alpha1
     names:
-      kind: KubeApiserverOperatorConfig
+      kind: OpenShiftAPIServerOperatorConfig
       plural: openshiftapiserveroperatorconfigs
       singular: openshiftapiserveroperatorconfig
+      categories:
+      - coreoperators
     subresources:
       status: {}
 
@@ -95,7 +97,7 @@ items:
       app: openshift-cluster-openshift-apiserver-operator
 
 - apiVersion: openshiftapiserver.operator.openshift.io/v1alpha1
-  kind: KubeApiserverOperatorConfig
+  kind: OpenShiftAPIServerOperatorConfig
   metadata:
     name: instance
   spec:
