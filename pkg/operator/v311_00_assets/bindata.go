@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 )
+
 type asset struct {
 	bytes []byte
 	info  os.FileInfo
@@ -419,15 +420,15 @@ func AssetNames() []string {
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml": v3110OpenshiftApiserverApiserverClusterrolebindingYaml,
-	"v3.11.0/openshift-apiserver/cm.yaml": v3110OpenshiftApiserverCmYaml,
-	"v3.11.0/openshift-apiserver/defaultconfig.yaml": v3110OpenshiftApiserverDefaultconfigYaml,
-	"v3.11.0/openshift-apiserver/deployment.yaml": v3110OpenshiftApiserverDeploymentYaml,
-	"v3.11.0/openshift-apiserver/ns.yaml": v3110OpenshiftApiserverNsYaml,
-	"v3.11.0/openshift-apiserver/public-info-role.yaml": v3110OpenshiftApiserverPublicInfoRoleYaml,
-	"v3.11.0/openshift-apiserver/public-info-rolebinding.yaml": v3110OpenshiftApiserverPublicInfoRolebindingYaml,
-	"v3.11.0/openshift-apiserver/public-info.yaml": v3110OpenshiftApiserverPublicInfoYaml,
-	"v3.11.0/openshift-apiserver/sa.yaml": v3110OpenshiftApiserverSaYaml,
-	"v3.11.0/openshift-apiserver/svc.yaml": v3110OpenshiftApiserverSvcYaml,
+	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
+	"v3.11.0/openshift-apiserver/defaultconfig.yaml":                v3110OpenshiftApiserverDefaultconfigYaml,
+	"v3.11.0/openshift-apiserver/deployment.yaml":                   v3110OpenshiftApiserverDeploymentYaml,
+	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
+	"v3.11.0/openshift-apiserver/public-info-role.yaml":             v3110OpenshiftApiserverPublicInfoRoleYaml,
+	"v3.11.0/openshift-apiserver/public-info-rolebinding.yaml":      v3110OpenshiftApiserverPublicInfoRolebindingYaml,
+	"v3.11.0/openshift-apiserver/public-info.yaml":                  v3110OpenshiftApiserverPublicInfoYaml,
+	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
+	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -469,19 +470,20 @@ type bintree struct {
 	Func     func() (*asset, error)
 	Children map[string]*bintree
 }
+
 var _bintree = &bintree{nil, map[string]*bintree{
-	"v3.11.0": &bintree{nil, map[string]*bintree{
-		"openshift-apiserver": &bintree{nil, map[string]*bintree{
-			"apiserver-clusterrolebinding.yaml": &bintree{v3110OpenshiftApiserverApiserverClusterrolebindingYaml, map[string]*bintree{}},
-			"cm.yaml": &bintree{v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
-			"defaultconfig.yaml": &bintree{v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
-			"deployment.yaml": &bintree{v3110OpenshiftApiserverDeploymentYaml, map[string]*bintree{}},
-			"ns.yaml": &bintree{v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
-			"public-info-role.yaml": &bintree{v3110OpenshiftApiserverPublicInfoRoleYaml, map[string]*bintree{}},
-			"public-info-rolebinding.yaml": &bintree{v3110OpenshiftApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
-			"public-info.yaml": &bintree{v3110OpenshiftApiserverPublicInfoYaml, map[string]*bintree{}},
-			"sa.yaml": &bintree{v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
-			"svc.yaml": &bintree{v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
+	"v3.11.0": {nil, map[string]*bintree{
+		"openshift-apiserver": {nil, map[string]*bintree{
+			"apiserver-clusterrolebinding.yaml": {v3110OpenshiftApiserverApiserverClusterrolebindingYaml, map[string]*bintree{}},
+			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
+			"defaultconfig.yaml":                {v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
+			"deployment.yaml":                   {v3110OpenshiftApiserverDeploymentYaml, map[string]*bintree{}},
+			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
+			"public-info-role.yaml":             {v3110OpenshiftApiserverPublicInfoRoleYaml, map[string]*bintree{}},
+			"public-info-rolebinding.yaml":      {v3110OpenshiftApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
+			"public-info.yaml":                  {v3110OpenshiftApiserverPublicInfoYaml, map[string]*bintree{}},
+			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
+			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
@@ -532,4 +534,3 @@ func _filePath(dir, name string) string {
 	cannonicalName := strings.Replace(name, "\\", "/", -1)
 	return filepath.Join(append([]string{dir}, strings.Split(cannonicalName, "/")...)...)
 }
-
