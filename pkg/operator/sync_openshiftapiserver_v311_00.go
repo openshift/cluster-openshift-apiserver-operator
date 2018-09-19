@@ -5,7 +5,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -111,66 +110,27 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 }
 
 func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface) (bool, error) {
-	changed := false
-	// TODO make this more efficient
 	const etcdServingCAName = "etcd-serving-ca"
 	const etcdClientCertKeyPairName = "etcd-client"
-	sourceCA, err := client.ConfigMaps(kubeAPIServerNamespaceName).Get(etcdServingCAName, metav1.GetOptions{})
-	switch {
-	case errors.IsNotFound(err):
-		// do nothing
-	case err != nil:
-		return false, err
-	default:
-		sourceCA.Namespace = targetNamespaceName
-		sourceCA.ResourceVersion = ""
-		_, currChanged, err := resourceapply.ApplyConfigMap(client, sourceCA)
-		changed = changed || currChanged
-		if err != nil {
-			return changed, err
-		}
-	}
 
-	sourceClientCertKeyPair, err := client.Secrets(kubeAPIServerNamespaceName).Get(etcdClientCertKeyPairName, metav1.GetOptions{})
-	switch {
-	case errors.IsNotFound(err):
-		// do nothing
-	case err != nil:
+	_, caChanged, err := resourceapply.SyncConfigMap(client, kubeAPIServerNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
+	if err != nil{
 		return false, err
-	default:
-		sourceClientCertKeyPair.Namespace = targetNamespaceName
-		sourceClientCertKeyPair.ResourceVersion = ""
-		_, currChanged, err := resourceapply.ApplySecret(client, sourceClientCertKeyPair)
-		changed = changed || currChanged
-		if err != nil {
-			return changed, err
-		}
 	}
-
-	return changed, nil
+	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, kubeAPIServerNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
+	if err != nil {
+		return false, err
+	}
+	return caChanged || certKeyPairChanged, nil
 }
 
 func manageOpenShiftAPIServerClientCA_v311_00_to_latest(client coreclientv1.CoreV1Interface) (bool, error) {
-	changed := false
-	// TODO make this more efficient
 	const apiserverClientCA = "client-ca"
-	sourceCA, err := client.ConfigMaps(kubeAPIServerNamespaceName).Get(apiserverClientCA, metav1.GetOptions{})
-	switch {
-	case errors.IsNotFound(err):
-		// do nothing
-	case err != nil:
+	_, caChanged, err := resourceapply.SyncConfigMap(client, kubeAPIServerNamespaceName, apiserverClientCA, targetNamespaceName, apiserverClientCA)
+	if err != nil{
 		return false, err
-	default:
-		sourceCA.Namespace = targetNamespaceName
-		sourceCA.ResourceVersion = ""
-		_, currChanged, err := resourceapply.ApplyConfigMap(client, sourceCA)
-		changed = changed || currChanged
-		if err != nil {
-			return changed, err
-		}
 	}
-
-	return changed, nil
+	return caChanged, nil
 }
 
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
