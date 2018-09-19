@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2018-09-18T08:50:26.307402262-04:00
+updated: 2018-09-19T10:50:17.116709402-04:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -74,14 +74,14 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/openshift/api
-  version: 59a17884a17d085f49a4c3a43b1b528803d00b63
+  version: 4507dcb6a81f6593aa336c5b47927cf0ae297b72
   subpackages:
   - config/v1
   - operator/v1alpha1
 - name: github.com/openshift/client-go
   version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
 - name: github.com/openshift/library-go
-  version: 4b423e2929acb1edbd9ff740489a830fde902673
+  version: c45781559e320a91f9d392579bdbb757d8ebae72
   subpackages:
   - pkg/config/client
   - pkg/config/leaderelection
