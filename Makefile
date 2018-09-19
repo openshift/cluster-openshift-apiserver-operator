@@ -2,9 +2,12 @@ all build:
 	go build ./cmd/cluster-openshift-apiserver-operator
 .PHONY: all build
 
-verify:
+verify-govet:
+	go vet ./...
+.PHONY: verify-govet
+
+verify: verify-govet
 	hack/verify-gofmt.sh
-	hack/verify-govet.sh
 	hack/verify-codegen.sh
 	hack/verify-generated-bindata.sh
 .PHONY: verify
