@@ -9,3 +9,6 @@ RUN cd /go/src/github.com/openshift/cluster-openshift-apiserver-operator && go b
 
 FROM centos:7
 COPY --from=0 /go/src/github.com/openshift/cluster-openshift-apiserver-operator/cluster-openshift-apiserver-operator /usr/bin/cluster-openshift-apiserver-operator
+
+COPY manifests /manifests
+LABEL io.openshift.release.operator true
