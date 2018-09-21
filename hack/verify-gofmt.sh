@@ -7,4 +7,5 @@ if [[ -n "${bad_files}" ]]; then
     (>&2 echo "!!! gofmt needs to be run on the listed files")
 	echo "${bad_files}"
     (>&2 echo "Try running 'gofmt -s -d [path]'\nOr autocorrect with 'hack/verify-gofmt.sh | xargs -n 1 gofmt -s -w'")
+    exit 1
 fi
