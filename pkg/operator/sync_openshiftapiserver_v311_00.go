@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -30,64 +31,50 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 	errors := []error{}
 	var err error
 
-	requiredNamespace := resourceread.ReadNamespaceV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ns.yaml"))
-	_, _, err = resourceapply.ApplyNamespace(c.corev1Client, requiredNamespace)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "ns", err))
+	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, v311_00_assets.Asset,
+		"v3.11.0/openshift-apiserver/ns.yaml",
+		"v3.11.0/openshift-apiserver/public-info-role.yaml",
+		"v3.11.0/openshift-apiserver/public-info-rolebinding.yaml",
+		"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
+		"v3.11.0/openshift-apiserver/svc.yaml",
+		"v3.11.0/openshift-apiserver/sa.yaml",
+	)
+	resourcesThatForceRedeployment := sets.NewString("v3.11.0/openshift-apiserver/sa.yaml")
+	forceDeployment := false
+
+	for _, currResult := range directResourceResults {
+		if currResult.Error != nil {
+			errors = append(errors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
+			continue
+		}
+
+		if resourcesThatForceRedeployment.Has(currResult.File) {
+			forceDeployment = true
+		}
 	}
 
-	requiredPublicRole := resourceread.ReadRoleV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/public-info-role.yaml"))
-	_, _, err = resourceapply.ApplyRole(c.rbacv1Client, requiredPublicRole)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "publicrole", err))
-	}
-
-	requiredPublicRoleBinding := resourceread.ReadRoleBindingV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/public-info-rolebinding.yaml"))
-	_, _, err = resourceapply.ApplyRoleBinding(c.rbacv1Client, requiredPublicRoleBinding)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "publicrolebinding", err))
-	}
-
-	requiredAPIServerClusterRoleBinding := resourceread.ReadClusterRoleBindingV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml"))
-	_, _, err = resourceapply.ApplyClusterRoleBinding(c.rbacv1Client, requiredAPIServerClusterRoleBinding)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "apiserverclusterrole", err))
-	}
-
-	requiredService := resourceread.ReadServiceV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/svc.yaml"))
-	_, _, err = resourceapply.ApplyService(c.corev1Client, requiredService)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "svc", err))
-	}
-
-	requiredSA := resourceread.ReadServiceAccountV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/sa.yaml"))
-	_, saModified, err := resourceapply.ApplyServiceAccount(c.corev1Client, requiredSA)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "sa", err))
-	}
-
-	apiserverConfig, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.corev1Client, operatorConfig)
+	apiserverConfig, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
 
 	// the kube-apiserver is the source of truth for etcd serving CA bundles and etcd write keys.  We copy both so they can properly mounted
-	etcdModified, err := manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(c.corev1Client)
+	etcdModified, err := manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1())
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
 	}
 	// the kube-apiserver is the source of truth for client CA bundles
-	clientCAModified, err := manageOpenShiftAPIServerClientCA_v311_00_to_latest(c.corev1Client)
+	clientCAModified, err := manageOpenShiftAPIServerClientCA_v311_00_to_latest(c.kubeClient.CoreV1())
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
 	}
 
-	forceDeployment := operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration
-	forceDeployment = forceDeployment || saModified || configMapModified || etcdModified || clientCAModified
+	forceDeployment = forceDeployment || operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration
+	forceDeployment = forceDeployment || configMapModified || etcdModified || clientCAModified
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
-	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(c.appsv1Client, operatorConfig, previousAvailability, forceDeployment)
+	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(c.kubeClient.AppsV1(), operatorConfig, previousAvailability, forceDeployment)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "deployment", err))
 	}
@@ -101,7 +88,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 	if apiserverConfig != nil {
 		configData = apiserverConfig.Data["config.yaml"]
 	}
-	_, _, err = manageOpenShiftAPIServerPublicConfigMap_v311_00_to_latest(c.corev1Client, configData, operatorConfig)
+	_, _, err = manageOpenShiftAPIServerPublicConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), configData, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap/public-info", err))
 	}
@@ -114,7 +101,7 @@ func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.Cor
 	const etcdClientCertKeyPairName = "etcd-client"
 
 	_, caChanged, err := resourceapply.SyncConfigMap(client, kubeAPIServerNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
-	if err != nil{
+	if err != nil {
 		return false, err
 	}
 	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, kubeAPIServerNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
@@ -127,7 +114,7 @@ func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.Cor
 func manageOpenShiftAPIServerClientCA_v311_00_to_latest(client coreclientv1.CoreV1Interface) (bool, error) {
 	const apiserverClientCA = "client-ca"
 	_, caChanged, err := resourceapply.SyncConfigMap(client, kubeAPIServerNamespaceName, apiserverClientCA, targetNamespaceName, apiserverClientCA)
-	if err != nil{
+	if err != nil {
 		return false, err
 	}
 	return caChanged, nil

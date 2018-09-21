@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2018-09-19T10:50:17.116709402-04:00
+updated: 2018-09-21T11:16:56.929091256-04:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -74,14 +74,54 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/openshift/api
-  version: 4507dcb6a81f6593aa336c5b47927cf0ae297b72
+  version: 739bd301126c341c6caddf2cb3e3935ae9e9fff9
   subpackages:
+  - apps
+  - apps/v1
+  - authorization
+  - authorization/v1
+  - build
+  - build/v1
+  - config
   - config/v1
+  - image
+  - image/docker10
+  - image/dockerpre012
+  - image/v1
+  - kubecontrolplane
+  - kubecontrolplane/v1
+  - legacyconfig/v1
+  - network
+  - network/v1
+  - oauth
+  - oauth/v1
+  - openshiftcontrolplane
+  - openshiftcontrolplane/v1
+  - operator
   - operator/v1alpha1
+  - osin
+  - osin/v1
+  - pkg/serialization
+  - project
+  - project/v1
+  - quota
+  - quota/v1
+  - route
+  - route/v1
+  - security
+  - security/v1
+  - servicecertsigner
+  - servicecertsigner/v1alpha1
+  - template
+  - template/v1
+  - user
+  - user/v1
+  - webconsole
+  - webconsole/v1
 - name: github.com/openshift/client-go
   version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
 - name: github.com/openshift/library-go
-  version: c45781559e320a91f9d392579bdbb757d8ebae72
+  version: 8574ea3581e881a0806dabde08b451f819f6baba
   subpackages:
   - pkg/config/client
   - pkg/config/leaderelection
@@ -176,6 +216,7 @@ imports:
 - name: k8s.io/api
   version: 072894a440bdee3a891dea811fe42902311cd2a3
   subpackages:
+  - admission/v1beta1
   - admissionregistration/v1alpha1
   - admissionregistration/v1beta1
   - apps/v1
@@ -194,6 +235,7 @@ imports:
   - core/v1
   - events/v1beta1
   - extensions/v1beta1
+  - imagepolicy/v1alpha1
   - networking/v1
   - policy/v1beta1
   - rbac/v1
