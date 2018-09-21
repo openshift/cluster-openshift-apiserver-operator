@@ -48,7 +48,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 			continue
 		}
 
-		if resourcesThatForceRedeployment.Has(currResult.File) {
+		if currResult.Changed && resourcesThatForceRedeployment.Has(currResult.File) {
 			forceDeployment = true
 		}
 	}
