@@ -6,7 +6,7 @@ set -o pipefail
 cd $( readlink -f "$( dirname "${0}" )/.." )
 
 # Setup temporary GOPATH so we can install go-bindata from vendor
-GOPATH=$( mktemp -d )
+export GOPATH=$( mktemp -d )
 ln -s $( pwd )/vendor "${GOPATH}/src"
 go install "./vendor/github.com/jteeuwen/go-bindata/..."
 
