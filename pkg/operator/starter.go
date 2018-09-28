@@ -42,11 +42,20 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		kubeClient,
 		apiregistrationv1Client.ApiregistrationV1(),
 	)
+	configObserver := NewConfigObserver(
+		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
+		kubeInformersLocallyNamespaced,
+		operatorConfigClient.OpenshiftapiserverV1alpha1(),
+		kubeClient,
+	)
 
 	operatorConfigInformers.Start(stopCh)
 	kubeInformersLocallyNamespaced.Start(stopCh)
 	apiregistrationInformers.Start(stopCh)
 
-	operator.Run(1, stopCh)
+	go operator.Run(1, stopCh)
+	go configObserver.Run(1, stopCh)
+
+	<-stopCh
 	return fmt.Errorf("stopped")
 }
