@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2018-09-21T12:20:58.366699637-04:00
+updated: 2018-10-01T10:09:11.335020917-04:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -74,7 +74,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/openshift/api
-  version: 739bd301126c341c6caddf2cb3e3935ae9e9fff9
+  version: cc577cdc22a21a372000477f72df3d4409197ea8
   subpackages:
   - apps
   - apps/v1
@@ -121,14 +121,14 @@ imports:
 - name: github.com/openshift/client-go
   version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
 - name: github.com/openshift/library-go
-  version: 91782b63624bfa508237253ab07df14d313feff3
+  version: c50e3923397ef63f4cd6a9c2554d9927ac8a54c6
   subpackages:
   - pkg/config/client
   - pkg/config/leaderelection
   - pkg/controller/controllercmd
   - pkg/operator/resource/resourceapply
-  - pkg/operator/resource/resourcecread
   - pkg/operator/resource/resourcemerge
+  - pkg/operator/resource/resourceread
   - pkg/operator/v1alpha1helpers
   - pkg/operator/versioning
   - pkg/serviceability

@@ -98,7 +98,8 @@ func (in *OpenShiftAPIServerOperatorConfigList) DeepCopyObject() runtime.Object 
 func (in *OpenShiftAPIServerOperatorConfigSpec) DeepCopyInto(out *OpenShiftAPIServerOperatorConfigSpec) {
 	*out = *in
 	out.OperatorSpec = in.OperatorSpec
-	in.OpenShiftAPIServerConfig.DeepCopyInto(&out.OpenShiftAPIServerConfig)
+	in.UserConfig.DeepCopyInto(&out.UserConfig)
+	in.ObservedConfig.DeepCopyInto(&out.ObservedConfig)
 	return
 }
 
