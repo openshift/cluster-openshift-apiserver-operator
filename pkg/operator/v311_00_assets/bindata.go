@@ -183,9 +183,8 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
-
-
-
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
 `)
 
 func v3110OpenshiftApiserverDsYamlBytes() ([]byte, error) {
