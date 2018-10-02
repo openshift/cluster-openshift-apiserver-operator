@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2018-10-01T10:09:11.335020917-04:00
+updated: 2018-10-01T16:17:21.430565586-04:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -121,7 +121,7 @@ imports:
 - name: github.com/openshift/client-go
   version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
 - name: github.com/openshift/library-go
-  version: c50e3923397ef63f4cd6a9c2554d9927ac8a54c6
+  version: 519f26188961e3e6cb604da6caf6af69518c584d
   subpackages:
   - pkg/config/client
   - pkg/config/leaderelection
