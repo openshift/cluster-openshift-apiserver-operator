@@ -5,6 +5,7 @@
 // bindata/v3.11.0/openshift-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/openshift-apiserver/ds.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
+// bindata/v3.11.0/openshift-apiserver/operator-config.yaml
 // bindata/v3.11.0/openshift-apiserver/public-info-role.yaml
 // bindata/v3.11.0/openshift-apiserver/public-info-rolebinding.yaml
 // bindata/v3.11.0/openshift-apiserver/public-info.yaml
@@ -226,6 +227,34 @@ func v3110OpenshiftApiserverNsYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverOperatorConfigYaml = []byte(`apiVersion: openshiftapiserver.operator.openshift.io/v1alpha1
+kind: OpenShiftAPIServerOperatorConfig
+metadata:
+  name: instance
+spec:
+  managementState: Managed
+  imagePullSpec: openshift/origin-hypershift:latest
+  version: 3.11.0
+  logging:
+    level: 4
+  replicas: 2
+`)
+
+func v3110OpenshiftApiserverOperatorConfigYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverOperatorConfigYaml, nil
+}
+
+func v3110OpenshiftApiserverOperatorConfigYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverOperatorConfigYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/operator-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110OpenshiftApiserverPublicInfoRoleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -425,6 +454,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/defaultconfig.yaml":                v3110OpenshiftApiserverDefaultconfigYaml,
 	"v3.11.0/openshift-apiserver/ds.yaml":                           v3110OpenshiftApiserverDsYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
+	"v3.11.0/openshift-apiserver/operator-config.yaml":              v3110OpenshiftApiserverOperatorConfigYaml,
 	"v3.11.0/openshift-apiserver/public-info-role.yaml":             v3110OpenshiftApiserverPublicInfoRoleYaml,
 	"v3.11.0/openshift-apiserver/public-info-rolebinding.yaml":      v3110OpenshiftApiserverPublicInfoRolebindingYaml,
 	"v3.11.0/openshift-apiserver/public-info.yaml":                  v3110OpenshiftApiserverPublicInfoYaml,
@@ -480,6 +510,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml":                {v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"ds.yaml":                           {v3110OpenshiftApiserverDsYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
+			"operator-config.yaml":              {v3110OpenshiftApiserverOperatorConfigYaml, map[string]*bintree{}},
 			"public-info-role.yaml":             {v3110OpenshiftApiserverPublicInfoRoleYaml, map[string]*bintree{}},
 			"public-info-rolebinding.yaml":      {v3110OpenshiftApiserverPublicInfoRolebindingYaml, map[string]*bintree{}},
 			"public-info.yaml":                  {v3110OpenshiftApiserverPublicInfoYaml, map[string]*bintree{}},
