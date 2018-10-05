@@ -155,7 +155,6 @@ func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServi
 		{Group: "authorization.openshift.io", Version: "v1"},
 		{Group: "build.openshift.io", Version: "v1"},
 		{Group: "image.openshift.io", Version: "v1"},
-		{Group: "network.openshift.io", Version: "v1"},
 		{Group: "oauth.openshift.io", Version: "v1"},
 		{Group: "project.openshift.io", Version: "v1"},
 		{Group: "quota.openshift.io", Version: "v1"},
