@@ -168,6 +168,17 @@ spec:
           name: etcd-client
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
+        livenessProbe:
+          initialDelaySeconds: 30
+          httpGet:
+            scheme: HTTPS
+            port: 8443
+            path: healthz
+        readinessProbe:
+          httpGet:
+            scheme: HTTPS
+            port: 8443
+            path: healthz
       volumes:
       - name: config
         configMap:
