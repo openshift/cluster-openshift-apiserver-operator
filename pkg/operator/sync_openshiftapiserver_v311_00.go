@@ -79,9 +79,13 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
 
-	err = manageAPIServices_v311_00_to_latest(c.apiregistrationv1Client)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "apiservices", err))
+	// only manage the apiservices if we have ready pods for the daemonset.  This makes sure that if we're taking over for
+	// something else, we don't stomp their apiservices until ours have a reasonable chance at working.
+	if actualDaemonSet != nil && actualDaemonSet.Status.NumberReady > 0 {
+		err = manageAPIServices_v311_00_to_latest(c.apiregistrationv1Client)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("%q: %v", "apiservices", err))
+		}
 	}
 
 	configData := ""
