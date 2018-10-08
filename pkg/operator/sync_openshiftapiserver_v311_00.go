@@ -149,6 +149,7 @@ func manageOpenShiftAPIServerPublicConfigMap_v311_00_to_latest(client coreclient
 	return resourceapply.ApplyConfigMap(client, configMap)
 }
 
+// force aws
 func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServicesGetter) error {
 	apiServices := []schema.GroupVersion{
 		{Group: "apps.openshift.io", Version: "v1"},
