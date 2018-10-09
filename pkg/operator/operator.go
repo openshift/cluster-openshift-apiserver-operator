@@ -30,6 +30,7 @@ import (
 )
 
 const (
+	etcdNamespaceName          = "kube-system"
 	kubeAPIServerNamespaceName = "openshift-kube-apiserver"
 	targetNamespaceName        = "openshift-apiserver"
 	workQueueKey               = "key"

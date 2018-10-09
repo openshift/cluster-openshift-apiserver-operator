@@ -8,9 +8,11 @@ import (
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/diff"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
@@ -37,6 +39,7 @@ type ConfigObserver struct {
 func NewConfigObserver(
 	operatorConfigInformer operatorconfiginformerv1alpha1.OpenShiftAPIServerOperatorConfigInformer,
 	kubeAPIServerNamespacedKubeInformers kubeinformers.SharedInformerFactory,
+	etcdNamespacedKubeInformers kubeinformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
 ) *ConfigObserver {
@@ -52,6 +55,7 @@ func NewConfigObserver(
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
 	kubeAPIServerNamespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	kubeAPIServerNamespacedKubeInformers.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
+	etcdNamespacedKubeInformers.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
@@ -63,19 +67,41 @@ func (c ConfigObserver) sync() error {
 	if err != nil {
 		return err
 	}
-	kubeAPIServerPublicInfo, err := c.kubeClient.CoreV1().ConfigMaps(kubeAPIServerNamespaceName).Get("public-info", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
 	observedConfig := map[string]interface{}{}
 
-	if val, ok := kubeAPIServerPublicInfo.Data["projectConfig.defaultNodeSelector"]; ok {
-		unstructured.SetNestedField(observedConfig, val, "projectConfig", "defaultNodeSelector")
+	kubeAPIServerPublicInfo, err := c.kubeClient.CoreV1().ConfigMaps(kubeAPIServerNamespaceName).Get("public-info", metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if kubeAPIServerPublicInfo != nil {
+		if val, ok := kubeAPIServerPublicInfo.Data["projectConfig.defaultNodeSelector"]; ok {
+			unstructured.SetNestedField(observedConfig, val, "projectConfig", "defaultNodeSelector")
+		}
+	}
+
+	// we read the etcd endpoints from the endpoints object and then manually pull out the hostnames to get the etcd urls for our config.
+	// Setting them observed config causes the normal reconciliation loop to run
+	etcdURLs := []string{}
+	etcdEndpoints, err := c.kubeClient.CoreV1().Endpoints(etcdNamespaceName).Get("etcd", metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if etcdEndpoints != nil {
+		for _, subset := range etcdEndpoints.Subsets {
+			for _, address := range subset.Addresses {
+				etcdURLs = append(etcdURLs, "https://"+address.Hostname+"."+etcdEndpoints.Annotations["alpha.installer.openshift.io/dns-suffix"]+":2379")
+			}
+		}
+	}
+	if len(etcdURLs) > 0 {
+		unstructured.SetNestedField(observedConfig, etcdURLs, "storageConfig", "urls")
 	}
 
 	if reflect.DeepEqual(operatorConfig.Spec.ObservedConfig.Object, observedConfig) {
 		return nil
 	}
+
+	glog.Info("writing updated observedConfig: %v", diff.ObjectDiff(operatorConfig.Spec.ObservedConfig.Object, observedConfig))
 	operatorConfig.Spec.ObservedConfig = runtime.RawExtension{Object: &unstructured.Unstructured{Object: observedConfig}}
 	if _, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().Update(operatorConfig); err != nil {
 		return err
