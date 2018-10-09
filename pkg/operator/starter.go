@@ -39,6 +39,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersLocallyNamespaced := kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, targetNamespaceName, nil)
 	kubeInformersKubeAPIServerNamespaced := kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, kubeAPIServerNamespaceName, nil)
+	kubeInformersEtcdNamespaced := kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, etcdNamespaceName, nil)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 
 	operator := NewKubeApiserverOperator(
@@ -55,13 +56,16 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	configObserver := NewConfigObserver(
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
-		kubeInformersLocallyNamespaced,
+		kubeInformersKubeAPIServerNamespaced,
+		kubeInformersEtcdNamespaced,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 		kubeClient,
 	)
 
 	operatorConfigInformers.Start(stopCh)
 	kubeInformersLocallyNamespaced.Start(stopCh)
+	kubeInformersKubeAPIServerNamespaced.Start(stopCh)
+	kubeInformersEtcdNamespaced.Start(stopCh)
 	apiregistrationInformers.Start(stopCh)
 
 	go operator.Run(1, stopCh)
