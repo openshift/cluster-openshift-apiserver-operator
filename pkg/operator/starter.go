@@ -44,7 +44,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/operator-config.yaml"),
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "openshiftapiserveroperatorconfigs"},
-		v1alpha1helpers.GetImageEnv(),
+		v1alpha1helpers.GetImageEnv,
 	)
 
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
