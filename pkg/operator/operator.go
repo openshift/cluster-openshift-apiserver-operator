@@ -50,8 +50,8 @@ type OpenShiftAPIServerOperator struct {
 
 func NewKubeApiserverOperator(
 	operatorConfigInformer operatorconfiginformerv1alpha1.OpenShiftAPIServerOperatorConfigInformer,
-	kubeInformersForOpenShiftApiserverNamespace kubeinformers.SharedInformerFactory,
-	kubeInformersForKubeApiserverNamespace kubeinformers.SharedInformerFactory,
+	kubeInformersForOpenShiftAPIServerNamespace kubeinformers.SharedInformerFactory,
+	kubeInformersForKubeAPIServerNamespace kubeinformers.SharedInformerFactory,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
@@ -68,16 +68,16 @@ func NewKubeApiserverOperator(
 	}
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForKubeApiserverNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForKubeApiserverNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenShiftApiserverNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenShiftApiserverNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenShiftApiserverNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenShiftApiserverNamespace.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForKubeAPIServerNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForKubeAPIServerNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenShiftAPIServerNamespace.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
 	apiregistrationInformers.Apiregistration().V1().APIServices().Informer().AddEventHandler(c.eventHandler())
 
 	// we only watch some namespaces
-	kubeInformersForOpenShiftApiserverNamespace.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
+	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
 
 	return c
 }

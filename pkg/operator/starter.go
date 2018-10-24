@@ -14,6 +14,8 @@ import (
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	configv1client "github.com/openshift/client-go/config/clientset/versioned"
+	imageconfiginformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
@@ -39,6 +41,10 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
+	configClient, err := configv1client.NewForConfig(clientConfig)
+	if err != nil {
+		return err
+	}
 
 	v1alpha1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
@@ -48,15 +54,16 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	kubeInformersForOpenShiftApiserverNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(targetNamespaceName))
-	kubeInformersForKubeApiserverNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(kubeAPIServerNamespaceName))
+	kubeInformersForOpenShiftAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(targetNamespaceName))
+	kubeInformersForKubeAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(kubeAPIServerNamespaceName))
 	kubeInformersForKubeSystemNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(etcdNamespaceName))
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
+	imageConfigInformers := imageconfiginformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
 	operator := NewKubeApiserverOperator(
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
-		kubeInformersForOpenShiftApiserverNamespace,
-		kubeInformersForKubeApiserverNamespace,
+		kubeInformersForOpenShiftAPIServerNamespace,
+		kubeInformersForKubeAPIServerNamespace,
 		apiregistrationInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 		kubeClient,
@@ -65,11 +72,10 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	configObserver := NewConfigObserver(
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
-		kubeInformersForKubeApiserverNamespace,
+		kubeInformersForKubeAPIServerNamespace,
 		kubeInformersForKubeSystemNamespace,
+		imageConfigInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
-		kubeClient,
-		clientConfig,
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
@@ -80,10 +86,11 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	operatorConfigInformers.Start(stopCh)
-	kubeInformersForOpenShiftApiserverNamespace.Start(stopCh)
-	kubeInformersForKubeApiserverNamespace.Start(stopCh)
+	kubeInformersForOpenShiftAPIServerNamespace.Start(stopCh)
+	kubeInformersForKubeAPIServerNamespace.Start(stopCh)
 	kubeInformersForKubeSystemNamespace.Start(stopCh)
 	apiregistrationInformers.Start(stopCh)
+	imageConfigInformers.Start(stopCh)
 
 	go operator.Run(1, stopCh)
 	go configObserver.Run(1, stopCh)
