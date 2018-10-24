@@ -48,15 +48,15 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	kubeInformersLocallyNamespaced := kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, targetNamespaceName, nil)
-	kubeInformersKubeAPIServerNamespaced := kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, kubeAPIServerNamespaceName, nil)
-	kubeInformersEtcdNamespaced := kubeinformers.NewFilteredSharedInformerFactory(kubeClient, 10*time.Minute, etcdNamespaceName, nil)
+	kubeInformersForOpenShiftApiserverNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(targetNamespaceName))
+	kubeInformersForKubeApiserverNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(kubeAPIServerNamespaceName))
+	kubeInformersForKubeSystemNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(etcdNamespaceName))
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 
 	operator := NewKubeApiserverOperator(
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
-		kubeInformersLocallyNamespaced,
-		kubeInformersKubeAPIServerNamespaced,
+		kubeInformersForOpenShiftApiserverNamespace,
+		kubeInformersForKubeApiserverNamespace,
 		apiregistrationInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 		kubeClient,
@@ -65,10 +65,11 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	configObserver := NewConfigObserver(
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
-		kubeInformersKubeAPIServerNamespaced,
-		kubeInformersEtcdNamespaced,
+		kubeInformersForKubeApiserverNamespace,
+		kubeInformersForKubeSystemNamespace,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 		kubeClient,
+		clientConfig,
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
@@ -79,9 +80,9 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	operatorConfigInformers.Start(stopCh)
-	kubeInformersLocallyNamespaced.Start(stopCh)
-	kubeInformersKubeAPIServerNamespaced.Start(stopCh)
-	kubeInformersEtcdNamespaced.Start(stopCh)
+	kubeInformersForOpenShiftApiserverNamespace.Start(stopCh)
+	kubeInformersForKubeApiserverNamespace.Start(stopCh)
+	kubeInformersForKubeSystemNamespace.Start(stopCh)
 	apiregistrationInformers.Start(stopCh)
 
 	go operator.Run(1, stopCh)
