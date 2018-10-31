@@ -1,31 +1,35 @@
-all build:
-	go build ./cmd/cluster-openshift-apiserver-operator
-.PHONY: all build
+all: build
+.PHONY: all
 
-verify-govet:
-	go vet ./...
-.PHONY: verify-govet
+# Codegen module needs setting these required variables
+CODEGEN_OUTPUT_PACKAGE :=github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated
+CODEGEN_API_PACKAGE :=github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis
+CODEGEN_GROUPS_VERSION :=openshiftapiserver:v1alpha1
 
-verify: verify-govet
-	hack/verify-gofmt.sh
-	hack/verify-codegen.sh
-	hack/verify-generated-bindata.sh
-.PHONY: verify
+# Include the library makefile
+include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machinery/make/, \
+	operator.mk \
+)
 
-test test-unit:
-ifndef JUNITFILE
-	go test -race ./...
-else
-ifeq (, $(shell which gotest2junit 2>/dev/null))
-$(error gotest2junit not found! Get it by `go get -u github.com/openshift/release/tools/gotest2junit`.)
-endif
-	go test -race -json ./... | gotest2junit > $(JUNITFILE)
-endif
-.PHONY: test-unit
+# This will call a macro called "build-image" which will generate image specific targets based on the parameters:
+# $0 - macro name
+# $1 - target suffix
+# $2 - Dockerfile path
+# $3 - context directory for image build
+# It will generate target "image-$(1)" for builing the image an binding it as a prerequisite to target "images".
+$(call build-image,origin-$(GO_PACKAGE),./Dockerfile,.)
 
-images:
-	imagebuilder -f Dockerfile -t openshift/origin-cluster-openshift-apiserver-operator .
-.PHONY: images
+# This will call a macro called "add-bindata" which will generate bindata specific targets based on the parameters:
+# $0 - macro name
+# $1 - target suffix
+# $2 - input dirs
+# $3 - prefix
+# $4 - pkg
+# $5 - output
+# It will generate targets {update,verify}-bindata-$(1) logically grouping them in unsuffixed versions of these targets
+# and also hooked into {update,verify}-generated for broader integration.
+$(call add-bindata,v3.11.0,./bindata/v3.11.0/...,bindata,v311_00_assets,pkg/operator/v311_00_assets/bindata.go)
+
 
 clean:
 	$(RM) ./cluster-openshift-apiserver-operator
