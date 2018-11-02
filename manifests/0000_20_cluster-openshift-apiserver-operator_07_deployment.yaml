@@ -20,7 +20,7 @@ spec:
       containers:
       - name: operator
         image: docker.io/openshift/origin-cluster-openshift-apiserver-operator:v4.0
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command: ["cluster-openshift-apiserver-operator", "operator"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
@@ -28,18 +28,17 @@ spec:
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
+        - mountPath: /var/run/secrets/serving-cert
+          name: serving-cert
         env:
         - name: IMAGE
           value: quay.io/openshift/origin-hypershift:v4.0
       volumes:
       - name: serving-cert
         secret:
-          defaultMode: 400
-          secretName: openshift-cluster-openshift-apiserver-operator-serving-cert
-          optional: true
+          secretName: cluster-apiserver-operator-serving-cert
       - name: config
         configMap:
-          defaultMode: 440
           name: openshift-cluster-openshift-apiserver-operator-config
       nodeSelector:
         node-role.kubernetes.io/master: ""
