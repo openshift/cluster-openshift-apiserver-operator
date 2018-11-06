@@ -64,7 +64,6 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
 		kubeInformersForOpenShiftAPIServerNamespace,
 		kubeInformersForEtcdNamespace,
-		kubeInformersForKubeAPIServerNamespace,
 		apiregistrationInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 		kubeClient,
