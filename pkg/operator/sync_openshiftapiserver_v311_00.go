@@ -104,11 +104,11 @@ func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.Cor
 	const etcdServingCAName = "etcd-serving-ca"
 	const etcdClientCertKeyPairName = "etcd-client"
 
-	_, caChanged, err := resourceapply.SyncConfigMap(client, kubeAPIServerNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, etcdNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
 	if err != nil {
 		return false, err
 	}
-	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, kubeAPIServerNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
+	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, etcdNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
 	if err != nil {
 		return false, err
 	}
