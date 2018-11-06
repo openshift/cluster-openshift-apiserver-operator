@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: openshift-core-operators
+  name: openshift-cluster-openshift-apiserver-operator
+  labels:
+    app: openshift-cluster-openshift-apiserver-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openshift-cluster-openshift-apiserver-operator
+  template:
+    metadata:
+      name: openshift-cluster-openshift-apiserver-operator
+      labels:
+        app: openshift-cluster-openshift-apiserver-operator
+    spec:
+      serviceAccountName: openshift-cluster-openshift-apiserver-operator
+      containers:
+      - name: operator
+        image: docker.io/openshift/origin-cluster-openshift-apiserver-operator:v4.0
+        imagePullPolicy: Always
+        command: ["cluster-openshift-apiserver-operator", "operator"]
+        args:
+        - "--config=/var/run/configmaps/config/config.yaml"
+        - "-v=4"
+        volumeMounts:
+        - mountPath: /var/run/configmaps/config
+          name: config
+        - mountPath: /var/run/secrets/serving-cert
+          name: serving-cert
+        env:
+        - name: IMAGE
+          value: quay.io/openshift/origin-hypershift:v4.0
+      volumes:
+      - name: serving-cert
+        secret:
+          secretName: cluster-apiserver-operator-serving-cert
+      - name: config
+        configMap:
+          name: openshift-cluster-openshift-apiserver-operator-config
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+      - operator: Exists
