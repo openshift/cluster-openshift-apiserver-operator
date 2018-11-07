@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2018-11-05T13:45:11.302572703-05:00
+updated: 2018-11-07T15:13:13.54803778-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -187,7 +187,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 22c4ad19c5f2de1ffe266456e0a31e8fd1069f44
+  version: fd594d07117b2d47134db828fb9ea85efa2a0c2f
   subpackages:
   - apps
   - apps/v1
@@ -232,7 +232,16 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 8641daf5752d24858c43f5f28feb2abc0afbfb2c
+  version: 94890c75c8081c1f818f137be55d0720758c4638
+  subpackages:
+  - config/clientset/versioned
+  - config/clientset/versioned/scheme
+  - config/clientset/versioned/typed/config/v1
+  - config/informers/externalversions
+  - config/informers/externalversions/config
+  - config/informers/externalversions/config/v1
+  - config/informers/externalversions/internalinterfaces
+  - config/listers/config/v1
 - name: github.com/openshift/library-go
   version: 85241b52707ef2beb85ad9254a176448c58ee021
   subpackages:
@@ -258,7 +267,7 @@ imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
-  version: 22592cc4bae3572d59be8852c6980023e4c9dec5
+  version: 057bc52a47ec3c79498dda63f4a6f8298725e976
 - name: github.com/prometheus/client_golang
   version: e7e903064f5e9eb5da98208bae10b475d4db0f8c
   subpackages:
