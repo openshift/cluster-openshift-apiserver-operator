@@ -18,6 +18,7 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
@@ -76,11 +77,11 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		apiregistrationv1Client.ApiregistrationV1(),
 	)
 
-	configObserver := NewConfigObserver(
-		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
+	configObserver := configobservercontroller.NewConfigObserver(
+		operatorClient,
+		operatorConfigInformers,
 		kubeInformersForEtcdNamespace,
 		imageConfigInformers,
-		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
