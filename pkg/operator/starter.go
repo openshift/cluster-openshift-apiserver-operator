@@ -72,7 +72,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	)
 
 	configObserver := NewConfigObserver(
-		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
+		operatorConfigInformers,
 		kubeInformersForEtcdNamespace,
 		imageConfigInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),

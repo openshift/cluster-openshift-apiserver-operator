@@ -3,11 +3,12 @@ package operator
 import (
 	"testing"
 
-	configv1 "github.com/openshift/api/config/v1"
-	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+
+	configv1 "github.com/openshift/api/config/v1"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 )
 
 func TestObserveRegistryConfig(t *testing.T) {
@@ -26,10 +27,11 @@ func TestObserveRegistryConfig(t *testing.T) {
 	indexer.Add(imageConfig)
 	listers := Listers{
 		imageConfigLister: configlistersv1.NewImageLister(indexer),
+		imageConfigSynced: func() bool { return true },
 	}
-	result, err := observeInternalRegistryHostname(listers, map[string]interface{}{})
-	if err != nil {
-		t.Error("expected err == nil")
+	result, errs := observeInternalRegistryHostname(listers, map[string]interface{}{})
+	if len(errs) > 0 {
+		t.Error("expected len(errs) == 0")
 	}
 	internalRegistryHostname, _, err := unstructured.NestedString(result, "imagePolicyConfig", "internalRegistryHostname")
 	if err != nil {
