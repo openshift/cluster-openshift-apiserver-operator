@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -9,11 +10,9 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	imageconfiginformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
@@ -71,8 +70,8 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		apiregistrationv1Client.ApiregistrationV1(),
 	)
 
-	configObserver := NewConfigObserver(
-		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
+	configObserver := configobservercontroller.NewConfigObserver(
+		operatorConfigInformers,
 		kubeInformersForEtcdNamespace,
 		imageConfigInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
@@ -82,7 +81,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		"openshift-cluster-openshift-apiserver-operator",
 		"openshift-cluster-openshift-apiserver-operator",
 		dynamicClient,
-		&operatorStatusProvider{informers: operatorConfigInformers},
+		&statusProvider{informers: operatorConfigInformers},
 	)
 
 	operatorConfigInformers.Start(stopCh)
@@ -98,21 +97,4 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 
 	<-stopCh
 	return fmt.Errorf("stopped")
-}
-
-type operatorStatusProvider struct {
-	informers operatorclientinformers.SharedInformerFactory
-}
-
-func (p *operatorStatusProvider) Informer() cache.SharedIndexInformer {
-	return p.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer()
-}
-
-func (p *operatorStatusProvider) CurrentStatus() (operatorv1alpha1.OperatorStatus, error) {
-	instance, err := p.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("instance")
-	if err != nil {
-		return operatorv1alpha1.OperatorStatus{}, err
-	}
-
-	return instance.Status.OperatorStatus, nil
 }

@@ -22,7 +22,7 @@ import (
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
-	operatorsv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	operatorsv1 "github.com/openshift/api/operator/v1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/typed/openshiftapiserver/v1alpha1"
 	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions/openshiftapiserver/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
@@ -90,10 +90,10 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return err
 	}
 	switch operatorConfig.Spec.ManagementState {
-	case operatorsv1alpha1.Unmanaged:
+	case operatorsv1.Unmanaged:
 		return nil
 
-	case operatorsv1alpha1.Removed:
+	case operatorsv1.Removed:
 		// TODO probably need to watch until the NS is really gone
 		if err := c.kubeClient.CoreV1().Namespaces().Delete(targetNamespaceName, nil); err != nil && !apierrors.IsNotFound(err) {
 			return err
@@ -101,10 +101,10 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		operatorConfig.Status.TaskSummary = "Remove"
 		operatorConfig.Status.TargetAvailability = nil
 		operatorConfig.Status.CurrentAvailability = nil
-		operatorConfig.Status.Conditions = []operatorsv1alpha1.OperatorCondition{
+		operatorConfig.Status.Conditions = []operatorsv1.OperatorCondition{
 			{
-				Type:   operatorsv1alpha1.OperatorStatusTypeAvailable,
-				Status: operatorsv1alpha1.ConditionFalse,
+				Type:   operatorsv1.OperatorStatusTypeAvailable,
+				Status: operatorsv1.ConditionFalse,
 			},
 		}
 		if _, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().Update(operatorConfig); err != nil {
@@ -131,7 +131,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 
 	v311_00_to_unknown := versioning.NewRangeOrDie("3.11.0", "3.12.0")
 
-	var versionAvailability operatorsv1alpha1.VersionAvailability
+	var versionAvailability operatorsv1.VersionAvailability
 	errors := []error{}
 	switch {
 	case v311_00_to_unknown.BetweenOrEmpty(currentActualVerion) && v311_00_to_unknown.Between(&desiredVersion):

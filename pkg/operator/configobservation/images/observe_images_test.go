@@ -1,16 +1,18 @@
-package operator
+package images
 
 import (
 	"testing"
 
-	configv1 "github.com/openshift/api/config/v1"
-	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+
+	configv1 "github.com/openshift/api/config/v1"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
 )
 
-func TestObserveRegistryConfig(t *testing.T) {
+func TestObserveInternalRegistryHostname(t *testing.T) {
 	const (
 		expectedInternalRegistryHostname = "docker-registry.openshift-image-registry.svc.cluster.local:5000"
 	)
@@ -24,12 +26,13 @@ func TestObserveRegistryConfig(t *testing.T) {
 		},
 	}
 	indexer.Add(imageConfig)
-	listers := Listers{
-		imageConfigLister: configlistersv1.NewImageLister(indexer),
+	listers := configobservation.Listers{
+		ImageConfigLister: configlistersv1.NewImageLister(indexer),
+		ImageConfigSynced: func() bool { return true },
 	}
-	result, err := observeInternalRegistryHostname(listers, map[string]interface{}{})
-	if err != nil {
-		t.Error("expected err == nil")
+	result, errs := ObserveInternalRegistryHostname(listers, map[string]interface{}{})
+	if len(errs) > 0 {
+		t.Error("expected len(errs) == 0")
 	}
 	internalRegistryHostname, _, err := unstructured.NestedString(result, "imagePolicyConfig", "internalRegistryHostname")
 	if err != nil {
