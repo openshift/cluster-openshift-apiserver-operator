@@ -15,7 +15,7 @@ import (
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
-	imageconfiginformers "github.com/openshift/client-go/config/informers/externalversions"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
@@ -59,7 +59,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 	kubeInformersForKubeAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(kubeAPIServerNamespaceName))
 	kubeInformersForEtcdNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(etcdNamespaceName))
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
-	imageConfigInformers := imageconfiginformers.NewSharedInformerFactory(configClient, 10*time.Minute)
+	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
 	operatorClient := &operatorClient{
 		informers: operatorConfigInformers,
@@ -83,7 +83,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 		operatorClient,
 		operatorConfigInformers,
 		kubeInformersForEtcdNamespace,
-		imageConfigInformers,
+		configInformers,
 		controllerContext.EventRecorder,
 	)
 
@@ -99,7 +99,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 	kubeInformersForKubeAPIServerNamespace.Start(controllerContext.StopCh)
 	kubeInformersForEtcdNamespace.Start(controllerContext.StopCh)
 	apiregistrationInformers.Start(controllerContext.StopCh)
-	imageConfigInformers.Start(controllerContext.StopCh)
+	configInformers.Start(controllerContext.StopCh)
 
 	go workloadController.Run(1, controllerContext.StopCh)
 	go configObserver.Run(1, controllerContext.StopCh)
