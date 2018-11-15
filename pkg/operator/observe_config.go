@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ghodss/yaml"
+
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,8 +32,9 @@ import (
 )
 
 type Listers struct {
-	imageConfigLister configlistersv1.ImageLister
-	endpointLister    corelistersv1.EndpointsLister
+	imageConfigLister   configlistersv1.ImageLister
+	endpointLister      corelistersv1.EndpointsLister
+	clusterConfigLister corelistersv1.ConfigMapLister
 }
 
 type observeConfigFunc func(Listers, map[string]interface{}) (map[string]interface{}, error)
@@ -46,6 +49,7 @@ type ConfigObserver struct {
 
 	operatorConfigSynced cache.InformerSynced
 	endpointSynced       cache.InformerSynced
+	clusterConfigSynced  cache.InformerSynced
 	configImageSynced    cache.InformerSynced
 
 	rateLimiter flowcontrol.RateLimiter
@@ -55,6 +59,7 @@ type ConfigObserver struct {
 func NewConfigObserver(
 	operatorConfigInformer operatorconfiginformerv1alpha1.OpenShiftAPIServerOperatorConfigInformer,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
+	kubeInformersForClusterConfigNamespace kubeinformers.SharedInformerFactory,
 	imageConfigInformer imageconfiginformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
 ) *ConfigObserver {
@@ -67,19 +72,23 @@ func NewConfigObserver(
 		observers: []observeConfigFunc{
 			observeEtcdEndpoints,
 			observeInternalRegistryHostname,
+			observeRoutingSubdomain,
 		},
 		listers: Listers{
-			imageConfigLister: imageConfigInformer.Config().V1().Images().Lister(),
-			endpointLister:    kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
+			imageConfigLister:   imageConfigInformer.Config().V1().Images().Lister(),
+			endpointLister:      kubeInformersForClusterConfigNamespace.Core().V1().Endpoints().Lister(),
+			clusterConfigLister: kubeInformersForClusterConfigNamespace.Core().V1().ConfigMaps().Lister(),
 		},
 	}
 
 	c.operatorConfigSynced = operatorConfigInformer.Informer().HasSynced
 	c.endpointSynced = kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().HasSynced
+	c.clusterConfigSynced = kubeInformersForClusterConfigNamespace.Core().V1().Endpoints().Informer().HasSynced
 	c.configImageSynced = imageConfigInformer.Config().V1().Images().Informer().HasSynced
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForEtcdNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForClusterConfigNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	imageConfigInformer.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 
 	return c
@@ -157,6 +166,42 @@ func observeInternalRegistryHostname(listers Listers, observedConfig map[string]
 	return observedConfig, nil
 }
 
+func observeRoutingSubdomain(listers Listers, observedConfig map[string]interface{}) (map[string]interface{}, error) {
+	// TODO: Get the value for routingConfig.subdomain from global config or
+	// from a ClusterIngress resource instead of from the install config.
+	clusterConfig, err := listers.clusterConfigLister.ConfigMaps(clusterConfigNamespaceName).Get(clusterConfigName)
+	if errors.IsNotFound(err) {
+		return observedConfig, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if clusterConfig != nil {
+		if installConfig, ok := clusterConfig.Data["install-config"]; ok {
+			type InstallConfigMetadata struct {
+				Name string `json:"name"`
+			}
+
+			type InstallConfig struct {
+				Metadata   InstallConfigMetadata `json:"metadata"`
+				BaseDomain string                `json:"baseDomain"`
+			}
+
+			var config InstallConfig
+			if err := yaml.Unmarshal([]byte(installConfig), &config); err != nil {
+				return nil, fmt.Errorf("invalid InstallConfig: %v\njson:\n%s", err, installConfig)
+			}
+
+			subdomain := fmt.Sprintf("apps.%s.%s", config.Metadata.Name, config.BaseDomain)
+
+			unstructured.SetNestedField(observedConfig, subdomain, "routingConfig", "subdomain")
+		}
+	}
+
+	return observedConfig, nil
+}
+
 func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
@@ -167,6 +212,7 @@ func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh,
 		c.operatorConfigSynced,
 		c.endpointSynced,
+		c.clusterConfigSynced,
 		c.configImageSynced,
 	)
 

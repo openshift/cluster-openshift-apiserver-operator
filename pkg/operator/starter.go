@@ -57,6 +57,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	kubeInformersForOpenShiftAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(kubeAPIServerNamespaceName))
 	kubeInformersForEtcdNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(etcdNamespaceName))
+	kubeInformersForClusterConfigNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(clusterConfigNamespaceName))
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	imageConfigInformers := imageconfiginformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
@@ -64,6 +65,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
 		kubeInformersForOpenShiftAPIServerNamespace,
 		kubeInformersForEtcdNamespace,
+		kubeInformersForClusterConfigNamespace,
 		kubeInformersForKubeAPIServerNamespace,
 		apiregistrationInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
@@ -74,6 +76,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	configObserver := NewConfigObserver(
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
 		kubeInformersForEtcdNamespace,
+		kubeInformersForClusterConfigNamespace,
 		imageConfigInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 	)
@@ -89,6 +92,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	kubeInformersForOpenShiftAPIServerNamespace.Start(stopCh)
 	kubeInformersForKubeAPIServerNamespace.Start(stopCh)
 	kubeInformersForEtcdNamespace.Start(stopCh)
+	kubeInformersForClusterConfigNamespace.Start(stopCh)
 	apiregistrationInformers.Start(stopCh)
 	imageConfigInformers.Start(stopCh)
 
