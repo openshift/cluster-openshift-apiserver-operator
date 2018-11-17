@@ -32,7 +32,6 @@ import (
 type Listers struct {
 	imageConfigLister configlistersv1.ImageLister
 	endpointLister    corelistersv1.EndpointsLister
-	configmapLister   corelistersv1.ConfigMapLister
 }
 
 type observeConfigFunc func(Listers, map[string]interface{}) (map[string]interface{}, error)
@@ -47,7 +46,6 @@ type ConfigObserver struct {
 
 	operatorConfigSynced cache.InformerSynced
 	endpointSynced       cache.InformerSynced
-	configmapSynced      cache.InformerSynced
 	configImageSynced    cache.InformerSynced
 
 	rateLimiter flowcontrol.RateLimiter
@@ -56,8 +54,7 @@ type ConfigObserver struct {
 
 func NewConfigObserver(
 	operatorConfigInformer operatorconfiginformerv1alpha1.OpenShiftAPIServerOperatorConfigInformer,
-	kubeInformersForKubeApiserverNamespace kubeinformers.SharedInformerFactory,
-	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
+	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	imageConfigInformer imageconfiginformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
 ) *ConfigObserver {
@@ -68,43 +65,24 @@ func NewConfigObserver(
 
 		rateLimiter: flowcontrol.NewTokenBucketRateLimiter(0.05 /*3 per minute*/, 4),
 		observers: []observeConfigFunc{
-			observeKubeAPIServerPublicInfo,
 			observeEtcdEndpoints,
 			observeInternalRegistryHostname,
 		},
 		listers: Listers{
 			imageConfigLister: imageConfigInformer.Config().V1().Images().Lister(),
-			endpointLister:    kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Lister(),
-			configmapLister:   kubeInformersForKubeApiserverNamespace.Core().V1().ConfigMaps().Lister(),
+			endpointLister:    kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
 		},
 	}
 
 	c.operatorConfigSynced = operatorConfigInformer.Informer().HasSynced
-	c.endpointSynced = kubeInformersForKubeSystemNamespace.Core().V1().Endpoints().Informer().HasSynced
-	c.configmapSynced = kubeInformersForKubeApiserverNamespace.Core().V1().ConfigMaps().Informer().HasSynced
+	c.endpointSynced = kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().HasSynced
 	c.configImageSynced = imageConfigInformer.Config().V1().Images().Informer().HasSynced
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForKubeApiserverNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForKubeApiserverNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForEtcdNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	imageConfigInformer.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 
 	return c
-}
-
-func observeKubeAPIServerPublicInfo(listers Listers, observedConfig map[string]interface{}) (map[string]interface{}, error) {
-	kubeAPIServerPublicInfo, err := listers.configmapLister.ConfigMaps(kubeAPIServerNamespaceName).Get("public-info")
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-	if kubeAPIServerPublicInfo != nil {
-		if val, ok := kubeAPIServerPublicInfo.Data["projectConfig.defaultNodeSelector"]; ok {
-			unstructured.SetNestedField(observedConfig, val, "projectConfig", "defaultNodeSelector")
-		}
-	}
-
-	return observedConfig, nil
 }
 
 // observeEtcdEndpoints reads the etcd endpoints from the endpoints object and then manually pull out the hostnames to
@@ -189,7 +167,6 @@ func (c *ConfigObserver) Run(workers int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh,
 		c.operatorConfigSynced,
 		c.endpointSynced,
-		c.configmapSynced,
 		c.configImageSynced,
 	)
 
