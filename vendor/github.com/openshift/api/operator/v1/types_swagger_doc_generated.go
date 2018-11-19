@@ -68,12 +68,12 @@ func (MyOperatorResource) SwaggerDoc() map[string]string {
 }
 
 var map_NodeStatus = map[string]string{
-	"":                               "NodeStatus provides information about the current state of a particular node managed by this operator.",
-	"nodeName":                       "nodeName is the name of the node",
-	"currentDeploymentGeneration":    "currentDeploymentGeneration is the generation of the most recently successful deployment",
-	"targetDeploymentGeneration":     "targetDeploymentGeneration is the generation of the deployment we're trying to apply",
-	"lastFailedDeploymentGeneration": "lastFailedDeploymentGeneration is the generation of the deployment we tried and failed to deploy.",
-	"lastFailedDeploymentErrors":     "lastFailedDeploymentGenerationErrors is a list of the errors during the failed deployment referenced in lastFailedDeploymentGeneration",
+	"":                         "NodeStatus provides information about the current state of a particular node managed by this operator.",
+	"nodeName":                 "nodeName is the name of the node",
+	"currentRevision":          "currentRevision is the generation of the most recently successful deployment",
+	"targetRevision":           "targetRevision is the generation of the deployment we're trying to apply",
+	"lastFailedRevision":       "lastFailedRevision is the generation of the deployment we tried and failed to deploy.",
+	"lastFailedRevisionErrors": "lastFailedRevisionErrors is a list of the errors during the failed deployment referenced in lastFailedRevision",
 }
 
 func (NodeStatus) SwaggerDoc() map[string]string {
@@ -122,10 +122,11 @@ func (OperatorSpec) SwaggerDoc() map[string]string {
 }
 
 var map_OperatorStatus = map[string]string{
-	"conditions":    "conditions is a list of conditions and their status",
-	"version":       "version is the level this availability applies to",
-	"readyReplicas": "readyReplicas indicates how many replicas are ready and at the desired state",
-	"generations":   "generations are used to determine when an item needs to be reconciled or has changed in a way that needs a reaction.",
+	"observedGeneration": "observedGeneration is the last generation change you've dealt with",
+	"conditions":         "conditions is a list of conditions and their status",
+	"version":            "version is the level this availability applies to",
+	"readyReplicas":      "readyReplicas indicates how many replicas are ready and at the desired state",
+	"generations":        "generations are used to determine when an item needs to be reconciled or has changed in a way that needs a reaction.",
 }
 
 func (OperatorStatus) SwaggerDoc() map[string]string {
@@ -144,8 +145,8 @@ func (ResourcePatch) SwaggerDoc() map[string]string {
 
 var map_StaticPodOperatorStatus = map[string]string{
 	"": "StaticPodOperatorStatus is status for controllers that manage static pods.  There are different needs because individual node status must be tracked.",
-	"latestAvailableDeploymentGeneration": "latestAvailableDeploymentGeneration is the deploymentID of the most recent deployment",
-	"nodeStatuses":                        "nodeStatuses track the deployment values and errors across individual nodes",
+	"latestAvailableRevision": "latestAvailableRevision is the deploymentID of the most recent deployment",
+	"nodeStatuses":            "nodeStatuses track the deployment values and errors across individual nodes",
 }
 
 func (StaticPodOperatorStatus) SwaggerDoc() map[string]string {
