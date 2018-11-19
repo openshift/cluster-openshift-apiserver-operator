@@ -3,6 +3,9 @@ package operator
 import (
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/api/equality"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,7 +16,7 @@ import (
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 
-	operatorsv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -23,18 +26,13 @@ import (
 
 // syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, operatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig, previousAvailability *operatorsv1alpha1.VersionAvailability) (operatorsv1alpha1.VersionAvailability, []error) {
-	versionAvailability := operatorsv1alpha1.VersionAvailability{
-		Version: operatorConfig.Spec.Version,
-	}
-
+func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig) (bool, error) {
 	errors := []error{}
 	var err error
+	operatorConfig := originalOperatorConfig.DeepCopy()
 
 	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, v311_00_assets.Asset,
 		"v3.11.0/openshift-apiserver/ns.yaml",
-		"v3.11.0/openshift-apiserver/public-info-role.yaml",
-		"v3.11.0/openshift-apiserver/public-info-rolebinding.yaml",
 		"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
 		"v3.11.0/openshift-apiserver/svc.yaml",
 		"v3.11.0/openshift-apiserver/sa.yaml",
@@ -53,7 +51,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 		}
 	}
 
-	apiserverConfig, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
+	_, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -74,7 +72,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
-	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient.AppsV1(), operatorConfig, previousAvailability, forceRollingUpdate)
+	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient.AppsV1(), operatorConfig, c.targetImagePullSpec, operatorConfig.Status.Generations, forceRollingUpdate)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
@@ -88,16 +86,37 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, oper
 		}
 	}
 
-	configData := ""
-	if apiserverConfig != nil {
-		configData = apiserverConfig.Data["config.yaml"]
+	// manage status
+	// TODO this is changing too early and it was before too.
+	operatorConfig.Status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
+	resourcemerge.SetDaemonSetGeneration(&operatorConfig.Status.Generations, actualDaemonSet)
+	if len(errors) > 0 {
+		message := ""
+		for _, err := range errors {
+			message = message + err.Error() + "\n"
+		}
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    workloadFailingCondition,
+			Status:  operatorv1.ConditionTrue,
+			Message: message,
+			Reason:  "SyncError",
+		})
+	} else {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:   workloadFailingCondition,
+			Status: operatorv1.ConditionFalse,
+		})
 	}
-	_, _, err = manageOpenShiftAPIServerPublicConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), configData, operatorConfig)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "configmap/public-info", err))
+	if !equality.Semantic.DeepEqual(operatorConfig.Status, originalOperatorConfig.Status) {
+		if _, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
+			return false, err
+		}
 	}
 
-	return resourcemerge.ApplyDaemonSetGenerationAvailability(versionAvailability, actualDaemonSet, errors...), errors
+	if len(errors) > 0 {
+		return true, nil
+	}
+	return false, nil
 }
 
 func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface) (bool, error) {
@@ -127,30 +146,22 @@ func manageOpenShiftAPIServerClientCA_v311_00_to_latest(client coreclientv1.Core
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, operatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/defaultconfig.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.UserConfig.Raw, operatorConfig.Spec.ObservedConfig.Raw)
+	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
 	if err != nil {
 		return nil, false, err
 	}
 	return resourceapply.ApplyConfigMap(client, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.DaemonSetsGetter, options *v1alpha1.OpenShiftAPIServerOperatorConfig, previousAvailability *operatorsv1alpha1.VersionAvailability, forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
+func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.DaemonSetsGetter, options *v1alpha1.OpenShiftAPIServerOperatorConfig, imagePullSpec string, generationStatus []operatorv1.GenerationStatus, forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
 	required := resourceread.ReadDaemonSetV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml"))
-	required.Spec.Template.Spec.Containers[0].Image = options.Spec.ImagePullSpec
-	required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", options.Spec.Logging.Level))
-
-	return resourceapply.ApplyDaemonSet(client, required, resourcemerge.ExpectedDaemonSetGeneration(required, previousAvailability), forceRollingUpdate)
-}
-
-func manageOpenShiftAPIServerPublicConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, apiserverConfigString string, operatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
-	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/public-info.yaml"))
-	if operatorConfig.Status.CurrentAvailability != nil {
-		configMap.Data["version"] = operatorConfig.Status.CurrentAvailability.Version
-	} else {
-		configMap.Data["version"] = ""
+	required.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullAlways
+	if len(imagePullSpec) > 0 {
+		required.Spec.Template.Spec.Containers[0].Image = imagePullSpec
 	}
+	required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
 
-	return resourceapply.ApplyConfigMap(client, configMap)
+	return resourceapply.ApplyDaemonSet(client, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), forceRollingUpdate)
 }
 
 func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServicesGetter) error {

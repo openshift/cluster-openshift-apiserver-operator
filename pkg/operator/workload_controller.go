@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -22,11 +20,9 @@ import (
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
-	operatorsv1alpha1 "github.com/openshift/api/operator/v1alpha1"
+	operatorsv1 "github.com/openshift/api/operator/v1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/typed/openshiftapiserver/v1alpha1"
 	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions/openshiftapiserver/v1alpha1"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
-	"github.com/openshift/library-go/pkg/operator/versioning"
 )
 
 const (
@@ -34,9 +30,12 @@ const (
 	kubeAPIServerNamespaceName = "openshift-kube-apiserver"
 	targetNamespaceName        = "openshift-apiserver"
 	workQueueKey               = "key"
+	workloadFailingCondition   = "WorkloadFailing"
 )
 
 type OpenShiftAPIServerOperator struct {
+	targetImagePullSpec string
+
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface
 
 	kubeClient              kubernetes.Interface
@@ -48,7 +47,8 @@ type OpenShiftAPIServerOperator struct {
 	rateLimiter flowcontrol.RateLimiter
 }
 
-func NewKubeApiserverOperator(
+func NewWorkloadController(
+	targetImagePullSpec string,
 	operatorConfigInformer operatorconfiginformerv1alpha1.OpenShiftAPIServerOperatorConfigInformer,
 	kubeInformersForOpenShiftAPIServerNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
@@ -59,6 +59,7 @@ func NewKubeApiserverOperator(
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
 ) *OpenShiftAPIServerOperator {
 	c := &OpenShiftAPIServerOperator{
+		targetImagePullSpec:     targetImagePullSpec,
 		operatorConfigClient:    operatorConfigClient,
 		kubeClient:              kubeClient,
 		apiregistrationv1Client: apiregistrationv1Client,
@@ -90,70 +91,23 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return err
 	}
 	switch operatorConfig.Spec.ManagementState {
-	case operatorsv1alpha1.Unmanaged:
+	case operatorsv1.Unmanaged:
 		return nil
 
-	case operatorsv1alpha1.Removed:
+	case operatorsv1.Removed:
 		// TODO probably need to watch until the NS is really gone
 		if err := c.kubeClient.CoreV1().Namespaces().Delete(targetNamespaceName, nil); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
-		operatorConfig.Status.TaskSummary = "Remove"
-		operatorConfig.Status.TargetAvailability = nil
-		operatorConfig.Status.CurrentAvailability = nil
-		operatorConfig.Status.Conditions = []operatorsv1alpha1.OperatorCondition{
-			{
-				Type:   operatorsv1alpha1.OperatorStatusTypeAvailable,
-				Status: operatorsv1alpha1.ConditionFalse,
-			},
-		}
-		if _, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().Update(operatorConfig); err != nil {
-			return err
-		}
 		return nil
 	}
 
-	var currentActualVerion *semver.Version
-
-	if operatorConfig.Status.CurrentAvailability != nil {
-		ver, err := semver.Parse(operatorConfig.Status.CurrentAvailability.Version)
-		if err != nil {
-			utilruntime.HandleError(err)
-		} else {
-			currentActualVerion = &ver
-		}
-	}
-	desiredVersion, err := semver.Parse(operatorConfig.Spec.Version)
-	if err != nil {
-		// TODO report failing status, we may actually attempt to do this in the "normal" error handling
-		return err
+	forceRequeue, err := syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
+	if forceRequeue && err != nil {
+		c.queue.AddRateLimited(workQueueKey)
 	}
 
-	v311_00_to_unknown := versioning.NewRangeOrDie("3.11.0", "3.12.0")
-
-	var versionAvailability operatorsv1alpha1.VersionAvailability
-	errors := []error{}
-	switch {
-	case v311_00_to_unknown.BetweenOrEmpty(currentActualVerion) && v311_00_to_unknown.Between(&desiredVersion):
-		operatorConfig.Status.TaskSummary = "sync-[3.11.0,3.12.0)"
-		operatorConfig.Status.TargetAvailability = nil
-		versionAvailability, errors = syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig, operatorConfig.Status.CurrentAvailability)
-
-	default:
-		operatorConfig.Status.TaskSummary = "unrecognized"
-		if _, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
-			utilruntime.HandleError(err)
-		}
-
-		return fmt.Errorf("unrecognized state")
-	}
-
-	v1alpha1helpers.SetStatusFromAvailability(&operatorConfig.Status.OperatorStatus, operatorConfig.ObjectMeta.Generation, &versionAvailability)
-	if _, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
-		errors = append(errors, err)
-	}
-
-	return utilerrors.NewAggregate(errors)
+	return err
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
