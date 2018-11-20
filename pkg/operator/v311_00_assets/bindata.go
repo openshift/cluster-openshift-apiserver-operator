@@ -149,7 +149,7 @@ spec:
     spec:
       serviceAccountName: openshift-apiserver-sa
       containers:
-      - name: apiserver
+      - name: openshift-apiserver
         image: ${IMAGE}
         imagePullPolicy: IfNotPresent
         command: ["hypershift", "openshift-apiserver"]
