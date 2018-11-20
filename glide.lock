@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2018-11-15T12:00:21.564147025-05:00
+updated: 2018-11-19T15:09:17.541893386-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -187,7 +187,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 8a3880e9178ebf7a6655469c7dd213ea9a378c33
+  version: 7019e79772a9bfa1ade7b231de705293b9c12401
   subpackages:
   - apps
   - apps/v1
@@ -244,7 +244,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 593dd64a8b17fd56870e580879c9af7e5f711570
+  version: b468f2b93d32f4506f0b4a998ca2ae4fc4a6871c
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -260,6 +260,7 @@ imports:
   - pkg/operator/resource/resourceread
   - pkg/operator/status
   - pkg/operator/v1alpha1helpers
+  - pkg/operator/v1helpers
   - pkg/operator/versioning
   - pkg/serviceability
 - name: github.com/pborman/uuid
@@ -292,8 +293,6 @@ imports:
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
-- name: github.com/sigma/go-inotify
-  version: c87b6cf5033d2c6486046f045eeebdc3d910fd38
 - name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
 - name: github.com/spf13/cobra
