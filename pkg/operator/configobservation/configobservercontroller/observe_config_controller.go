@@ -35,6 +35,8 @@ func NewConfigObserver(
 				},
 			},
 			images.ObserveInternalRegistryHostname,
+			images.ObserveExternalRegistryHostnames,
+			images.ObserveAllowedRegistriesForImport,
 		),
 	}
 	operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer().AddEventHandler(c.EventHandler())
