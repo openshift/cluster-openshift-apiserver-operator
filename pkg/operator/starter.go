@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -9,16 +10,15 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
-	operatorv1alpha1 "github.com/openshift/api/operator/v1alpha1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	imageconfiginformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
 	operatorconfigclient "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned"
 	operatorclientinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
@@ -60,7 +60,13 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	imageConfigInformers := imageconfiginformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
-	operator := NewKubeApiserverOperator(
+	operatorClient := &operatorClient{
+		informers: operatorConfigInformers,
+		client:    operatorConfigClient.OpenshiftapiserverV1alpha1(),
+	}
+
+	workloadController := NewWorkloadController(
+		os.Getenv("IMAGE"),
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
 		kubeInformersForOpenShiftAPIServerNamespace,
 		kubeInformersForEtcdNamespace,
@@ -71,18 +77,18 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		apiregistrationv1Client.ApiregistrationV1(),
 	)
 
-	configObserver := NewConfigObserver(
-		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
+	configObserver := configobservercontroller.NewConfigObserver(
+		operatorClient,
+		operatorConfigInformers,
 		kubeInformersForEtcdNamespace,
 		imageConfigInformers,
-		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-openshift-apiserver-operator",
 		"openshift-cluster-openshift-apiserver-operator",
 		dynamicClient,
-		&operatorStatusProvider{informers: operatorConfigInformers},
+		operatorClient,
 	)
 
 	operatorConfigInformers.Start(stopCh)
@@ -92,27 +98,10 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 	apiregistrationInformers.Start(stopCh)
 	imageConfigInformers.Start(stopCh)
 
-	go operator.Run(1, stopCh)
+	go workloadController.Run(1, stopCh)
 	go configObserver.Run(1, stopCh)
 	go clusterOperatorStatus.Run(1, stopCh)
 
 	<-stopCh
 	return fmt.Errorf("stopped")
-}
-
-type operatorStatusProvider struct {
-	informers operatorclientinformers.SharedInformerFactory
-}
-
-func (p *operatorStatusProvider) Informer() cache.SharedIndexInformer {
-	return p.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer()
-}
-
-func (p *operatorStatusProvider) CurrentStatus() (operatorv1alpha1.OperatorStatus, error) {
-	instance, err := p.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("instance")
-	if err != nil {
-		return operatorv1alpha1.OperatorStatus{}, err
-	}
-
-	return instance.Status.OperatorStatus, nil
 }
