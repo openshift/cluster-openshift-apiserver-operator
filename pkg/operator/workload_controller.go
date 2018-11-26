@@ -23,6 +23,7 @@ import (
 	operatorsv1 "github.com/openshift/api/operator/v1"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/typed/openshiftapiserver/v1alpha1"
 	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions/openshiftapiserver/v1alpha1"
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 const (
@@ -40,6 +41,7 @@ type OpenShiftAPIServerOperator struct {
 
 	kubeClient              kubernetes.Interface
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface
+	eventRecorder           events.Recorder
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -57,12 +59,14 @@ func NewWorkloadController(
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
 	kubeClient kubernetes.Interface,
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
+	eventRecorder events.Recorder,
 ) *OpenShiftAPIServerOperator {
 	c := &OpenShiftAPIServerOperator{
 		targetImagePullSpec:     targetImagePullSpec,
 		operatorConfigClient:    operatorConfigClient,
 		kubeClient:              kubeClient,
 		apiregistrationv1Client: apiregistrationv1Client,
+		eventRecorder:           eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "OpenShiftAPIServerOperator"),
 

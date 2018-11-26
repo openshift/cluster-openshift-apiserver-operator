@@ -5,11 +5,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
@@ -24,24 +25,24 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
-func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
+func RunOperator(controllerContext *controllercmd.ControllerContext) error {
+	kubeClient, err := kubernetes.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
-	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(clientConfig)
+	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
-	operatorConfigClient, err := operatorconfigclient.NewForConfig(clientConfig)
+	operatorConfigClient, err := operatorconfigclient.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
-	dynamicClient, err := dynamic.NewForConfig(clientConfig)
+	dynamicClient, err := dynamic.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
-	configClient, err := configv1client.NewForConfig(clientConfig)
+	configClient, err := configv1client.NewForConfig(controllerContext.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -75,6 +76,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
 		kubeClient,
 		apiregistrationv1Client.ApiregistrationV1(),
+		controllerContext.EventRecorder,
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
@@ -82,6 +84,7 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorConfigInformers,
 		kubeInformersForEtcdNamespace,
 		imageConfigInformers,
+		controllerContext.EventRecorder,
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
@@ -91,17 +94,17 @@ func RunOperator(clientConfig *rest.Config, stopCh <-chan struct{}) error {
 		operatorClient,
 	)
 
-	operatorConfigInformers.Start(stopCh)
-	kubeInformersForOpenShiftAPIServerNamespace.Start(stopCh)
-	kubeInformersForKubeAPIServerNamespace.Start(stopCh)
-	kubeInformersForEtcdNamespace.Start(stopCh)
-	apiregistrationInformers.Start(stopCh)
-	imageConfigInformers.Start(stopCh)
+	operatorConfigInformers.Start(controllerContext.StopCh)
+	kubeInformersForOpenShiftAPIServerNamespace.Start(controllerContext.StopCh)
+	kubeInformersForKubeAPIServerNamespace.Start(controllerContext.StopCh)
+	kubeInformersForEtcdNamespace.Start(controllerContext.StopCh)
+	apiregistrationInformers.Start(controllerContext.StopCh)
+	imageConfigInformers.Start(controllerContext.StopCh)
 
-	go workloadController.Run(1, stopCh)
-	go configObserver.Run(1, stopCh)
-	go clusterOperatorStatus.Run(1, stopCh)
+	go workloadController.Run(1, controllerContext.StopCh)
+	go configObserver.Run(1, controllerContext.StopCh)
+	go clusterOperatorStatus.Run(1, controllerContext.StopCh)
 
-	<-stopCh
+	<-controllerContext.StopCh
 	return fmt.Errorf("stopped")
 }
