@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -42,6 +43,8 @@ type InstallerController struct {
 	operatorConfigClient common.OperatorClient
 
 	kubeClient kubernetes.Interface
+
+	eventRecorder events.Recorder
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -72,6 +75,7 @@ func NewInstallerController(
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	operatorConfigClient common.OperatorClient,
 	kubeClient kubernetes.Interface,
+	eventRecorder events.Recorder,
 ) *InstallerController {
 	c := &InstallerController{
 		targetNamespace: targetNamespace,
@@ -82,6 +86,7 @@ func NewInstallerController(
 
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
+		eventRecorder:        eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "InstallerController"),
 
@@ -175,6 +180,8 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 		// if we are in a transition, check to see if our installer pod completed
 		if currNodeState.TargetRevision > currNodeState.CurrentRevision {
 			if err := c.ensureInstallerPod(currNodeState.NodeName, operatorSpec, currNodeState.TargetRevision); err != nil {
+				c.eventRecorder.Warningf("InstallerPodFailed", "Failed to create installer pod for revision %d on node %q: %v",
+					currNodeState.TargetRevision, currNodeState.NodeName, err)
 				return true, err
 			}
 
@@ -191,6 +198,12 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 				operatorStatus.NodeStatuses[i] = *newCurrNodeState
 				if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 					_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
+					if updateError == nil {
+						if currNodeState.CurrentRevision != newCurrNodeState.CurrentRevision {
+							c.eventRecorder.Eventf("NodeCurrentRevisionChanged", "Updated node %q from revision %d to %d", currNodeState.NodeName,
+								currNodeState.CurrentRevision, newCurrNodeState.CurrentRevision)
+						}
+					}
 					return false, updateError
 				}
 			} else {
@@ -218,6 +231,14 @@ func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.Op
 			operatorStatus.NodeStatuses[i] = *newCurrNodeState
 			if !reflect.DeepEqual(originalOperatorStatus, operatorStatus) {
 				_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
+
+				if updateError == nil {
+					if currNodeState.TargetRevision != newCurrNodeState.TargetRevision && newCurrNodeState.TargetRevision != 0 {
+						c.eventRecorder.Eventf("NodeTargetRevisionChanged", "Updating node %q from revision %d to %d", currNodeState.NodeName,
+							currNodeState.CurrentRevision, newCurrNodeState.TargetRevision)
+					}
+				}
+
 				return false, updateError
 			}
 		}

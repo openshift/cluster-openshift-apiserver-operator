@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2018-11-20T10:35:49.746827516-05:00
+updated: 2018-11-27T12:57:01.806964192-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: ffac7eec5e7f87c6a9fcbc766e3b024ed3ef39ea
+  version: 6a375c5bd37e0a30bf3da96935273fa41f957a0d
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: 6a2ae3844d42a242d2ddb312660478c60e994ecd
+  version: a1ed078fcc8923663018a68dd66acb7e080d3f19
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -254,6 +254,7 @@ imports:
   - pkg/controller/metrics
   - pkg/crypto
   - pkg/operator/configobserver
+  - pkg/operator/events
   - pkg/operator/resource/resourceapply
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
@@ -294,9 +295,9 @@ imports:
 - name: github.com/sirupsen/logrus
   version: 89742aefa4b206dcf400792f3bd35b542998eb3b
 - name: github.com/spf13/cobra
-  version: fe5e611709b0c57fa4a89136deaa8e1d4004d053
+  version: c439c4fa093711d42e1b01acb1235b52004753c1
 - name: github.com/spf13/pflag
-  version: aea12ed6721610dc6ed40141676d7ab0a1dac9e9
+  version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
