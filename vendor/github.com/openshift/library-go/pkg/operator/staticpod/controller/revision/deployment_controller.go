@@ -20,6 +20,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 
+	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -41,6 +42,8 @@ type RevisionController struct {
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
+
+	eventRecorder events.Recorder
 }
 
 func NewRevisionController(
@@ -50,6 +53,7 @@ func NewRevisionController(
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	operatorConfigClient common.OperatorClient,
 	kubeClient kubernetes.Interface,
+	eventRecorder events.Recorder,
 ) *RevisionController {
 	c := &RevisionController{
 		targetNamespace: targetNamespace,
@@ -58,6 +62,7 @@ func NewRevisionController(
 
 		operatorConfigClient: operatorConfigClient,
 		kubeClient:           kubeClient,
+		eventRecorder:        eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "RevisionController"),
 	}
@@ -93,6 +98,9 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Oper
 		})
 		if !reflect.DeepEqual(operatorStatusOriginal, operatorStatus) {
 			_, updateError := c.operatorConfigClient.UpdateStatus(resourceVersion, operatorStatus)
+			if updateError != nil {
+				c.eventRecorder.Warningf("RevisionCreateFailed", "Failed to create revision %d: %v", nextRevision, err.Error())
+			}
 			return true, updateError
 		}
 		return true, nil
@@ -108,6 +116,7 @@ func (c RevisionController) createRevisionIfNeeded(operatorSpec *operatorv1.Oper
 		if updateError != nil {
 			return true, updateError
 		}
+		c.eventRecorder.Eventf("RevisionCreate", "Revision %d created because %s", operatorStatus.LatestAvailableRevision, reason)
 	}
 
 	return false, nil
@@ -151,7 +160,7 @@ func (c RevisionController) isLatestRevisionCurrent(revision int32) (bool, strin
 
 func (c RevisionController) createNewRevision(revision int32) error {
 	for _, name := range c.configMaps {
-		obj, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
+		obj, _, err := resourceapply.SyncConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
 		if err != nil {
 			return err
 		}
@@ -160,7 +169,7 @@ func (c RevisionController) createNewRevision(revision int32) error {
 		}
 	}
 	for _, name := range c.secrets {
-		obj, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
+		obj, _, err := resourceapply.SyncSecret(c.kubeClient.CoreV1(), c.eventRecorder, c.targetNamespace, name, c.targetNamespace, nameFor(name, revision))
 		if err != nil {
 			return err
 		}
