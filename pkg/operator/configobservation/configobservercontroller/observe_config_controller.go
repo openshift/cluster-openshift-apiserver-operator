@@ -38,8 +38,9 @@ func NewConfigObserver(
 				},
 			},
 			images.ObserveInternalRegistryHostname,
-			images.ObserveExternalRegistryHostnames,
-			images.ObserveAllowedRegistriesForImport,
+			// TODO re-enable once flapping has been sorted out.
+			//images.ObserveExternalRegistryHostnames,
+			//images.ObserveAllowedRegistriesForImport,
 		),
 	}
 	operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer().AddEventHandler(c.EventHandler())
