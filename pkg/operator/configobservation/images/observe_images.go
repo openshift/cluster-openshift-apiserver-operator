@@ -10,11 +10,12 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/events"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
 )
 
-func ObserveInternalRegistryHostname(genericListers configobserver.Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveInternalRegistryHostname(genericListers configobserver.Listers, eventRecorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 	var errs []error
 	prevObservedConfig := map[string]interface{}{}
@@ -60,7 +61,7 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, exis
 	return observedConfig, errs
 }
 
-func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, eventRecorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 	var errs []error
 	prevObservedConfig := map[string]interface{}{}
@@ -110,7 +111,7 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, exi
 	return observedConfig, errs
 }
 
-func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, eventRecorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 	var errs []error
 	prevObservedConfig := map[string]interface{}{}

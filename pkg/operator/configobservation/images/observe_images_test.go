@@ -123,7 +123,7 @@ func TestObserveImageConfig(t *testing.T) {
 			ImageConfigSynced: func() bool { return false },
 		}
 
-		result, errs := ObserveInternalRegistryHostname(listers, map[string]interface{}{})
+		result, errs := ObserveInternalRegistryHostname(listers, nil, map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -137,7 +137,7 @@ func TestObserveImageConfig(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs := ObserveInternalRegistryHostname(unsyncedlisters, result)
+		newResult, errs := ObserveInternalRegistryHostname(unsyncedlisters, nil, result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -145,7 +145,7 @@ func TestObserveImageConfig(t *testing.T) {
 			t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
 		}
 
-		result, errs = ObserveExternalRegistryHostnames(listers, map[string]interface{}{})
+		result, errs = ObserveExternalRegistryHostnames(listers, nil, map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -164,7 +164,7 @@ func TestObserveImageConfig(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs = ObserveExternalRegistryHostnames(unsyncedlisters, result)
+		newResult, errs = ObserveExternalRegistryHostnames(unsyncedlisters, nil, result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -172,7 +172,7 @@ func TestObserveImageConfig(t *testing.T) {
 			t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
 		}
 
-		result, errs = ObserveAllowedRegistriesForImport(listers, map[string]interface{}{})
+		result, errs = ObserveAllowedRegistriesForImport(listers, nil, map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -191,7 +191,7 @@ func TestObserveImageConfig(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, result)
+		newResult, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, nil, result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
