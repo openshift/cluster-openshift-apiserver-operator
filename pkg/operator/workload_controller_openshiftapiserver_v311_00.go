@@ -88,6 +88,33 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	}
 
 	// manage status
+	if actualDaemonSet.Status.NumberAvailable > 0 {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:   operatorv1.OperatorStatusTypeAvailable,
+			Status: operatorv1.ConditionTrue,
+		})
+	} else {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeAvailable,
+			Status:  operatorv1.ConditionFalse,
+			Reason:  "NoPodsAvailable",
+			Message: "no daemon pods available on any node.",
+		})
+	}
+
+	if actualDaemonSet.ObjectMeta.Generation == operatorConfig.Status.ObservedGeneration {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:   operatorv1.OperatorStatusTypeProgressing,
+			Status: operatorv1.ConditionFalse,
+		})
+	} else {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeProgressing,
+			Status:  operatorv1.ConditionTrue,
+			Reason:  "DesiredStateNotYetAchieved",
+			Message: fmt.Sprintf("Generation: expected: %v, actual: %v", operatorConfig.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation),
+		})
+	}
 	// TODO this is changing too early and it was before too.
 	operatorConfig.Status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
 	resourcemerge.SetDaemonSetGeneration(&operatorConfig.Status.Generations, actualDaemonSet)
