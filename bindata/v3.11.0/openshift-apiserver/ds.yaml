@@ -48,6 +48,7 @@ spec:
             port: 8443
             path: healthz
         readinessProbe:
+          failureThreshold: 10
           httpGet:
             scheme: HTTPS
             port: 8443
