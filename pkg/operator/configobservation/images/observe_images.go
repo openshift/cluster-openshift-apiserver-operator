@@ -23,10 +23,7 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
-	currentInternalRegistryHostname, _, err := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
+	currentInternalRegistryHostname, _, _ := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
 	if len(currentInternalRegistryHostname) > 0 {
 		err := unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...)
 		if err != nil {
@@ -61,7 +58,7 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 	return observedConfig, errs
 }
 
-func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 	var errs []error
 	prevObservedConfig := map[string]interface{}{}
@@ -69,13 +66,12 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, exi
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	externalRegistryHostnamePath := []string{"imagePolicyConfig", "externalRegistryHostnames"}
-	o, _, err := unstructured.NestedSlice(existingConfig, externalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	err = unstructured.SetNestedSlice(prevObservedConfig, o, externalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	o, _, _ := unstructured.NestedSlice(existingConfig, externalRegistryHostnamePath...)
+	if len(o) > 0 {
+		err := unstructured.SetNestedSlice(prevObservedConfig, o, externalRegistryHostnamePath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	if !listers.ImageConfigSynced() {
@@ -99,19 +95,21 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, exi
 	externalRegistryHostnames := configImage.Spec.ExternalRegistryHostnames
 	externalRegistryHostnames = append(externalRegistryHostnames, configImage.Status.ExternalRegistryHostnames...)
 
-	hostnames, err := Convert(externalRegistryHostnames)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	err = unstructured.SetNestedField(observedConfig, hostnames, externalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	if len(externalRegistryHostnames) > 0 {
+		hostnames, err := Convert(externalRegistryHostnames)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
+		err = unstructured.SetNestedField(observedConfig, hostnames, externalRegistryHostnamePath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	return observedConfig, errs
 }
 
-func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
 	listers := genericListers.(configobservation.Listers)
 	var errs []error
 	prevObservedConfig := map[string]interface{}{}
@@ -119,13 +117,12 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, ex
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	allowedRegistriesForImportPath := []string{"imagePolicyConfig", "allowedRegistriesForImport"}
-	o, _, err := unstructured.NestedSlice(existingConfig, allowedRegistriesForImportPath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	err = unstructured.SetNestedSlice(prevObservedConfig, o, allowedRegistriesForImportPath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	o, _, _ := unstructured.NestedSlice(existingConfig, allowedRegistriesForImportPath...)
+	if len(o) > 0 {
+		err := unstructured.SetNestedSlice(prevObservedConfig, o, allowedRegistriesForImportPath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	if !listers.ImageConfigSynced() {
@@ -144,13 +141,15 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, ex
 		return prevObservedConfig, append(errs, err)
 	}
 
-	allowed, err := Convert(configImage.Spec.AllowedRegistriesForImport)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	err = unstructured.SetNestedField(observedConfig, allowed, allowedRegistriesForImportPath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	if len(configImage.Spec.AllowedRegistriesForImport) > 0 {
+		allowed, err := Convert(configImage.Spec.AllowedRegistriesForImport)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
+		err = unstructured.SetNestedField(observedConfig, allowed, allowedRegistriesForImportPath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	return observedConfig, errs
