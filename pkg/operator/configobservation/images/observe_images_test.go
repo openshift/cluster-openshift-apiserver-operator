@@ -107,7 +107,7 @@ func TestObserveImageConfig(t *testing.T) {
 					AllowedRegistriesForImport: []configv1.RegistryLocation{},
 				},
 			},
-			expectedAllowedRegistries: []configv1.RegistryLocation{},
+			expectedAllowedRegistries: nil,
 		},
 	}
 

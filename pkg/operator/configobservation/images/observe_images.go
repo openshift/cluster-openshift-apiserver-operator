@@ -72,9 +72,11 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, exi
 	if err != nil {
 		return prevObservedConfig, append(errs, err)
 	}
-	err = unstructured.SetNestedSlice(prevObservedConfig, o, externalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	if len(o) > 0 {
+		err = unstructured.SetNestedSlice(prevObservedConfig, o, externalRegistryHostnamePath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	if !listers.ImageConfigSynced() {
@@ -98,13 +100,15 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, exi
 	externalRegistryHostnames := configImage.Spec.ExternalRegistryHostnames
 	externalRegistryHostnames = append(externalRegistryHostnames, configImage.Status.ExternalRegistryHostnames...)
 
-	hostnames, err := Convert(externalRegistryHostnames)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	err = unstructured.SetNestedField(observedConfig, hostnames, externalRegistryHostnamePath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	if len(externalRegistryHostnames) > 0 {
+		hostnames, err := Convert(externalRegistryHostnames)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
+		err = unstructured.SetNestedField(observedConfig, hostnames, externalRegistryHostnamePath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	return observedConfig, errs
@@ -122,9 +126,11 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, ex
 	if err != nil {
 		return prevObservedConfig, append(errs, err)
 	}
-	err = unstructured.SetNestedSlice(prevObservedConfig, o, allowedRegistriesForImportPath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	if len(o) > 0 {
+		err = unstructured.SetNestedSlice(prevObservedConfig, o, allowedRegistriesForImportPath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	if !listers.ImageConfigSynced() {
@@ -143,13 +149,15 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, ex
 		return prevObservedConfig, append(errs, err)
 	}
 
-	allowed, err := Convert(configImage.Spec.AllowedRegistriesForImport)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
-	}
-	err = unstructured.SetNestedField(observedConfig, allowed, allowedRegistriesForImportPath...)
-	if err != nil {
-		return prevObservedConfig, append(errs, err)
+	if len(configImage.Spec.AllowedRegistriesForImport) > 0 {
+		allowed, err := Convert(configImage.Spec.AllowedRegistriesForImport)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
+		err = unstructured.SetNestedField(observedConfig, allowed, allowedRegistriesForImportPath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	return observedConfig, errs
