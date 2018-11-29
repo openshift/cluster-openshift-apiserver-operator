@@ -89,8 +89,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-cluster-openshift-apiserver-operator",
-		"openshift-cluster-openshift-apiserver-operator",
-		dynamicClient,
+		configClient.ConfigV1(),
 		operatorClient,
 	)
 
