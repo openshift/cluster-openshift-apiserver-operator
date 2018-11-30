@@ -246,7 +246,7 @@ spec:
   imagePullSpec: openshift/origin-hypershift:latest
   version: 3.11.0
   logging:
-    level: 4
+    level: 5
   replicas: 2
 `)
 

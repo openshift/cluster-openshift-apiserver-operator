@@ -24,7 +24,7 @@ spec:
         command: ["cluster-openshift-apiserver-operator", "operator"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
-        - "-v=2"
+        - "-v=5"
         volumeMounts:
         - mountPath: /var/run/configmaps/config
           name: config
