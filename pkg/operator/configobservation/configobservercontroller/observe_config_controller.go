@@ -8,7 +8,6 @@ import (
 	imageconfiginformers "github.com/openshift/client-go/config/informers/externalversions"
 	openshiftapiserveroperatorinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 )
 
@@ -37,7 +36,7 @@ func NewConfigObserver(
 					kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().HasSynced,
 				},
 			},
-			images.ObserveInternalRegistryHostname,
+			//images.ObserveInternalRegistryHostname,
 			// TODO re-enable once flapping has been sorted out.
 			//images.ObserveExternalRegistryHostnames,
 			//images.ObserveAllowedRegistriesForImport,
