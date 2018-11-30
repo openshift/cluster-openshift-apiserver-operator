@@ -106,6 +106,12 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return nil
 	}
 
+	// block until config is obvserved
+	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
+		glog.Info("Waiting for observed configuration to be available")
+		return nil
+	}
+
 	forceRequeue, err := syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
 	if forceRequeue && err != nil {
 		c.queue.AddRateLimited(workQueueKey)
