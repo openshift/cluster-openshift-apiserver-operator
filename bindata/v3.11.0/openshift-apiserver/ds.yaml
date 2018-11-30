@@ -56,7 +56,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: deployment-apiserver-config
+          name: config
       - name: client-ca
         configMap:
           name: client-ca

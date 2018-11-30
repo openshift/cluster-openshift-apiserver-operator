@@ -83,7 +83,7 @@ var _v3110OpenshiftApiserverCmYaml = []byte(`apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: openshift-apiserver
-  name: deployment-apiserver-config
+  name: config
 data:
   config.yaml:
 `)
@@ -180,7 +180,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: deployment-apiserver-config
+          name: config
       - name: client-ca
         configMap:
           name: client-ca
