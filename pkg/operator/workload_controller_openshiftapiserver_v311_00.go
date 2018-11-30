@@ -6,6 +6,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -16,6 +17,7 @@ import (
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -69,8 +71,13 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
 	}
 
+	imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
+	}
+
 	forceRollingUpdate = forceRollingUpdate || operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration
-	forceRollingUpdate = forceRollingUpdate || configMapModified || etcdModified || clientCAModified
+	forceRollingUpdate = forceRollingUpdate || configMapModified || etcdModified || clientCAModified || imageImportCAModified
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
@@ -166,6 +173,31 @@ func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.Cor
 func manageOpenShiftAPIServerClientCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
 	const apiserverClientCA = "client-ca"
 	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, kubeAPIServerNamespaceName, apiserverClientCA, targetNamespaceName, apiserverClientCA)
+	if err != nil {
+		return false, err
+	}
+	return caChanged, nil
+}
+
+func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
+	imageConfig, err := openshiftConfigClient.Images().Get("cluster", metav1.GetOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return false, err
+	}
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	if len(imageConfig.Spec.AdditionalTrustedCA.Name) == 0 {
+		err := client.ConfigMaps(targetNamespaceName).Delete(imageImportCAName, nil)
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, openshiftConfigNamespaceName, imageConfig.Spec.AdditionalTrustedCA.Name, targetNamespaceName, imageImportCAName)
 	if err != nil {
 		return false, err
 	}

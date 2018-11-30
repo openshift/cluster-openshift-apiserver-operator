@@ -165,6 +165,8 @@ spec:
           name: client-ca
         - mountPath: /var/run/configmaps/etcd-serving-ca
           name: etcd-serving-ca
+        - mountPath: /var/run/configmaps/image-import-ca
+          name: image-import-ca
         - mountPath: /var/run/secrets/etcd-client
           name: etcd-client
         - mountPath: /var/run/secrets/serving-cert
@@ -191,6 +193,10 @@ spec:
       - name: etcd-serving-ca
         configMap:
           name: etcd-serving-ca
+      - name: image-import-ca
+        configMap:
+          name: image-import-ca
+          optional: true
       - name: etcd-client
         secret:
           secretName: etcd-client

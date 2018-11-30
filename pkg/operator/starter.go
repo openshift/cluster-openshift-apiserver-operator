@@ -58,6 +58,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 	kubeInformersForOpenShiftAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(kubeAPIServerNamespaceName))
 	kubeInformersForEtcdNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(etcdNamespaceName))
+	kubeInformersForOpenShiftConfigNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(openshiftConfigNamespaceName))
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
@@ -72,8 +73,11 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 		kubeInformersForOpenShiftAPIServerNamespace,
 		kubeInformersForEtcdNamespace,
 		kubeInformersForKubeAPIServerNamespace,
+		kubeInformersForOpenShiftConfigNamespace,
 		apiregistrationInformers,
+		configInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
+		configClient.ConfigV1(),
 		kubeClient,
 		apiregistrationv1Client.ApiregistrationV1(),
 		controllerContext.EventRecorder,
