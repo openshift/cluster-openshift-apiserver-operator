@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/openshift/library-go/pkg/operator/events"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
@@ -123,7 +124,7 @@ func TestObserveImageConfig(t *testing.T) {
 			ImageConfigSynced: func() bool { return false },
 		}
 
-		result, errs := ObserveInternalRegistryHostname(listers, map[string]interface{}{})
+		result, errs := ObserveInternalRegistryHostname(listers, events.NewInMemoryRecorder(""), map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -137,7 +138,7 @@ func TestObserveImageConfig(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs := ObserveInternalRegistryHostname(unsyncedlisters, result)
+		newResult, errs := ObserveInternalRegistryHostname(unsyncedlisters, events.NewInMemoryRecorder("test"), result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
