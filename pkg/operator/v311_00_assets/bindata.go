@@ -145,6 +145,7 @@ spec:
         apiserver: "true"
     spec:
       serviceAccountName: openshift-apiserver-sa
+      priorityClassName: system-node-critical
       containers:
       - name: openshift-apiserver
         image: ${IMAGE}
