@@ -42,8 +42,8 @@ func NewConfigObserver(
 			},
 			images.ObserveInternalRegistryHostname,
 			// TODO re-enable once flapping has been sorted out.
-			//images.ObserveExternalRegistryHostnames,
-			//images.ObserveAllowedRegistriesForImport,
+			images.ObserveExternalRegistryHostnames,
+			images.ObserveAllowedRegistriesForImport,
 			ingresses.ObserveIngressDomain,
 		),
 	}
