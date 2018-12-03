@@ -91,6 +91,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 		"openshift-cluster-openshift-apiserver-operator",
 		configClient.ConfigV1(),
 		operatorClient,
+		controllerContext.EventRecorder,
 	)
 
 	operatorConfigInformers.Start(controllerContext.StopCh)
