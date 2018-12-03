@@ -8,10 +8,12 @@ import (
 )
 
 type Listers struct {
-	ImageConfigLister  configlistersv1.ImageLister
-	EndpointsLister    corelistersv1.EndpointsLister
-	ImageConfigSynced  cache.InformerSynced
-	PreRunCachesSynced []cache.InformerSynced
+	ImageConfigLister   configlistersv1.ImageLister
+	IngressConfigLister configlistersv1.IngressLister
+	EndpointsLister     corelistersv1.EndpointsLister
+	ImageConfigSynced   cache.InformerSynced
+	IngressConfigSynced cache.InformerSynced
+	PreRunCachesSynced  []cache.InformerSynced
 }
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {
