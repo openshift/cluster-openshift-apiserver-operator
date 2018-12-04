@@ -17,10 +17,10 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/detectinputchange"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
+	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -181,9 +181,9 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	}
 
 	// we can embed input hashes on our main configmap to drive rollouts when they change.
-	inputHashes, err := detectinputchange.MultipleObjectHashStringMapForObjectReferences(
+	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
 		kubeClient,
-		detectinputchange.ObjectReference{
+		resourcehash.ObjectReference{
 			Resource:  schema.GroupResource{Resource: "secret"},
 			Namespace: targetNamespaceName,
 			Name:      "serving-cert",
