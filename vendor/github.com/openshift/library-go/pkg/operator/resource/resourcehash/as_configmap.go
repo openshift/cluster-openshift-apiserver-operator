@@ -1,4 +1,4 @@
-package detectinputchange
+package resourcehash
 
 import (
 	"encoding/base64"
