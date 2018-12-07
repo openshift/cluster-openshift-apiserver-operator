@@ -153,6 +153,9 @@ spec:
         command: ["hypershift", "openshift-apiserver"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
+        resources:
+          requests:
+            memory: 200Mi
         ports:
         - containerPort: 8443
         volumeMounts:
