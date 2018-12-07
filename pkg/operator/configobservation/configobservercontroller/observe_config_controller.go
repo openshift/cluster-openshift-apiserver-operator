@@ -2,6 +2,7 @@ package configobservercontroller
 
 import (
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
@@ -19,7 +20,7 @@ type ConfigObserver struct {
 
 // NewConfigObserver initializes a new configuration observer.
 func NewConfigObserver(
-	operatorClient configobserver.OperatorClient,
+	operatorClient v1helpers.OperatorClient,
 	operatorConfigInformers openshiftapiserveroperatorinformers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
