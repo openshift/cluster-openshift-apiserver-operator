@@ -89,31 +89,65 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 
 	// only manage the apiservices if we have ready pods for the daemonset.  This makes sure that if we're taking over for
 	// something else, we don't stomp their apiservices until ours have a reasonable chance at working.
-	if actualDaemonSet != nil && actualDaemonSet.Status.NumberReady > 0 {
-		err = manageAPIServices_v311_00_to_latest(c.apiregistrationv1Client)
+	var actualAPIServices []*apiregistrationv1.APIService
+	if actualDaemonSet != nil && actualDaemonSet.Status.NumberAvailable > 0 {
+		actualAPIServices, err = manageAPIServices_v311_00_to_latest(c.apiregistrationv1Client)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("%q: %v", "apiservices", err))
 		}
 	}
 
 	// manage status
-	if actualDaemonSet.Status.NumberAvailable > 0 {
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:   operatorv1.OperatorStatusTypeAvailable,
-			Status: operatorv1.ConditionTrue,
-		})
-	} else {
+	var availableConditionReason string
+	var availableConditionMessages []string
+
+	switch {
+	case actualDaemonSet == nil:
+		availableConditionReason = "NoDaemon"
+		availableConditionMessages = append(availableConditionMessages, "daemonset/apiserver.openshift-apiserver: could not be retrieved")
+	case actualDaemonSet.Status.NumberAvailable == 0:
+		availableConditionReason = "NoAPIServerPod"
+		availableConditionMessages = append(availableConditionMessages, "no openshift-apiserver daemon pods available on any node.")
+	case actualDaemonSet.Status.NumberAvailable > 0 && len(actualAPIServices) == 0:
+		availableConditionReason = "NoRegisteredAPIServices"
+		availableConditionMessages = append(availableConditionMessages, "registered apiservices could not be retrieved")
+	}
+	for _, apiService := range actualAPIServices {
+		for _, condition := range apiService.Status.Conditions {
+			if condition.Type == apiregistrationv1.Available {
+				if condition.Status == apiregistrationv1.ConditionFalse {
+					availableConditionReason = "APIServiceNotAvailable"
+					availableConditionMessages = append(availableConditionMessages, fmt.Sprintf("apiservice/%v: not available: %v", apiService.Name, condition.Message))
+				}
+				break
+			}
+		}
+	}
+	switch {
+	case len(availableConditionMessages) == 1:
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeAvailable,
 			Status:  operatorv1.ConditionFalse,
-			Reason:  "NoPodsAvailable",
-			Message: "no daemon pods available on any node.",
+			Reason:  availableConditionReason,
+			Message: availableConditionMessages[0],
+		})
+	case len(availableConditionMessages) > 1:
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorv1.OperatorStatusTypeAvailable,
+			Status:  operatorv1.ConditionFalse,
+			Reason:  "Multiple",
+			Message: strings.Join(availableConditionMessages, "\n"),
+		})
+	default:
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:   operatorv1.OperatorStatusTypeAvailable,
+			Status: operatorv1.ConditionTrue,
 		})
 	}
 
 	// If the daemonset is up to date and the operatorConfig are up to date, then we are no longer progressing
 	var progressingMessages []string
-	if actualDaemonSet.ObjectMeta.Generation != actualDaemonSet.Status.ObservedGeneration {
+	if actualDaemonSet != nil && actualDaemonSet.ObjectMeta.Generation != actualDaemonSet.Status.ObservedGeneration {
 		progressingMessages = append(progressingMessages, fmt.Sprintf("daemonset/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDaemonSet.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation))
 	}
 	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
@@ -253,8 +287,8 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.Dae
 	return resourceapply.ApplyDaemonSet(client, recorder, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), forceRollingUpdate)
 }
 
-func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServicesGetter) error {
-	apiServices := []schema.GroupVersion{
+func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServicesGetter) ([]*apiregistrationv1.APIService, error) {
+	apiServiceGroupVersions := []schema.GroupVersion{
 		// these are all the apigroups we manage
 		{Group: "apps.openshift.io", Version: "v1"},
 		{Group: "authorization.openshift.io", Version: "v1"},
@@ -269,17 +303,18 @@ func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServi
 		{Group: "user.openshift.io", Version: "v1"},
 	}
 
-	for _, apiService := range apiServices {
+	var apiServices []*apiregistrationv1.APIService
+	for _, apiServiceGroupVersion := range apiServiceGroupVersions {
 		obj := &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiService.Version + "." + apiService.Group,
+				Name: apiServiceGroupVersion.Version + "." + apiServiceGroupVersion.Group,
 				Annotations: map[string]string{
 					"service.alpha.openshift.io/inject-cabundle": "true",
 				},
 			},
 			Spec: apiregistrationv1.APIServiceSpec{
-				Group:   apiService.Group,
-				Version: apiService.Version,
+				Group:   apiServiceGroupVersion.Group,
+				Version: apiServiceGroupVersion.Version,
 				Service: &apiregistrationv1.ServiceReference{
 					Namespace: targetNamespaceName,
 					Name:      "api",
@@ -289,11 +324,12 @@ func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServi
 			},
 		}
 
-		_, _, err := resourceapply.ApplyAPIService(client, obj)
+		apiService, _, err := resourceapply.ApplyAPIService(client, obj)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		apiServices = append(apiServices, apiService)
 	}
 
-	return nil
+	return apiServices, nil
 }
