@@ -1,5 +1,0 @@
-apiVersion: config.openshift.io/v1
-kind: ClusterOperator
-metadata:
-  name: openshift-cluster-openshift-apiserver-operator
-spec: {}
