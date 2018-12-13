@@ -21,24 +21,28 @@ import (
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	operatorsv1 "github.com/openshift/api/operator/v1"
+	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorconfigclientv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/typed/openshiftapiserver/v1alpha1"
 	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions/openshiftapiserver/v1alpha1"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 const (
-	etcdNamespaceName          = "kube-system"
-	kubeAPIServerNamespaceName = "openshift-kube-apiserver"
-	targetNamespaceName        = "openshift-apiserver"
-	workQueueKey               = "key"
-	workloadFailingCondition   = "WorkloadFailing"
+	etcdNamespaceName            = "kube-system"
+	kubeAPIServerNamespaceName   = "openshift-kube-apiserver"
+	openshiftConfigNamespaceName = "openshift-config"
+	targetNamespaceName          = "openshift-apiserver"
+	workQueueKey                 = "key"
+	workloadFailingCondition     = "WorkloadFailing"
+	imageImportCAName            = "image-import-ca"
 )
 
 type OpenShiftAPIServerOperator struct {
 	targetImagePullSpec string
 
-	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface
-
+	operatorConfigClient    operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface
+	openshiftConfigClient   openshiftconfigclientv1.ConfigV1Interface
 	kubeClient              kubernetes.Interface
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface
 	eventRecorder           events.Recorder
@@ -55,8 +59,11 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftAPIServerNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForKubeAPIServerNamespace kubeinformers.SharedInformerFactory,
+	kubeInformersForOpenShiftConfigNamespace kubeinformers.SharedInformerFactory,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
+	configInformers configinformers.SharedInformerFactory,
 	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
+	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
 	kubeClient kubernetes.Interface,
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
 	eventRecorder events.Recorder,
@@ -64,6 +71,7 @@ func NewWorkloadController(
 	c := &OpenShiftAPIServerOperator{
 		targetImagePullSpec:     targetImagePullSpec,
 		operatorConfigClient:    operatorConfigClient,
+		openshiftConfigClient:   openshiftConfigClient,
 		kubeClient:              kubeClient,
 		apiregistrationv1Client: apiregistrationv1Client,
 		eventRecorder:           eventRecorder,
@@ -81,6 +89,8 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftAPIServerNamespace.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenShiftConfigNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
+	configInformers.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 	apiregistrationInformers.Apiregistration().V1().APIServices().Informer().AddEventHandler(c.eventHandler())
 
 	// we only watch some namespaces
