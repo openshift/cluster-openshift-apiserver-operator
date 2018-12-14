@@ -2,6 +2,7 @@ package operator
 
 import (
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -111,8 +112,15 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	}
 
 	// If the daemonset is up to date and the operatorConfig are up to date, then we are no longer progressing
-	if actualDaemonSet.ObjectMeta.Generation == actualDaemonSet.Status.ObservedGeneration &&
-		operatorConfig.ObjectMeta.Generation == operatorConfig.Status.ObservedGeneration {
+	var progressingMessages []string
+	if actualDaemonSet.ObjectMeta.Generation != actualDaemonSet.Status.ObservedGeneration {
+		progressingMessages = append(progressingMessages, fmt.Sprintf("daemonset/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDaemonSet.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation))
+	}
+	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
+		progressingMessages = append(progressingMessages, fmt.Sprintf("openshiftapiserveroperatorconfigs/instance: observed generation is %d, desired generation is %d.", operatorConfig.Status.ObservedGeneration, operatorConfig.ObjectMeta.Generation))
+	}
+
+	if len(progressingMessages) == 0 {
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
 			Type:   operatorv1.OperatorStatusTypeProgressing,
 			Status: operatorv1.ConditionFalse,
@@ -122,9 +130,10 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 			Type:    operatorv1.OperatorStatusTypeProgressing,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "DesiredStateNotYetAchieved",
-			Message: fmt.Sprintf("Generation: expected: %v, actual: %v", operatorConfig.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation),
+			Message: strings.Join(progressingMessages, "\n"),
 		})
 	}
+
 	// TODO this is changing too early and it was before too.
 	operatorConfig.Status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
 	resourcemerge.SetDaemonSetGeneration(&operatorConfig.Status.Generations, actualDaemonSet)
