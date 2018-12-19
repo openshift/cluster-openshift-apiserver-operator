@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/openshift/library-go/pkg/operator/status"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -22,13 +18,16 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 )
 
 // syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
@@ -81,7 +80,8 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	// only manage the apiservices if we have ready pods for the daemonset.  This makes sure that if we're taking over for
 	// something else, we don't stomp their apiservices until ours have a reasonable chance at working.
 	var actualAPIServices []*apiregistrationv1.APIService
-	if actualDaemonSet != nil && actualDaemonSet.Status.NumberAvailable > 0 {
+	manageAPIServices := actualDaemonSet != nil && actualDaemonSet.Status.NumberAvailable > 0
+	if manageAPIServices {
 		actualAPIServices, err = manageAPIServices_v311_00_to_latest(c.apiregistrationv1Client)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("%q: %v", "apiservices", err))
@@ -89,59 +89,94 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	}
 
 	// manage status
-	var availableConditionReason string
-	var availableConditionMessages []string
+	var availableConditions []operatorv1.OperatorCondition
 
 	switch {
 	case actualDaemonSet == nil:
-		availableConditionReason = "NoDaemon"
-		availableConditionMessages = append(availableConditionMessages, "daemonset/apiserver.openshift-apiserver: could not be retrieved")
+		availableConditions = append(availableConditions, operatorv1.OperatorCondition{
+			Reason:  "NoDaemon",
+			Message: "daemonset/apiserver.openshift-apiserver: could not be retrieved",
+		})
 	case actualDaemonSet.Status.NumberAvailable == 0:
-		availableConditionReason = "NoAPIServerPod"
-		availableConditionMessages = append(availableConditionMessages, "no openshift-apiserver daemon pods available on any node.")
-	case actualDaemonSet.Status.NumberAvailable > 0 && len(actualAPIServices) == 0:
-		availableConditionReason = "NoRegisteredAPIServices"
-		availableConditionMessages = append(availableConditionMessages, "registered apiservices could not be retrieved")
+		availableConditions = append(availableConditions, operatorv1.OperatorCondition{
+			Reason:  "NoAPIServerPod",
+			Message: "no openshift-apiserver daemon pods available on any node.",
+		})
 	}
+
+	//even if we can't manage the apiservices we still need to examine their availability
+	if !manageAPIServices {
+		for _, groupVersion := range apiServiceGroupVersions {
+			apiService, err := c.apiregistrationv1Client.APIServices().Get(groupVersion.Version+"."+groupVersion.Group, metav1.GetOptions{})
+			if err != nil {
+				errors = append(errors, fmt.Errorf("%q: %v.%v: %v", "apiservices", groupVersion.Version, groupVersion.Group, err))
+				availableConditions = append(availableConditions, operatorv1.OperatorCondition{
+					Reason:  "APIServiceError",
+					Message: fmt.Sprintf("apiservice/%v.%v: error retrieving: %v", groupVersion.Version, groupVersion.Group, err),
+				})
+			} else {
+				actualAPIServices = append(actualAPIServices, apiService)
+			}
+		}
+	}
+
+	if len(actualAPIServices) == 0 {
+		availableConditions = append(availableConditions, operatorv1.OperatorCondition{
+			Reason:  "NoRegisteredAPIServices",
+			Message: "registered apiservices could not be retrieved",
+		})
+	}
+
 	for _, apiService := range actualAPIServices {
 		for _, condition := range apiService.Status.Conditions {
 			if condition.Type == apiregistrationv1.Available {
 				if condition.Status == apiregistrationv1.ConditionFalse {
-					availableConditionReason = "APIServiceNotAvailable"
-					availableConditionMessages = append(availableConditionMessages, fmt.Sprintf("apiservice/%v: not available: %v", apiService.Name, condition.Message))
+					availableConditions = append(availableConditions, operatorv1.OperatorCondition{
+						Reason:  "APIServiceNotAvailable",
+						Message: fmt.Sprintf("apiservice/%v: not available: %v", apiService.Name, condition.Message),
+					})
 				}
 				break
 			}
 		}
 	}
+
 	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
 	// of something delaying them.  This isn't perfect because of round-robining, but let's see if we get an improvement
-	if len(availableConditionMessages) == 0 && c.kubeClient.Discovery().RESTClient() != nil {
-		missingAPIMessages := checkForAPIs(c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...)
-		availableConditionMessages = append(availableConditionMessages, missingAPIMessages...)
+	if len(availableConditions) == 0 && c.kubeClient.Discovery().RESTClient() != nil {
+		if missingAPIMessages := checkForAPIs(c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...); len(missingAPIMessages) > 0 {
+			availableConditions = append(availableConditions, operatorv1.OperatorCondition{
+				Reason:  "APIServiceNotAvailable",
+				Message: strings.Join(missingAPIMessages, "\n"),
+			})
+		}
 	}
 
-	switch {
-	case len(availableConditionMessages) == 1:
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
-			Status:  operatorv1.ConditionFalse,
-			Reason:  availableConditionReason,
-			Message: availableConditionMessages[0],
-		})
-	case len(availableConditionMessages) > 1:
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
-			Status:  operatorv1.ConditionFalse,
-			Reason:  "Multiple",
-			Message: strings.Join(availableConditionMessages, "\n"),
-		})
-	default:
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+	availableCondition := operatorv1.OperatorCondition{Type: operatorv1.OperatorStatusTypeAvailable, Status: operatorv1.ConditionUnknown}
+	if len(availableConditions) > 0 {
+		availableCondition.Status = operatorv1.ConditionFalse
+		var messages []string
+		for _, condition := range availableConditions {
+			if len(condition.Message) == 0 {
+				continue
+			}
+			messages = append(messages, condition.Message)
+		}
+		if len(messages) > 0 {
+			availableCondition.Message = strings.Join(messages, "\n")
+		}
+		if len(availableConditions) == 1 {
+			availableCondition.Reason = availableConditions[0].Reason
+		} else {
+			availableCondition.Reason = "Multiple"
+		}
+	} else {
+		availableCondition = operatorv1.OperatorCondition{
 			Type:   operatorv1.OperatorStatusTypeAvailable,
 			Status: operatorv1.ConditionTrue,
-		})
+		}
 	}
+	v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, availableCondition)
 
 	// If the daemonset is up to date and the operatorConfig are up to date, then we are no longer progressing
 	var progressingMessages []string

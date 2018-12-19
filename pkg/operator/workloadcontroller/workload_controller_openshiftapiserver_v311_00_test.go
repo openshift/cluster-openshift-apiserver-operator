@@ -316,6 +316,90 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:           "NoPodsAPIServiceNotAvailable",
+			expectedStatus: operatorv1.ConditionFalse,
+			expectedReason: "Multiple",
+			expectedMessages: []string{
+				"apiservice/v1.build.openshift.io: not available: TEST MESSAGE",
+				"no openshift-apiserver daemon pods available on any node.",
+			},
+
+			daemonReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+				if action.GetVerb() == "get" && action.GetNamespace() == "openshift-apiserver" && action.(kubetesting.GetAction).GetName() == "apiserver" {
+					return true, &appsv1.DaemonSet{
+						ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver"},
+						Status:     appsv1.DaemonSetStatus{NumberAvailable: 0},
+					}, nil
+				}
+				return false, nil, nil
+			},
+			apiServiceReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+				if action.GetVerb() == "get" && action.(kubetesting.GetAction).GetName() == "v1.build.openshift.io" {
+					return true, &apiregistrationv1.APIService{
+						ObjectMeta: metav1.ObjectMeta{Name: "v1.build.openshift.io", Annotations: map[string]string{"service.alpha.openshift.io/inject-cabundle": "true"}},
+						Spec: apiregistrationv1.APIServiceSpec{
+							Group:                "build.openshift.io",
+							Version:              "v1",
+							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api"},
+							GroupPriorityMinimum: 9900,
+							VersionPriority:      15,
+						},
+						Status: apiregistrationv1.APIServiceStatus{
+							Conditions: []apiregistrationv1.APIServiceCondition{
+								{Type: apiregistrationv1.Available, Status: apiregistrationv1.ConditionFalse, Message: "TEST MESSAGE"},
+							},
+						},
+					}, nil
+				}
+				return false, nil, nil
+			},
+		},
+		{
+			name:           "NoDaemonAPIServiceErrorAndNotAvailable",
+			expectedStatus: operatorv1.ConditionFalse,
+			expectedReason: "Multiple",
+			expectedMessages: []string{
+				"apiservice/v1.build.openshift.io: not available: TEST MESSAGE",
+				"apiservice/v1.project.openshift.io: error retrieving: TEST ERROR: fail to get apiservice",
+				"daemonset/apiserver.openshift-apiserver: could not be retrieved",
+			},
+
+			daemonReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+				if action.GetVerb() == "get" && action.GetNamespace() == "openshift-apiserver" && action.(kubetesting.GetAction).GetName() == "apiserver" {
+					return true, nil, errors.New("TEST ERROR: fail to get daemonset/apiserver.openshift-apiserver")
+				}
+				return false, nil, nil
+			},
+			apiServiceReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+				if action.GetVerb() != "get" {
+					return false, nil, nil
+				}
+
+				switch action.(kubetesting.GetAction).GetName() {
+				case "v1.build.openshift.io":
+					return true, &apiregistrationv1.APIService{
+						ObjectMeta: metav1.ObjectMeta{Name: "v1.build.openshift.io", Annotations: map[string]string{"service.alpha.openshift.io/inject-cabundle": "true"}},
+						Spec: apiregistrationv1.APIServiceSpec{
+							Group:                "build.openshift.io",
+							Version:              "v1",
+							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api"},
+							GroupPriorityMinimum: 9900,
+							VersionPriority:      15,
+						},
+						Status: apiregistrationv1.APIServiceStatus{
+							Conditions: []apiregistrationv1.APIServiceCondition{
+								{Type: apiregistrationv1.Available, Status: apiregistrationv1.ConditionFalse, Message: "TEST MESSAGE"},
+							},
+						},
+					}, nil
+				case "v1.project.openshift.io":
+					return true, nil, errors.New("TEST ERROR: fail to get apiservice")
+				default:
+					return false, nil, nil
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {
