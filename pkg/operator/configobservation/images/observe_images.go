@@ -23,7 +23,10 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	internalRegistryHostnamePath := []string{"imagePolicyConfig", "internalRegistryHostname"}
-	currentInternalRegistryHostname, _, _ := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
+	currentInternalRegistryHostname, _, err := unstructured.NestedString(existingConfig, internalRegistryHostnamePath...)
+	if err != nil {
+		return prevObservedConfig, append(errs, err)
+	}
 	if len(currentInternalRegistryHostname) > 0 {
 		err := unstructured.SetNestedField(prevObservedConfig, currentInternalRegistryHostname, internalRegistryHostnamePath...)
 		if err != nil {
@@ -66,7 +69,10 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	externalRegistryHostnamePath := []string{"imagePolicyConfig", "externalRegistryHostnames"}
-	o, _, _ := unstructured.NestedSlice(existingConfig, externalRegistryHostnamePath...)
+	o, _, err := unstructured.NestedSlice(existingConfig, externalRegistryHostnamePath...)
+	if err != nil {
+		return prevObservedConfig, append(errs, err)
+	}
 	if len(o) > 0 {
 		err := unstructured.SetNestedSlice(prevObservedConfig, o, externalRegistryHostnamePath...)
 		if err != nil {
@@ -117,7 +123,10 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 	// first observe all the existing config values so that if we get any errors
 	// we can at least return those.
 	allowedRegistriesForImportPath := []string{"imagePolicyConfig", "allowedRegistriesForImport"}
-	o, _, _ := unstructured.NestedSlice(existingConfig, allowedRegistriesForImportPath...)
+	o, _, err := unstructured.NestedSlice(existingConfig, allowedRegistriesForImportPath...)
+	if err != nil {
+		return prevObservedConfig, append(errs, err)
+	}
 	if len(o) > 0 {
 		err := unstructured.SetNestedSlice(prevObservedConfig, o, allowedRegistriesForImportPath...)
 		if err != nil {
