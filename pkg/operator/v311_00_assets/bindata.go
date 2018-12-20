@@ -183,6 +183,7 @@ spec:
             scheme: HTTPS
             port: 8443
             path: healthz
+      terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
       volumes:
       - name: config
         configMap:
