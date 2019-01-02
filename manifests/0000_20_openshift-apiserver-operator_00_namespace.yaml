@@ -4,4 +4,4 @@ metadata:
   labels:
     openshift.io/run-level: "0"
     openshift.io/cluster-monitoring: "true"
-  name: openshift-cluster-openshift-apiserver-operator
+  name: openshift-apiserver-operator

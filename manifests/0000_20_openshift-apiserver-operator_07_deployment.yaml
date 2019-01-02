@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: openshift-cluster-openshift-apiserver-operator
-  name: openshift-cluster-openshift-apiserver-operator
+  namespace: openshift-apiserver-operator
+  name: openshift-apiserver-operator
   labels:
-    app: openshift-cluster-openshift-apiserver-operator
+    app: openshift-apiserver-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: openshift-cluster-openshift-apiserver-operator
+      app: openshift-apiserver-operator
   template:
     metadata:
-      name: openshift-cluster-openshift-apiserver-operator
+      name: openshift-apiserver-operator
       labels:
-        app: openshift-cluster-openshift-apiserver-operator
+        app: openshift-apiserver-operator
     spec:
-      serviceAccountName: openshift-cluster-openshift-apiserver-operator
+      serviceAccountName: openshift-apiserver-operator
       containers:
       - name: operator
         image: docker.io/openshift/origin-cluster-openshift-apiserver-operator:v4.0
@@ -39,11 +39,11 @@ spec:
       volumes:
       - name: serving-cert
         secret:
-          secretName: openshift-cluster-openshift-apiserver-operator-serving-cert
+          secretName: openshift-apiserver-operator-serving-cert
           optional: true
       - name: config
         configMap:
-          name: openshift-cluster-openshift-apiserver-operator-config
+          name: openshift-apiserver-operator-config
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
