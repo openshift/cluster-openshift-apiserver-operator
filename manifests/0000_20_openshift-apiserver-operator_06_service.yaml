@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.alpha.openshift.io/serving-cert-secret-name: openshift-apiserver-operator-serving-cert
+  labels:
+    app: openshift-apiserver-operator
+  name: metrics
+  namespace: openshift-apiserver-operator
+spec:
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app: openshift-apiserver-operator
+  type: ClusterIP
+

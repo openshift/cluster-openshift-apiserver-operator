@@ -1,8 +1,8 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: cluster-openshift-apiserver-operator
-  namespace: openshift-cluster-openshift-apiserver-operator
+  name: openshift-apiserver-operator
+  namespace: openshift-apiserver-operator
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
@@ -17,11 +17,11 @@ spec:
     tlsConfig:
       # TODO where do you mount the service-ca.crt?
       insecureSkipVerify: true
-      serverName: metrics.openshift-cluster-openshift-apiserver-operator.svc
+      serverName: metrics.openshift-apiserver-operator.svc
   jobLabel: component
   namespaceSelector:
     matchNames:
-    - openshift-cluster-openshift-apiserver-operator
+    - openshift-apiserver-operator
   selector:
     matchLabels:
-      app: openshift-cluster-openshift-apiserver-operator
+      app: openshift-apiserver-operator
