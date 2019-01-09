@@ -36,24 +36,24 @@ const (
 	workQueueKey                          = "key"
 )
 
-func RunOperator(controllerContext *controllercmd.ControllerContext) error {
-	kubeClient, err := kubernetes.NewForConfig(controllerContext.KubeConfig)
+func RunOperator(ctx *controllercmd.ControllerContext) error {
+	kubeClient, err := kubernetes.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
-	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(controllerContext.KubeConfig)
+	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
-	operatorConfigClient, err := operatorconfigclient.NewForConfig(controllerContext.KubeConfig)
+	operatorConfigClient, err := operatorconfigclient.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
-	dynamicClient, err := dynamic.NewForConfig(controllerContext.KubeConfig)
+	dynamicClient, err := dynamic.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
-	configClient, err := configv1client.NewForConfig(controllerContext.KubeConfig)
+	configClient, err := configv1client.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,12 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 		configClient.ConfigV1(),
 		kubeClient,
 		apiregistrationv1Client.ApiregistrationV1(),
-		controllerContext.EventRecorder,
+		ctx.EventRecorder,
+	)
+	finalizerController := NewFinalizerController(
+		kubeInformersForOpenShiftAPIServerNamespace,
+		kubeClient,
+		ctx.EventRecorder,
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
@@ -99,7 +104,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 		operatorConfigInformers,
 		kubeInformersForEtcdNamespace,
 		configInformers,
-		controllerContext.EventRecorder,
+		ctx.EventRecorder,
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
@@ -113,20 +118,21 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 		},
 		configClient.ConfigV1(),
 		operatorClient,
-		controllerContext.EventRecorder,
+		ctx.EventRecorder,
 	)
 
-	operatorConfigInformers.Start(controllerContext.StopCh)
-	kubeInformersForOpenShiftAPIServerNamespace.Start(controllerContext.StopCh)
-	kubeInformersForKubeAPIServerNamespace.Start(controllerContext.StopCh)
-	kubeInformersForEtcdNamespace.Start(controllerContext.StopCh)
-	apiregistrationInformers.Start(controllerContext.StopCh)
-	configInformers.Start(controllerContext.StopCh)
+	operatorConfigInformers.Start(ctx.StopCh)
+	kubeInformersForOpenShiftAPIServerNamespace.Start(ctx.StopCh)
+	kubeInformersForKubeAPIServerNamespace.Start(ctx.StopCh)
+	kubeInformersForEtcdNamespace.Start(ctx.StopCh)
+	apiregistrationInformers.Start(ctx.StopCh)
+	configInformers.Start(ctx.StopCh)
 
-	go workloadController.Run(1, controllerContext.StopCh)
-	go configObserver.Run(1, controllerContext.StopCh)
-	go clusterOperatorStatus.Run(1, controllerContext.StopCh)
+	go workloadController.Run(1, ctx.StopCh)
+	go configObserver.Run(1, ctx.StopCh)
+	go clusterOperatorStatus.Run(1, ctx.StopCh)
+	go finalizerController.Run(1, ctx.StopCh)
 
-	<-controllerContext.StopCh
+	<-ctx.StopCh
 	return fmt.Errorf("stopped")
 }
