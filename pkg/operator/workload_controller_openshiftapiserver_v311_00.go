@@ -265,6 +265,11 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 			Namespace: targetNamespaceName,
 			Name:      "serving-cert",
 		},
+		resourcehash.ObjectReference{
+			Resource:  schema.GroupResource{Resource: "configmap"},
+			Namespace: "kube-system",
+			Name:      "extension-apiserver-authentication",
+		},
 	)
 	if err != nil {
 		return nil, false, err
