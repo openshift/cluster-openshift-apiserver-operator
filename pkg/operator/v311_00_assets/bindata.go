@@ -250,7 +250,7 @@ func v3110OpenshiftApiserverNsYaml() (*asset, error) {
 var _v3110OpenshiftApiserverOperatorConfigYaml = []byte(`apiVersion: openshiftapiserver.operator.openshift.io/v1alpha1
 kind: OpenShiftAPIServerOperatorConfig
 metadata:
-  name: instance
+  name: cluster
 spec:
   managementState: Managed
   imagePullSpec: openshift/origin-hypershift:latest

@@ -29,13 +29,8 @@ import (
 )
 
 const (
-	etcdNamespaceName            = "kube-system"
-	kubeAPIServerNamespaceName   = "openshift-kube-apiserver"
-	openshiftConfigNamespaceName = "openshift-config"
-	targetNamespaceName          = "openshift-apiserver"
-	workQueueKey                 = "key"
-	workloadFailingCondition     = "WorkloadFailing"
-	imageImportCAName            = "image-import-ca"
+	workloadFailingCondition = "WorkloadFailing"
+	imageImportCAName        = "image-import-ca"
 )
 
 type OpenShiftAPIServerOperator struct {
@@ -100,7 +95,7 @@ func NewWorkloadController(
 }
 
 func (c OpenShiftAPIServerOperator) sync() error {
-	operatorConfig, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
+	operatorConfig, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().Get("cluster", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
