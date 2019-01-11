@@ -14,6 +14,7 @@ import (
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
+	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
@@ -23,6 +24,16 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
+)
+
+const (
+	etcdNamespaceName                     = "kube-system"
+	userSpecifiedGlobalConfigNamespace    = "openshift-config"
+	machineSpecifiedGlobalConfigNamespace = "openshift-config-managed"
+	kubeAPIServerNamespaceName            = "openshift-kube-apiserver"
+	operatorNamespace                     = "openshift-apiserver-operator"
+	targetNamespaceName                   = "openshift-apiserver"
+	workQueueKey                          = "key"
 )
 
 func RunOperator(controllerContext *controllercmd.ControllerContext) error {
@@ -58,7 +69,7 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 	kubeInformersForOpenShiftAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(targetNamespaceName))
 	kubeInformersForKubeAPIServerNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(kubeAPIServerNamespaceName))
 	kubeInformersForEtcdNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(etcdNamespaceName))
-	kubeInformersForOpenShiftConfigNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(openshiftConfigNamespaceName))
+	kubeInformersForOpenShiftConfigNamespace := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 10*time.Minute, kubeinformers.WithNamespace(userSpecifiedGlobalConfigNamespace))
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
@@ -92,7 +103,14 @@ func RunOperator(controllerContext *controllercmd.ControllerContext) error {
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
-		"openshift-apiserver-operator",
+		"openshift-apiserver",
+		[]configv1.ObjectReference{
+			{Group: "openshiftapiserver.operator.openshift.io", Resource: "openshiftapiserveroperatorconfigs", Name: "cluster"},
+			{Resource: "namespaces", Name: userSpecifiedGlobalConfigNamespace},
+			{Resource: "namespaces", Name: machineSpecifiedGlobalConfigNamespace},
+			{Resource: "namespaces", Name: operatorNamespace},
+			{Resource: "namespaces", Name: targetNamespaceName},
+		},
 		configClient.ConfigV1(),
 		operatorClient,
 		controllerContext.EventRecorder,

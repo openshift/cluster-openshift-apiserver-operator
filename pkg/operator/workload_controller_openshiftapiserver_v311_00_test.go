@@ -121,7 +121,7 @@ func TestProgressingCondition(t *testing.T) {
 
 			operatorConfig := &openshiftapiserveroperator.OpenShiftAPIServerOperatorConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       "instance",
+					Name:       "cluster",
 					Generation: tc.configGeneration,
 				},
 				Spec: openshiftapiserveroperator.OpenShiftAPIServerOperatorConfigSpec{
@@ -147,7 +147,7 @@ func TestProgressingCondition(t *testing.T) {
 
 			syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.Openshiftapiserver().OpenShiftAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
+			result, err := apiServiceOperatorClient.Openshiftapiserver().OpenShiftAPIServerOperatorConfigs().Get("cluster", metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -334,7 +334,7 @@ func TestAvailableStatus(t *testing.T) {
 
 			operatorConfig := &openshiftapiserveroperator.OpenShiftAPIServerOperatorConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       "instance",
+					Name:       "cluster",
 					Generation: 99,
 				},
 				Spec: openshiftapiserveroperator.OpenShiftAPIServerOperatorConfigSpec{
@@ -375,7 +375,7 @@ func TestAvailableStatus(t *testing.T) {
 
 			syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.Openshiftapiserver().OpenShiftAPIServerOperatorConfigs().Get("instance", metav1.GetOptions{})
+			result, err := apiServiceOperatorClient.Openshiftapiserver().OpenShiftAPIServerOperatorConfigs().Get("cluster", metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
