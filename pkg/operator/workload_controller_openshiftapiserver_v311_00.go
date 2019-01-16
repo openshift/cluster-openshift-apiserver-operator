@@ -204,11 +204,11 @@ func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.Cor
 	const etcdServingCAName = "etcd-serving-ca"
 	const etcdClientCertKeyPairName = "etcd-client"
 
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, etcdNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, etcdNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName, nil)
 	if err != nil {
 		return false, err
 	}
-	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, recorder, etcdNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName)
+	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, recorder, etcdNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName, nil)
 	if err != nil {
 		return false, err
 	}
@@ -217,7 +217,7 @@ func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.Cor
 
 func manageOpenShiftAPIServerClientCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
 	const apiserverClientCA = "client-ca"
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, kubeAPIServerNamespaceName, apiserverClientCA, targetNamespaceName, apiserverClientCA)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, kubeAPIServerNamespaceName, apiserverClientCA, targetNamespaceName, apiserverClientCA, nil)
 	if err != nil {
 		return false, err
 	}
@@ -242,7 +242,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 		}
 		return true, nil
 	}
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, userSpecifiedGlobalConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, targetNamespaceName, imageImportCAName)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, userSpecifiedGlobalConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, targetNamespaceName, imageImportCAName, nil)
 	if err != nil {
 		return false, err
 	}
