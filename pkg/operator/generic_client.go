@@ -17,15 +17,6 @@ func (p *operatorClient) Informer() cache.SharedIndexInformer {
 	return p.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer()
 }
 
-func (p *operatorClient) CurrentStatus() (operatorv1.OperatorStatus, error) {
-	instance, err := p.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("cluster")
-	if err != nil {
-		return operatorv1.OperatorStatus{}, err
-	}
-
-	return instance.Status.OperatorStatus, nil
-}
-
 func (c *operatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
 	instance, err := c.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
@@ -51,10 +42,10 @@ func (c *operatorClient) UpdateOperatorSpec(resourceVersion string, spec *operat
 
 	return &ret.Spec.OperatorSpec, ret.ResourceVersion, nil
 }
-func (c *operatorClient) UpdateOperatorStatus(resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, string, error) {
+func (c *operatorClient) UpdateOperatorStatus(resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, error) {
 	original, err := c.informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("cluster")
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	copy := original.DeepCopy()
 	copy.ResourceVersion = resourceVersion
@@ -62,8 +53,8 @@ func (c *operatorClient) UpdateOperatorStatus(resourceVersion string, status *op
 
 	ret, err := c.client.OpenShiftAPIServerOperatorConfigs().UpdateStatus(copy)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return &ret.Status.OperatorStatus, ret.ResourceVersion, nil
+	return &ret.Status.OperatorStatus, nil
 }

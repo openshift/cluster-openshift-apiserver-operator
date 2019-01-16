@@ -1,5 +1,5 @@
 hash: 89d92ca5dd660139f1f919319051390bedc6bb3f392a98909cdb2bca2bc2a0d5
-updated: 2019-01-15T20:22:52.629978872-05:00
+updated: 2019-01-16T14:50:15.844176255-05:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -185,7 +185,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 5b54c0567117286a7ee777f35efc8201024cab34
+  version: 7e08e1ffe8147ffd3d4b798f4fa7527296580fec
   subpackages:
   - apps
   - apps/v1
@@ -244,7 +244,7 @@ imports:
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
 - name: github.com/openshift/library-go
-  version: b52826bad49305e5ac28dc0c10a749dfc8d6c3c6
+  version: 4cbaff83c2517b8f8fe0e20b747e6dc71b038aeb
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -262,9 +262,7 @@ imports:
   - pkg/operator/resource/resourcehash
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
-  - pkg/operator/staticpod/controller/common
   - pkg/operator/status
-  - pkg/operator/v1alpha1helpers
   - pkg/operator/v1helpers
   - pkg/serviceability
 - name: github.com/pborman/uuid

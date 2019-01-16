@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,7 +25,6 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/v1alpha1helpers"
 )
 
 const (
@@ -58,11 +59,10 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
-	v1alpha1helpers.EnsureOperatorConfigExists(
+	v1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/operator-config.yaml"),
 		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "openshiftapiserveroperatorconfigs"},
-		v1alpha1helpers.GetImageEnv,
 	)
 
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
