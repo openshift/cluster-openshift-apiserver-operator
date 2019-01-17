@@ -18,7 +18,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -47,7 +46,6 @@ type ConfigObserver struct {
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
 
-	rateLimiter flowcontrol.RateLimiter
 	// observers are called in an undefined order and their results are merged to
 	// determine the observed configuration.
 	observers []ObserveConfigFunc
@@ -68,9 +66,8 @@ func NewConfigObserver(
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ConfigObserver"),
 
-		rateLimiter: flowcontrol.NewTokenBucketRateLimiter(0.05 /*3 per minute*/, 4),
-		observers:   observers,
-		listers:     listers,
+		observers: observers,
+		listers:   listers,
 	}
 }
 
@@ -176,9 +173,6 @@ func (c *ConfigObserver) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(dsKey)
-
-	// before we call sync, we want to wait for token.  We do this to avoid hot looping.
-	c.rateLimiter.Accept()
 
 	err := c.sync()
 	if err == nil {
