@@ -63,24 +63,13 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
 
-	// the kube-apiserver is the source of truth for etcd serving CA bundles and etcd write keys.  We copy both so they can properly mounted
-	etcdModified, err := manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
-	}
-	// the kube-apiserver is the source of truth for client CA bundles
-	clientCAModified, err := manageOpenShiftAPIServerClientCA_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
-	}
-
 	imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
 	}
 
 	forceRollingUpdate = forceRollingUpdate || operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration
-	forceRollingUpdate = forceRollingUpdate || configMapModified || etcdModified || clientCAModified || imageImportCAModified
+	forceRollingUpdate = forceRollingUpdate || configMapModified || imageImportCAModified
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
@@ -202,30 +191,6 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	return false, nil
 }
 
-func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
-	const etcdServingCAName = "etcd-serving-ca"
-	const etcdClientCertKeyPairName = "etcd-client"
-
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.EtcdNamespaceName, etcdServingCAName, operatorclient.TargetNamespaceName, etcdServingCAName, nil)
-	if err != nil {
-		return false, err
-	}
-	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, recorder, operatorclient.EtcdNamespaceName, etcdClientCertKeyPairName, operatorclient.TargetNamespaceName, etcdClientCertKeyPairName, nil)
-	if err != nil {
-		return false, err
-	}
-	return caChanged || certKeyPairChanged, nil
-}
-
-func manageOpenShiftAPIServerClientCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
-	const apiserverClientCA = "client-ca"
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.KubeAPIServerNamespaceName, apiserverClientCA, operatorclient.TargetNamespaceName, apiserverClientCA, nil)
-	if err != nil {
-		return false, err
-	}
-	return caChanged, nil
-}
-
 func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
 	imageConfig, err := openshiftConfigClient.Images().Get("cluster", metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -262,6 +227,21 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	// we can embed input hashes on our main configmap to drive rollouts when they change.
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
 		kubeClient,
+		resourcehash.ObjectReference{
+			Resource:  schema.GroupResource{Resource: "configmap"},
+			Namespace: operatorclient.TargetNamespaceName,
+			Name:      "client-ca",
+		},
+		resourcehash.ObjectReference{
+			Resource:  schema.GroupResource{Resource: "configmap"},
+			Namespace: operatorclient.TargetNamespaceName,
+			Name:      "etcd-serving-ca",
+		},
+		resourcehash.ObjectReference{
+			Resource:  schema.GroupResource{Resource: "secret"},
+			Namespace: operatorclient.TargetNamespaceName,
+			Name:      "etcd-client",
+		},
 		resourcehash.ObjectReference{
 			Resource:  schema.GroupResource{Resource: "secret"},
 			Namespace: operatorclient.TargetNamespaceName,

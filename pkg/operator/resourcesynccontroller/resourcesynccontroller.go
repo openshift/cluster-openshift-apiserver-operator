@@ -34,28 +34,8 @@ func NewResourceSyncController(
 		return nil, err
 	}
 	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespaceName, Name: "aggregator-client-ca"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.MachineSpecifiedGlobalConfigNamespace, Name: "aggregator-client-ca"},
-	); err != nil {
-		return nil, err
-	}
-	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "initial-client-ca"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.UserSpecifiedGlobalConfigNamespace, Name: "initial-client-ca"},
-	); err != nil {
-		return nil, err
-	}
-	// this ca bundle contains certs used to sign CSRs (kubelet serving and client certificates)
-	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "csr-controller-ca"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.MachineSpecifiedGlobalConfigNamespace, Name: "csr-controller-ca"},
-	); err != nil {
-		return nil, err
-	}
-	// this ca bundle contains certs used by the kube-apiserver to verify client certs
-	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.MachineSpecifiedGlobalConfigNamespace, Name: "kube-apiserver-client-ca"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespaceName, Name: "client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.KubeAPIServerNamespaceName, Name: "client-ca"},
 	); err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
@@ -70,6 +71,16 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		Client:    operatorConfigClient.OpenshiftapiserverV1alpha1(),
 	}
 
+	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
+		operatorClient,
+		kubeInformersForNamespaces,
+		kubeClient,
+		ctx.EventRecorder,
+	)
+	if err != nil {
+		return err
+	}
+
 	workloadController := NewWorkloadController(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
@@ -122,6 +133,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go configObserver.Run(1, ctx.StopCh)
 	go clusterOperatorStatus.Run(1, ctx.StopCh)
 	go finalizerController.Run(1, ctx.StopCh)
+	go resourceSyncController.Run(1, ctx.StopCh)
 
 	<-ctx.StopCh
 	return fmt.Errorf("stopped")
