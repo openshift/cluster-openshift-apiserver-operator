@@ -62,7 +62,15 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	)
 
 	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
-	kubeInformersForNamespaces := operatorclient.NewKubeInformersForNamespaces(kubeClient)
+	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
+		"",
+		operatorclient.UserSpecifiedGlobalConfigNamespace,
+		operatorclient.MachineSpecifiedGlobalConfigNamespace,
+		operatorclient.KubeAPIServerNamespaceName,
+		operatorclient.OperatorNamespace,
+		operatorclient.TargetNamespaceName,
+		"kube-system",
+	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
@@ -84,10 +92,10 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	workloadController := NewWorkloadController(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
-		kubeInformersForNamespaces[operatorclient.TargetNamespaceName],
-		kubeInformersForNamespaces[operatorclient.EtcdNamespaceName],
-		kubeInformersForNamespaces[operatorclient.KubeAPIServerNamespaceName],
-		kubeInformersForNamespaces[operatorclient.UserSpecifiedGlobalConfigNamespace],
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName),
+		kubeInformersForNamespaces.InformersFor(operatorclient.EtcdNamespaceName),
+		kubeInformersForNamespaces.InformersFor(operatorclient.KubeAPIServerNamespaceName),
+		kubeInformersForNamespaces.InformersFor(operatorclient.UserSpecifiedGlobalConfigNamespace),
 		apiregistrationInformers,
 		configInformers,
 		operatorConfigClient.OpenshiftapiserverV1alpha1(),
@@ -97,15 +105,16 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 	finalizerController := NewFinalizerController(
-		kubeInformersForNamespaces[operatorclient.TargetNamespaceName],
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName),
 		kubeClient,
 		ctx.EventRecorder,
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
 		operatorClient,
+		resourceSyncController,
 		operatorConfigInformers,
-		kubeInformersForNamespaces["kube-system"],
+		kubeInformersForNamespaces.InformersFor("kube-system"),
 		configInformers,
 		ctx.EventRecorder,
 	)

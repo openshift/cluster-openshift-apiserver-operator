@@ -2,6 +2,7 @@ package configobservercontroller
 
 import (
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
@@ -21,6 +22,7 @@ type ConfigObserver struct {
 // NewConfigObserver initializes a new configuration observer.
 func NewConfigObserver(
 	operatorClient v1helpers.OperatorClient,
+	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	operatorConfigInformers openshiftapiserveroperatorinformers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
@@ -31,6 +33,7 @@ func NewConfigObserver(
 			operatorClient,
 			eventRecorder,
 			configobservation.Listers{
+				ResourceSync:        resourceSyncer,
 				ImageConfigLister:   configInformers.Config().V1().Images().Lister(),
 				IngressConfigLister: configInformers.Config().V1().Ingresses().Lister(),
 				EndpointsLister:     kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
