@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+
 	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -260,7 +262,7 @@ func TestAvailableStatus(t *testing.T) {
 						Spec: apiregistrationv1.APIServiceSpec{
 							Group:                "build.openshift.io",
 							Version:              "v1",
-							Service:              &apiregistrationv1.ServiceReference{Namespace: targetNamespaceName, Name: "api"},
+							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespaceName, Name: "api"},
 							GroupPriorityMinimum: 9900,
 							VersionPriority:      15,
 						},
@@ -297,7 +299,7 @@ func TestAvailableStatus(t *testing.T) {
 						Spec: apiregistrationv1.APIServiceSpec{
 							Group:                action.GetResource().Group,
 							Version:              action.GetResource().Version,
-							Service:              &apiregistrationv1.ServiceReference{Namespace: targetNamespaceName, Name: "api"},
+							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespaceName, Name: "api"},
 							GroupPriorityMinimum: 9900,
 							VersionPriority:      15,
 						},
@@ -353,7 +355,7 @@ func TestAvailableStatus(t *testing.T) {
 				return true,
 					&apiregistrationv1.APIService{
 						ObjectMeta: metav1.ObjectMeta{Name: action.(kubetesting.GetAction).GetName(), Annotations: map[string]string{"service.alpha.openshift.io/inject-cabundle": "true"}},
-						Spec:       apiregistrationv1.APIServiceSpec{Group: action.GetResource().Group, Version: action.GetResource().Version, Service: &apiregistrationv1.ServiceReference{Namespace: targetNamespaceName, Name: "api"}, GroupPriorityMinimum: 9900, VersionPriority: 15},
+						Spec:       apiregistrationv1.APIServiceSpec{Group: action.GetResource().Group, Version: action.GetResource().Version, Service: &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespaceName, Name: "api"}, GroupPriorityMinimum: 9900, VersionPriority: 15},
 						Status:     apiregistrationv1.APIServiceStatus{Conditions: []apiregistrationv1.APIServiceCondition{{Type: apiregistrationv1.Available, Status: apiregistrationv1.ConditionTrue}}},
 					}, nil
 			})
