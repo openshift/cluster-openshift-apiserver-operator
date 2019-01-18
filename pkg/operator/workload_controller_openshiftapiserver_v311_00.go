@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -61,24 +63,13 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
 
-	// the kube-apiserver is the source of truth for etcd serving CA bundles and etcd write keys.  We copy both so they can properly mounted
-	etcdModified, err := manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "etcd-certs", err))
-	}
-	// the kube-apiserver is the source of truth for client CA bundles
-	clientCAModified, err := manageOpenShiftAPIServerClientCA_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
-	}
-
 	imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
 	}
 
 	forceRollingUpdate = forceRollingUpdate || operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration
-	forceRollingUpdate = forceRollingUpdate || configMapModified || etcdModified || clientCAModified || imageImportCAModified
+	forceRollingUpdate = forceRollingUpdate || configMapModified || imageImportCAModified
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
@@ -200,30 +191,6 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	return false, nil
 }
 
-func manageOpenShiftAPIServerEtcdCerts_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
-	const etcdServingCAName = "etcd-serving-ca"
-	const etcdClientCertKeyPairName = "etcd-client"
-
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, etcdNamespaceName, etcdServingCAName, targetNamespaceName, etcdServingCAName, nil)
-	if err != nil {
-		return false, err
-	}
-	_, certKeyPairChanged, err := resourceapply.SyncSecret(client, recorder, etcdNamespaceName, etcdClientCertKeyPairName, targetNamespaceName, etcdClientCertKeyPairName, nil)
-	if err != nil {
-		return false, err
-	}
-	return caChanged || certKeyPairChanged, nil
-}
-
-func manageOpenShiftAPIServerClientCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
-	const apiserverClientCA = "client-ca"
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, kubeAPIServerNamespaceName, apiserverClientCA, targetNamespaceName, apiserverClientCA, nil)
-	if err != nil {
-		return false, err
-	}
-	return caChanged, nil
-}
-
 func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
 	imageConfig, err := openshiftConfigClient.Images().Get("cluster", metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -233,7 +200,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 		return false, nil
 	}
 	if len(imageConfig.Spec.AdditionalTrustedCA.Name) == 0 {
-		err := client.ConfigMaps(targetNamespaceName).Delete(imageImportCAName, nil)
+		err := client.ConfigMaps(operatorclient.TargetNamespaceName).Delete(imageImportCAName, nil)
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}
@@ -242,7 +209,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 		}
 		return true, nil
 	}
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, userSpecifiedGlobalConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, targetNamespaceName, imageImportCAName, nil)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.UserSpecifiedGlobalConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespaceName, imageImportCAName, nil)
 	if err != nil {
 		return false, err
 	}
@@ -260,16 +227,11 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	// we can embed input hashes on our main configmap to drive rollouts when they change.
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
 		kubeClient,
-		resourcehash.ObjectReference{
-			Resource:  schema.GroupResource{Resource: "secret"},
-			Namespace: targetNamespaceName,
-			Name:      "serving-cert",
-		},
-		resourcehash.ObjectReference{
-			Resource:  schema.GroupResource{Resource: "configmap"},
-			Namespace: "kube-system",
-			Name:      "extension-apiserver-authentication",
-		},
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("client-ca"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("etcd-serving-ca"),
+		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespaceName).Named("etcd-client"),
+		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespaceName).Named("serving-cert"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace("kube-system").Named("extension-apiserver-authentication"),
 	)
 	if err != nil {
 		return nil, false, err
@@ -321,7 +283,7 @@ func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServi
 				Group:   apiServiceGroupVersion.Group,
 				Version: apiServiceGroupVersion.Version,
 				Service: &apiregistrationv1.ServiceReference{
-					Namespace: targetNamespaceName,
+					Namespace: operatorclient.TargetNamespaceName,
 					Name:      "api",
 				},
 				GroupPriorityMinimum: 9900,
