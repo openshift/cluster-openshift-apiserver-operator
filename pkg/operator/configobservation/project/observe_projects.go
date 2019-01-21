@@ -13,8 +13,12 @@ import (
 )
 
 var (
-	projectRequestMessagePath      = []string{"projectConfig", "projectRequestMessage"}
-	projectRequestTemplateNamePath = []string{"projectConfig", "projectRequestTemplate", "name"}
+	// This represents a JSON path for openshiftcontrolplane/v1.OpenShiftAPIServerConfig
+	projectRequestMessagePath = []string{"projectConfig", "projectRequestMessage"}
+
+	// This represents a JSON path for openshiftcontrolplane/v1.OpenShiftAPIServerConfig
+	// Note: This is not typo, there is no "name" here as this path is not the same as config.openshift.io/v1
+	projectRequestTemplateNamePath = []string{"projectConfig", "projectRequestTemplate"}
 )
 
 // ObserveProjectRequestTemplateName observers changes to config.openshift.io/Project resource field 'spec.projectRequestTemplate.Name' and update the existing apiserver

@@ -60,5 +60,6 @@ func NewConfigObserver(
 	kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Ingresses().Informer().AddEventHandler(c.EventHandler())
+	configInformers.Config().V1().Projects().Informer().AddEventHandler(c.EventHandler())
 	return c
 }
