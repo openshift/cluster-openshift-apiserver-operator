@@ -1,2 +1,14 @@
 apiVersion: openshiftcontrolplane.config.openshift.io/v1
 kind: OpenShiftAPIServerConfig
+aggregatorConfig:
+  clientCA: /var/run/configmaps/aggregator-client-ca/ca-bundle.crt
+  allowedNames:
+  - kube-apiserver-proxy
+  - system:kube-apiserver-proxy
+  - system:openshift-aggregator
+  usernameHeaders:
+  - X-Remote-User
+  groupHeaders:
+  - X-Remote-Group
+  extraHeaderPrefixes:
+  - X-Remote-Extra-
