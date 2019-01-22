@@ -49,6 +49,8 @@ spec:
           name: image-import-ca
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
+        - mountPath: /var/log/openshift-apiserver
+          name: audit-dir
         livenessProbe:
           initialDelaySeconds: 30
           httpGet:
@@ -85,6 +87,9 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
+      - hostPath:
+          path: /var/log/openshift-apiserver
+        name: audit-dir
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
