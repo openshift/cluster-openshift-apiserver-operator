@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
+
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 
@@ -27,10 +29,6 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/status"
-)
-
-const (
-	workQueueKey = "key"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -89,7 +87,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
-	workloadController := NewWorkloadController(
+	workloadController := workloadcontroller.NewWorkloadController(
 		os.Getenv("IMAGE"),
 		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName),

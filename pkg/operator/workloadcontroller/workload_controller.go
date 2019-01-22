@@ -1,4 +1,4 @@
-package operator
+package workloadcontroller
 
 import (
 	"fmt"
@@ -34,6 +34,7 @@ import (
 const (
 	workloadFailingCondition = "WorkloadFailing"
 	imageImportCAName        = "image-import-ca"
+	workQueueKey             = "key"
 )
 
 type OpenShiftAPIServerOperator struct {
