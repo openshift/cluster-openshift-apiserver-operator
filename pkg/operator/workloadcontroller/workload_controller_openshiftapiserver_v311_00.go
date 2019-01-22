@@ -210,6 +210,16 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	if len(errors) > 0 {
 		return true, nil
 	}
+	if !v1helpers.IsOperatorConditionFalse(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeFailing) {
+		return true, nil
+	}
+	if !v1helpers.IsOperatorConditionFalse(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeProgressing) {
+		return true, nil
+	}
+	if !v1helpers.IsOperatorConditionTrue(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeAvailable) {
+		return true, nil
+	}
+
 	return false, nil
 }
 
