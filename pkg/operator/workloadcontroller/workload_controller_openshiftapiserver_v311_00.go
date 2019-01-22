@@ -31,6 +31,21 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
+var apiServiceGroupVersions = []schema.GroupVersion{
+	// these are all the apigroups we manage
+	{Group: "apps.openshift.io", Version: "v1"},
+	{Group: "authorization.openshift.io", Version: "v1"},
+	{Group: "build.openshift.io", Version: "v1"},
+	{Group: "image.openshift.io", Version: "v1"},
+	{Group: "oauth.openshift.io", Version: "v1"},
+	{Group: "project.openshift.io", Version: "v1"},
+	{Group: "quota.openshift.io", Version: "v1"},
+	{Group: "route.openshift.io", Version: "v1"},
+	{Group: "security.openshift.io", Version: "v1"},
+	{Group: "template.openshift.io", Version: "v1"},
+	{Group: "user.openshift.io", Version: "v1"},
+}
+
 // syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
 func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig) (bool, error) {
@@ -114,6 +129,13 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 			}
 		}
 	}
+	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
+	// of something delaying them.  This isn't perfect because of round-robining, but let's see if we get an improvement
+	if len(availableConditionMessages) == 0 && c.kubeClient.Discovery().RESTClient() != nil {
+		missingAPIMessages := checkForAPIs(c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...)
+		availableConditionMessages = append(availableConditionMessages, missingAPIMessages...)
+	}
+
 	switch {
 	case len(availableConditionMessages) == 1:
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
@@ -255,21 +277,6 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.Dae
 }
 
 func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServicesGetter) ([]*apiregistrationv1.APIService, error) {
-	apiServiceGroupVersions := []schema.GroupVersion{
-		// these are all the apigroups we manage
-		{Group: "apps.openshift.io", Version: "v1"},
-		{Group: "authorization.openshift.io", Version: "v1"},
-		{Group: "build.openshift.io", Version: "v1"},
-		{Group: "image.openshift.io", Version: "v1"},
-		{Group: "oauth.openshift.io", Version: "v1"},
-		{Group: "project.openshift.io", Version: "v1"},
-		{Group: "quota.openshift.io", Version: "v1"},
-		{Group: "route.openshift.io", Version: "v1"},
-		{Group: "security.openshift.io", Version: "v1"},
-		{Group: "template.openshift.io", Version: "v1"},
-		{Group: "user.openshift.io", Version: "v1"},
-	}
-
 	var apiServices []*apiregistrationv1.APIService
 	for _, apiServiceGroupVersion := range apiServiceGroupVersions {
 		obj := &apiregistrationv1.APIService{
