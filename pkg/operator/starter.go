@@ -119,13 +119,16 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
 		"openshift-apiserver",
-		[]configv1.ObjectReference{
-			{Group: "openshiftapiserver.operator.openshift.io", Resource: "openshiftapiserveroperatorconfigs", Name: "cluster"},
-			{Resource: "namespaces", Name: operatorclient.UserSpecifiedGlobalConfigNamespace},
-			{Resource: "namespaces", Name: operatorclient.MachineSpecifiedGlobalConfigNamespace},
-			{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
-			{Resource: "namespaces", Name: operatorclient.TargetNamespaceName},
-		},
+		append(
+			[]configv1.ObjectReference{
+				{Group: "openshiftapiserver.operator.openshift.io", Resource: "openshiftapiserveroperatorconfigs", Name: "cluster"},
+				{Resource: "namespaces", Name: operatorclient.UserSpecifiedGlobalConfigNamespace},
+				{Resource: "namespaces", Name: operatorclient.MachineSpecifiedGlobalConfigNamespace},
+				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
+				{Resource: "namespaces", Name: operatorclient.TargetNamespaceName},
+			},
+			workloadcontroller.APIServiceReferences()...,
+		),
 		configClient.ConfigV1(),
 		operatorClient,
 		status.NewVersionGetter(),
