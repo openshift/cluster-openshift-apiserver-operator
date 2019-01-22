@@ -249,11 +249,11 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	// we can embed input hashes on our main configmap to drive rollouts when they change.
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
 		kubeClient,
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("aggregator-client-ca"),
 		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("client-ca"),
-		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("etcd-serving-ca"),
 		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespaceName).Named("etcd-client"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("etcd-serving-ca"),
 		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespaceName).Named("serving-cert"),
-		resourcehash.NewObjectRef().ForConfigMap().InNamespace("kube-system").Named("extension-apiserver-authentication"),
 	)
 	if err != nil {
 		return nil, false, err

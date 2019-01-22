@@ -34,7 +34,13 @@ func NewResourceSyncController(
 	}
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespaceName, Name: "client-ca"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.KubeAPIServerNamespaceName, Name: "client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.MachineSpecifiedGlobalConfigNamespace, Name: "kube-apiserver-client-ca"},
+	); err != nil {
+		return nil, err
+	}
+	if err := resourceSyncController.SyncConfigMap(
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespaceName, Name: "aggregator-client-ca"},
+		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.MachineSpecifiedGlobalConfigNamespace, Name: "kube-apiserver-aggregator-client-ca"},
 	); err != nil {
 		return nil, err
 	}

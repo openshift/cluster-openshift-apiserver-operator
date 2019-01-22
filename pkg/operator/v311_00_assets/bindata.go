@@ -105,6 +105,18 @@ func v3110OpenshiftApiserverCmYaml() (*asset, error) {
 
 var _v3110OpenshiftApiserverDefaultconfigYaml = []byte(`apiVersion: openshiftcontrolplane.config.openshift.io/v1
 kind: OpenShiftAPIServerConfig
+aggregatorConfig:
+  clientCA: /var/run/configmaps/aggregator-client-ca/ca-bundle.crt
+  allowedNames:
+  - kube-apiserver-proxy
+  - system:kube-apiserver-proxy
+  - system:openshift-aggregator
+  usernameHeaders:
+  - X-Remote-User
+  groupHeaders:
+  - X-Remote-Group
+  extraHeaderPrefixes:
+  - X-Remote-Extra-
 `)
 
 func v3110OpenshiftApiserverDefaultconfigYamlBytes() ([]byte, error) {
@@ -159,16 +171,18 @@ spec:
         ports:
         - containerPort: 8443
         volumeMounts:
-        - mountPath: /var/run/configmaps/config
-          name: config
+        - mountPath: /var/run/configmaps/aggregator-client-ca
+          name: aggregator-client-ca
         - mountPath: /var/run/configmaps/client-ca
           name: client-ca
+        - mountPath: /var/run/configmaps/config
+          name: config
+        - mountPath: /var/run/secrets/etcd-client
+          name: etcd-client
         - mountPath: /var/run/configmaps/etcd-serving-ca
           name: etcd-serving-ca
         - mountPath: /var/run/configmaps/image-import-ca
           name: image-import-ca
-        - mountPath: /var/run/secrets/etcd-client
-          name: etcd-client
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
         livenessProbe:
@@ -185,12 +199,18 @@ spec:
             path: healthz
       terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
       volumes:
-      - name: config
+      - name: aggregator-client-ca
         configMap:
-          name: config
+          name: aggregator-client-ca
       - name: client-ca
         configMap:
           name: client-ca
+      - name: config
+        configMap:
+          name: config
+      - name: etcd-client
+        secret:
+          secretName: etcd-client
       - name: etcd-serving-ca
         configMap:
           name: etcd-serving-ca
@@ -198,9 +218,6 @@ spec:
         configMap:
           name: image-import-ca
           optional: true
-      - name: etcd-client
-        secret:
-          secretName: etcd-client
       - name: serving-cert
         secret:
           secretName: serving-cert
