@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -30,21 +29,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
-
-var apiServiceGroupVersions = []schema.GroupVersion{
-	// these are all the apigroups we manage
-	{Group: "apps.openshift.io", Version: "v1"},
-	{Group: "authorization.openshift.io", Version: "v1"},
-	{Group: "build.openshift.io", Version: "v1"},
-	{Group: "image.openshift.io", Version: "v1"},
-	{Group: "oauth.openshift.io", Version: "v1"},
-	{Group: "project.openshift.io", Version: "v1"},
-	{Group: "quota.openshift.io", Version: "v1"},
-	{Group: "route.openshift.io", Version: "v1"},
-	{Group: "security.openshift.io", Version: "v1"},
-	{Group: "template.openshift.io", Version: "v1"},
-	{Group: "user.openshift.io", Version: "v1"},
-}
 
 // syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
