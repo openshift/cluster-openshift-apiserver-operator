@@ -26,6 +26,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -48,9 +49,9 @@ type InstallerController struct {
 	targetNamespace, staticPodName string
 	// configMaps is the list of configmaps that are directly copied.A different actor/controller modifies these.
 	// the first element should be the configmap that contains the static pod manifest
-	configMaps []string
+	configMaps []revision.RevisionResource
 	// secrets is a list of secrets that are directly copied for the current values.  A different actor/controller modifies these.
-	secrets []string
+	secrets []revision.RevisionResource
 	// command is the string to use for the installer pod command
 	command []string
 
@@ -82,8 +83,8 @@ const (
 // NewInstallerController creates a new installer controller.
 func NewInstallerController(
 	targetNamespace, staticPodName string,
-	configMaps []string,
-	secrets []string,
+	configMaps []revision.RevisionResource,
+	secrets []revision.RevisionResource,
 	command []string,
 	kubeInformersForTargetNamespace informers.SharedInformerFactory,
 	operatorConfigClient v1helpers.StaticPodOperatorClient,
@@ -325,10 +326,14 @@ func setNodeStatusFn(status *operatorv1.NodeStatus) v1helpers.UpdateStaticPodSta
 func setAvailableProgressingConditions(newStatus *operatorv1.StaticPodOperatorStatus) error {
 	// Available means that we have at least one pod at the latest level
 	numAvailable := 0
+	numAtLatestRevision := 0
 	numProgressing := 0
 	for _, currNodeStatus := range newStatus.NodeStatuses {
+		if currNodeStatus.CurrentRevision != 0 && currNodeStatus.LastFailedRevision == 0 {
+			numAvailable++
+		}
 		if newStatus.LatestAvailableRevision == currNodeStatus.CurrentRevision {
-			numAvailable += 1
+			numAtLatestRevision += 1
 		} else {
 			numProgressing += 1
 		}
@@ -337,14 +342,14 @@ func setAvailableProgressingConditions(newStatus *operatorv1.StaticPodOperatorSt
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeAvailable,
 			Status:  operatorv1.ConditionTrue,
-			Message: fmt.Sprintf("%d of %d nodes are at revision %d", numAvailable, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Message: fmt.Sprintf("%d nodes are active; %d of %d nodes are at revision %d", numAvailable, numAtLatestRevision, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeAvailable,
 			Status:  operatorv1.ConditionFalse,
-			Reason:  "ZeroNodesAtLatestRevision",
-			Message: fmt.Sprintf("%d of %d nodes are at revision %d", numAvailable, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Reason:  "ZeroNodesActive",
+			Message: fmt.Sprintf("%d nodes are active; %d of %d nodes are at revision %d", numAvailable, numAtLatestRevision, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
 		})
 	}
 
@@ -360,7 +365,7 @@ func setAvailableProgressingConditions(newStatus *operatorv1.StaticPodOperatorSt
 			Type:    operatorv1.OperatorStatusTypeProgressing,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "AllNodesAtLatestRevision",
-			Message: fmt.Sprintf("%d of %d nodes are at revision %d", len(newStatus.NodeStatuses)-numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Message: fmt.Sprintf("%d nodes are at revision %d", len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
 		})
 	}
 
@@ -478,19 +483,30 @@ func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *
 	pod.Spec.Containers[0].Image = c.installerPodImageFn()
 	pod.Spec.Containers[0].Command = c.command
 
+	if c.configMaps[0].Optional {
+		return fmt.Errorf("pod configmap %s is required, cannot be optional", c.configMaps[0].Name)
+	}
 	args := []string{
 		"-v=4", // TODO: Make this configurable?
 		fmt.Sprintf("--revision=%d", revision),
 		fmt.Sprintf("--namespace=%s", pod.Namespace),
-		fmt.Sprintf("--pod=%s", c.configMaps[0]),
+		fmt.Sprintf("--pod=%s", c.configMaps[0].Name),
 		fmt.Sprintf("--resource-dir=%s", hostResourceDirDir),
 		fmt.Sprintf("--pod-manifest-dir=%s", hostPodManifestDir),
 	}
-	for _, name := range c.configMaps {
-		args = append(args, fmt.Sprintf("--configmaps=%s", name))
+	for _, cm := range c.configMaps {
+		if cm.Optional {
+			args = append(args, fmt.Sprintf("--optional-configmaps=%s", cm.Name))
+		} else {
+			args = append(args, fmt.Sprintf("--configmaps=%s", cm.Name))
+		}
 	}
-	for _, name := range c.secrets {
-		args = append(args, fmt.Sprintf("--secrets=%s", name))
+	for _, s := range c.secrets {
+		if s.Optional {
+			args = append(args, fmt.Sprintf("--optional-secrets=%s", s.Name))
+		} else {
+			args = append(args, fmt.Sprintf("--secrets=%s", s.Name))
+		}
 	}
 	pod.Spec.Containers[0].Args = args
 
