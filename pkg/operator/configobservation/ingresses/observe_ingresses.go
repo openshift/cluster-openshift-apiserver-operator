@@ -36,7 +36,7 @@ func ObserveIngressDomain(genericListers configobserver.Listers, recorder events
 	observedConfig := map[string]interface{}{}
 	configIngress, err := listers.IngressConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.Warningf("ingress.config.openshift.io/default: not found")
+		glog.Warningf("ingress.config.openshift.io/cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {
