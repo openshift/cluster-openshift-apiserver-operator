@@ -1,6 +1,8 @@
 package ingresses
 
 import (
+	"reflect"
+
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,6 +52,12 @@ func ObserveIngressDomain(genericListers configobserver.Listers, recorder events
 			return prevObservedConfig, append(errs, err)
 		}
 	}
+
+	if reflect.DeepEqual(routingDomain, currentRoutingDomain) {
+		return observedConfig, errs
+	}
+
+	recorder.Eventf("RoutingConfigSubdomainChanged", "Domain changed from %q to %q", currentRoutingDomain, routingDomain)
 
 	return observedConfig, errs
 }

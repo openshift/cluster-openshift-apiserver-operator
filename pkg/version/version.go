@@ -37,7 +37,7 @@ func init() {
 	buildInfo := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "openshift_cluster_openshift_apiserver_operator_build_info",
-			Help: "A metric with a constant '1' value labeled by major, minor, git commit & git version from which OpenShift Service Serving Cert Signer was built.",
+			Help: "A metric with a constant '1' value labeled by major, minor, git commit & git version from which OpenShift API Server was built.",
 		},
 		[]string{"major", "minor", "gitCommit", "gitVersion"},
 	)
