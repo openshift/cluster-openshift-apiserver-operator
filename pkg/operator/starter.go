@@ -5,15 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
-
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
-	"github.com/openshift/library-go/pkg/controller/controllercmd"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -21,14 +12,19 @@ import (
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
-	operatorconfigclient "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned"
-	operatorclientinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
+	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -40,7 +36,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	operatorConfigClient, err := operatorconfigclient.NewForConfig(ctx.KubeConfig)
+	operatorConfigClient, err := operatorv1client.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -56,10 +52,10 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	v1helpers.EnsureOperatorConfigExists(
 		dynamicClient,
 		v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/operator-config.yaml"),
-		schema.GroupVersionResource{Group: v1alpha1.GroupName, Version: "v1alpha1", Resource: "openshiftapiserveroperatorconfigs"},
+		schema.GroupVersionResource{Group: operatorv1.GroupName, Version: operatorv1.GroupVersion.Version, Resource: "openshiftapiservers"},
 	)
 
-	operatorConfigInformers := operatorclientinformers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
+	operatorConfigInformers := operatorv1informers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
 		"",
 		operatorclient.UserSpecifiedGlobalConfigNamespace,
@@ -74,7 +70,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	operatorClient := &operatorclient.OperatorClient{
 		Informers: operatorConfigInformers,
-		Client:    operatorConfigClient.OpenshiftapiserverV1alpha1(),
+		Client:    operatorConfigClient.OperatorV1(),
 	}
 
 	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
@@ -89,14 +85,14 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	workloadController := workloadcontroller.NewWorkloadController(
 		os.Getenv("IMAGE"),
-		operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs(),
+		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespaceName),
 		kubeInformersForNamespaces.InformersFor(operatorclient.EtcdNamespaceName),
 		kubeInformersForNamespaces.InformersFor(operatorclient.KubeAPIServerNamespaceName),
 		kubeInformersForNamespaces.InformersFor(operatorclient.UserSpecifiedGlobalConfigNamespace),
 		apiregistrationInformers,
 		configInformers,
-		operatorConfigClient.OpenshiftapiserverV1alpha1(),
+		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
 		kubeClient,
 		apiregistrationv1Client.ApiregistrationV1(),
@@ -121,7 +117,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		"openshift-apiserver",
 		append(
 			[]configv1.ObjectReference{
-				{Group: "openshiftapiserver.operator.openshift.io", Resource: "openshiftapiserveroperatorconfigs", Name: "cluster"},
+				{Group: "operator.openshift.io", Resource: "openshiftapiservers", Name: "cluster"},
 				{Resource: "namespaces", Name: operatorclient.UserSpecifiedGlobalConfigNamespace},
 				{Resource: "namespaces", Name: operatorclient.MachineSpecifiedGlobalConfigNamespace},
 				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},

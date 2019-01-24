@@ -264,8 +264,8 @@ func v3110OpenshiftApiserverNsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110OpenshiftApiserverOperatorConfigYaml = []byte(`apiVersion: openshiftapiserver.operator.openshift.io/v1alpha1
-kind: OpenShiftAPIServerOperatorConfig
+var _v3110OpenshiftApiserverOperatorConfigYaml = []byte(`apiVersion: operator.openshift.io/v1
+kind: OpenShiftAPIServer
 metadata:
   name: cluster
 spec:
