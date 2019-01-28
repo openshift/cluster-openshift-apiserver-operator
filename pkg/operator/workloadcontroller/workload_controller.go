@@ -25,8 +25,8 @@ import (
 	operatorsv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	operatorconfigclientv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/typed/openshiftapiserver/v1alpha1"
-	operatorconfiginformerv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions/openshiftapiserver/v1alpha1"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions/operator/v1"
 	clusteroperatorv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
@@ -40,7 +40,7 @@ const (
 type OpenShiftAPIServerOperator struct {
 	targetImagePullSpec string
 
-	operatorConfigClient    operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface
+	operatorConfigClient    operatorv1client.OpenShiftAPIServersGetter
 	openshiftConfigClient   openshiftconfigclientv1.ConfigV1Interface
 	kubeClient              kubernetes.Interface
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface
@@ -54,14 +54,14 @@ type OpenShiftAPIServerOperator struct {
 
 func NewWorkloadController(
 	targetImagePullSpec string,
-	operatorConfigInformer operatorconfiginformerv1alpha1.OpenShiftAPIServerOperatorConfigInformer,
+	operatorConfigInformer operatorv1informers.OpenShiftAPIServerInformer,
 	kubeInformersForOpenShiftAPIServerNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForKubeAPIServerNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForOpenShiftConfigNamespace kubeinformers.SharedInformerFactory,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
-	operatorConfigClient operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface,
+	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
 	kubeClient kubernetes.Interface,
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
@@ -99,7 +99,7 @@ func NewWorkloadController(
 }
 
 func (c OpenShiftAPIServerOperator) sync() error {
-	operatorConfig, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().Get("cluster", metav1.GetOptions{})
+	operatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

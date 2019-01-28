@@ -1,5 +1,5 @@
-apiVersion: openshiftapiserver.operator.openshift.io/v1alpha1
-kind: OpenShiftAPIServerOperatorConfig
+apiVersion: operator.openshift.io/v1
+kind: OpenShiftAPIServer
 metadata:
   name: cluster
 spec:

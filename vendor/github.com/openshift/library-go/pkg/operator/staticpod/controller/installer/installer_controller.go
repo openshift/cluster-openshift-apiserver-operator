@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
@@ -183,7 +184,7 @@ func nodeToStartRevisionWith(getStaticPodState func(nodeName string) (state stat
 
 // manageInstallationPods takes care of creating content for the static pods to install.
 // returns whether or not requeue and if an error happened when updating status.  Normally it updates status itself.
-func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.OperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
+func (c *InstallerController) manageInstallationPods(operatorSpec *operatorv1.StaticPodOperatorSpec, originalOperatorStatus *operatorv1.StaticPodOperatorStatus, resourceVersion string) (bool, error) {
 	operatorStatus := originalOperatorStatus.DeepCopy()
 
 	if len(operatorStatus.NodeStatuses) == 0 {
@@ -292,16 +293,17 @@ func (c *InstallerController) updateRevisionStatus(operatorStatus *operatorv1.St
 	return c.updateConfigMapForRevision(failedRevisions, string(corev1.PodFailed))
 }
 
-func (c *InstallerController) updateConfigMapForRevision(currentRevisions map[int32]struct{}, phase string) error {
+func (c *InstallerController) updateConfigMapForRevision(currentRevisions map[int32]struct{}, status string) error {
 	for currentRevision := range currentRevisions {
 		statusConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(c.targetNamespace).Get(statusConfigMapNameForRevision(currentRevision), metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			return nil
+			glog.Infof("%s configmap not found, skipping update revision status", statusConfigMapNameForRevision(currentRevision))
+			continue
 		}
 		if err != nil {
 			return err
 		}
-		statusConfigMap.Data["phase"] = phase
+		statusConfigMap.Data["status"] = status
 		_, _, err = resourceapply.ApplyConfigMap(c.kubeClient.CoreV1(), c.eventRecorder, statusConfigMap)
 		if err != nil {
 			return err
@@ -328,28 +330,39 @@ func setAvailableProgressingConditions(newStatus *operatorv1.StaticPodOperatorSt
 	numAvailable := 0
 	numAtLatestRevision := 0
 	numProgressing := 0
+	counts := map[int32]int{}
 	for _, currNodeStatus := range newStatus.NodeStatuses {
-		if currNodeStatus.CurrentRevision != 0 && currNodeStatus.LastFailedRevision == 0 {
+		if currNodeStatus.CurrentRevision != 0 {
 			numAvailable++
 		}
+		existing := counts[currNodeStatus.CurrentRevision]
+		counts[currNodeStatus.CurrentRevision] = existing + 1
+
 		if newStatus.LatestAvailableRevision == currNodeStatus.CurrentRevision {
 			numAtLatestRevision += 1
 		} else {
 			numProgressing += 1
 		}
 	}
+
+	revisionStrings := []string{}
+	for revision, count := range counts {
+		revisionStrings = append(revisionStrings, fmt.Sprintf("%d nodes are at revision %d", count, revision))
+	}
+	revisionDescription := strings.Join(revisionStrings, "; ")
+
 	if numAvailable > 0 {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeAvailable,
 			Status:  operatorv1.ConditionTrue,
-			Message: fmt.Sprintf("%d nodes are active; %d of %d nodes are at revision %d", numAvailable, numAtLatestRevision, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Message: fmt.Sprintf("%d nodes are active; %s", numAvailable, revisionDescription),
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeAvailable,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "ZeroNodesActive",
-			Message: fmt.Sprintf("%d nodes are active; %d of %d nodes are at revision %d", numAvailable, numAtLatestRevision, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Message: fmt.Sprintf("%d nodes are active; %s", numAvailable, revisionDescription),
 		})
 	}
 
@@ -358,14 +371,14 @@ func setAvailableProgressingConditions(newStatus *operatorv1.StaticPodOperatorSt
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeProgressing,
 			Status:  operatorv1.ConditionTrue,
-			Message: fmt.Sprintf("%d of %d nodes are at revision %d, %d are not", len(newStatus.NodeStatuses)-numProgressing, len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision, numProgressing),
+			Message: fmt.Sprintf("%s", revisionDescription),
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&newStatus.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeProgressing,
 			Status:  operatorv1.ConditionFalse,
 			Reason:  "AllNodesAtLatestRevision",
-			Message: fmt.Sprintf("%d nodes are at revision %d", len(newStatus.NodeStatuses), newStatus.LatestAvailableRevision),
+			Message: fmt.Sprintf("%s", revisionDescription),
 		})
 	}
 
@@ -474,7 +487,7 @@ func getInstallerPodName(revision int32, nodeName string) string {
 }
 
 // ensureInstallerPod creates the installer pod with the secrets required to if it does not exist already
-func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.OperatorSpec, revision int32) error {
+func (c *InstallerController) ensureInstallerPod(nodeName string, operatorSpec *operatorv1.StaticPodOperatorSpec, revision int32) error {
 	pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join(manifestDir, manifestInstallerPodPath)))
 
 	pod.Namespace = c.targetNamespace

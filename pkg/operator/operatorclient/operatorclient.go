@@ -4,21 +4,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
-	operatorconfigclientv1alpha1 "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/typed/openshiftapiserver/v1alpha1"
-	operatorclientinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 )
 
 type OperatorClient struct {
-	Informers operatorclientinformers.SharedInformerFactory
-	Client    operatorconfigclientv1alpha1.OpenshiftapiserverV1alpha1Interface
+	Informers operatorv1informers.SharedInformerFactory
+	Client    operatorv1client.OpenShiftAPIServersGetter
 }
 
 func (p *OperatorClient) Informer() cache.SharedIndexInformer {
-	return p.Informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer()
+	return p.Informers.Operator().V1().OpenShiftAPIServers().Informer()
 }
 
 func (c *OperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, string, error) {
-	instance, err := c.Informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("cluster")
+	instance, err := c.Informers.Operator().V1().OpenShiftAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -27,7 +27,7 @@ func (c *OperatorClient) GetOperatorState() (*operatorv1.OperatorSpec, *operator
 }
 
 func (c *OperatorClient) UpdateOperatorSpec(resourceVersion string, spec *operatorv1.OperatorSpec) (*operatorv1.OperatorSpec, string, error) {
-	original, err := c.Informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("cluster")
+	original, err := c.Informers.Operator().V1().OpenShiftAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, "", err
 	}
@@ -35,7 +35,7 @@ func (c *OperatorClient) UpdateOperatorSpec(resourceVersion string, spec *operat
 	copy.ResourceVersion = resourceVersion
 	copy.Spec.OperatorSpec = *spec
 
-	ret, err := c.Client.OpenShiftAPIServerOperatorConfigs().Update(copy)
+	ret, err := c.Client.OpenShiftAPIServers().Update(copy)
 	if err != nil {
 		return nil, "", err
 	}
@@ -43,7 +43,7 @@ func (c *OperatorClient) UpdateOperatorSpec(resourceVersion string, spec *operat
 	return &ret.Spec.OperatorSpec, ret.ResourceVersion, nil
 }
 func (c *OperatorClient) UpdateOperatorStatus(resourceVersion string, status *operatorv1.OperatorStatus) (*operatorv1.OperatorStatus, error) {
-	original, err := c.Informers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Lister().Get("cluster")
+	original, err := c.Informers.Operator().V1().OpenShiftAPIServers().Lister().Get("cluster")
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (c *OperatorClient) UpdateOperatorStatus(resourceVersion string, status *op
 	copy.ResourceVersion = resourceVersion
 	copy.Status.OperatorStatus = *status
 
-	ret, err := c.Client.OpenShiftAPIServerOperatorConfigs().UpdateStatus(copy)
+	ret, err := c.Client.OpenShiftAPIServers().UpdateStatus(copy)
 	if err != nil {
 		return nil, err
 	}

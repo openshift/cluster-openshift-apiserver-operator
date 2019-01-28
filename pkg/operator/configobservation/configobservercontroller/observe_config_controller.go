@@ -10,7 +10,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	openshiftapiserveroperatorinformers "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/informers/externalversions"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/ingresses"
@@ -25,7 +25,7 @@ type ConfigObserver struct {
 func NewConfigObserver(
 	operatorClient v1helpers.OperatorClient,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
-	operatorConfigInformers openshiftapiserveroperatorinformers.SharedInformerFactory,
+	operatorConfigInformers operatorv1informers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
 	eventRecorder events.Recorder,
@@ -44,7 +44,7 @@ func NewConfigObserver(
 				ProjectConfigSynced: configInformers.Config().V1().Projects().Informer().HasSynced,
 				IngressConfigSynced: configInformers.Config().V1().Ingresses().Informer().HasSynced,
 				PreRunCachesSynced: []cache.InformerSynced{
-					operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer().HasSynced,
+					operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
 					kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().HasSynced,
 				},
 			},
@@ -56,7 +56,7 @@ func NewConfigObserver(
 			project.ObserveProjectRequestTemplateName,
 		),
 	}
-	operatorConfigInformers.Openshiftapiserver().V1alpha1().OpenShiftAPIServerOperatorConfigs().Informer().AddEventHandler(c.EventHandler())
+	operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().AddEventHandler(c.EventHandler())
 	kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Ingresses().Informer().AddEventHandler(c.EventHandler())

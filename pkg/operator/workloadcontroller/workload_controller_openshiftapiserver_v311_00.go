@@ -20,7 +20,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
@@ -32,7 +31,7 @@ import (
 
 // syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig) (bool, error) {
+func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *operatorv1.OpenShiftAPIServer) (bool, error) {
 	errors := []error{}
 	var err error
 	operatorConfig := originalOperatorConfig.DeepCopy()
@@ -186,7 +185,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		})
 	}
 	if !equality.Semantic.DeepEqual(operatorConfig.Status, originalOperatorConfig.Status) {
-		if _, err := c.operatorConfigClient.OpenShiftAPIServerOperatorConfigs().UpdateStatus(operatorConfig); err != nil {
+		if _, err := c.operatorConfigClient.OpenShiftAPIServers().UpdateStatus(operatorConfig); err != nil {
 			return false, err
 		}
 	}
@@ -232,7 +231,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 	return caChanged, nil
 }
 
-func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig) (*corev1.ConfigMap, bool, error) {
+func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/defaultconfig.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
@@ -259,7 +258,7 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, imagePullSpec string, operatorConfig *v1alpha1.OpenShiftAPIServerOperatorConfig, generationStatus []operatorv1.GenerationStatus, forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
+func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, imagePullSpec string, operatorConfig *operatorv1.OpenShiftAPIServer, generationStatus []operatorv1.GenerationStatus, forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
 	required := resourceread.ReadDaemonSetV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml"))
 	required.Spec.Template.Spec.Containers[0].ImagePullPolicy = corev1.PullAlways
 	if len(imagePullSpec) > 0 {

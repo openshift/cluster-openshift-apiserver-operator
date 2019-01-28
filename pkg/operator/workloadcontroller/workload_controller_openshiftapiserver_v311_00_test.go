@@ -23,8 +23,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configfake "github.com/openshift/client-go/config/clientset/versioned/fake"
-	openshiftapiserveroperator "github.com/openshift/cluster-openshift-apiserver-operator/pkg/apis/openshiftapiserver/v1alpha1"
-	operatorfake "github.com/openshift/cluster-openshift-apiserver-operator/pkg/generated/clientset/versioned/fake"
+	operatorfake "github.com/openshift/client-go/operator/clientset/versioned/fake"
 	"github.com/openshift/library-go/pkg/operator/events"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -121,15 +120,15 @@ func TestProgressingCondition(t *testing.T) {
 					},
 				})
 
-			operatorConfig := &openshiftapiserveroperator.OpenShiftAPIServerOperatorConfig{
+			operatorConfig := &operatorv1.OpenShiftAPIServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "cluster",
 					Generation: tc.configGeneration,
 				},
-				Spec: openshiftapiserveroperator.OpenShiftAPIServerOperatorConfigSpec{
+				Spec: operatorv1.OpenShiftAPIServerSpec{
 					OperatorSpec: operatorv1.OperatorSpec{},
 				},
-				Status: openshiftapiserveroperator.OpenShiftAPIServerOperatorConfigStatus{
+				Status: operatorv1.OpenShiftAPIServerStatus{
 					OperatorStatus: operatorv1.OperatorStatus{
 						ObservedGeneration: tc.configObservedGeneration,
 					},
@@ -142,14 +141,14 @@ func TestProgressingCondition(t *testing.T) {
 			operator := OpenShiftAPIServerOperator{
 				kubeClient:              kubeClient,
 				eventRecorder:           events.NewInMemoryRecorder(""),
-				operatorConfigClient:    apiServiceOperatorClient.Openshiftapiserver(),
+				operatorConfigClient:    apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:   openshiftConfigClient.ConfigV1(),
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
 			}
 
 			syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.Openshiftapiserver().OpenShiftAPIServerOperatorConfigs().Get("cluster", metav1.GetOptions{})
+			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -334,15 +333,15 @@ func TestAvailableStatus(t *testing.T) {
 					},
 				})
 
-			operatorConfig := &openshiftapiserveroperator.OpenShiftAPIServerOperatorConfig{
+			operatorConfig := &operatorv1.OpenShiftAPIServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "cluster",
 					Generation: 99,
 				},
-				Spec: openshiftapiserveroperator.OpenShiftAPIServerOperatorConfigSpec{
+				Spec: operatorv1.OpenShiftAPIServerSpec{
 					OperatorSpec: operatorv1.OperatorSpec{},
 				},
-				Status: openshiftapiserveroperator.OpenShiftAPIServerOperatorConfigStatus{
+				Status: operatorv1.OpenShiftAPIServerStatus{
 					OperatorStatus: operatorv1.OperatorStatus{
 						ObservedGeneration: 99,
 					},
@@ -370,14 +369,14 @@ func TestAvailableStatus(t *testing.T) {
 			operator := OpenShiftAPIServerOperator{
 				kubeClient:              kubeClient,
 				eventRecorder:           events.NewInMemoryRecorder(""),
-				operatorConfigClient:    apiServiceOperatorClient.Openshiftapiserver(),
+				operatorConfigClient:    apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:   openshiftConfigClient.ConfigV1(),
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
 			}
 
 			syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.Openshiftapiserver().OpenShiftAPIServerOperatorConfigs().Get("cluster", metav1.GetOptions{})
+			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
