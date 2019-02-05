@@ -75,6 +75,9 @@ func TestNewNodeStateForInstallInProgress(t *testing.T) {
 		kubeClient,
 		eventRecorder,
 	)
+	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+		return []metav1.OwnerReference{}, nil
+	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
 	t.Log("setting target revision")
@@ -285,6 +288,9 @@ func TestCreateInstallerPod(t *testing.T) {
 		kubeClient,
 		eventRecorder,
 	)
+	c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+		return []metav1.OwnerReference{}, nil
+	}
 	c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 	if err := c.sync(); err != nil {
 		t.Fatal(err)
@@ -450,7 +456,9 @@ func TestEnsureInstallerPod(t *testing.T) {
 				kubeClient,
 				eventRecorder,
 			)
-
+			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+				return []metav1.OwnerReference{}, nil
+			}
 			err := c.ensureInstallerPod("test-node-1", nil, 1)
 			if err != nil {
 				if tt.expectedErr == "" {
@@ -603,6 +611,54 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 			expectedUpgradeOrder: []int{1, 2, 0},
 		},
 		{
+			name: "two nodes on revision 1 and one node on revision 4",
+			latestAvailableRevision: 5,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-3",
+					CurrentRevision: 4,
+				},
+			},
+			staticPods: []*v1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 5, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 5, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 5, v1.PodRunning, true),
+			},
+			expectedUpgradeOrder: []int{0, 1, 2},
+		},
+		{
+			name: "two nodes 2 revisions behind and 1 node on latest available revision",
+			latestAvailableRevision: 3,
+			nodeStatuses: []operatorv1.NodeStatus{
+				{
+					NodeName:        "test-node-1",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-2",
+					CurrentRevision: 1,
+				},
+				{
+					NodeName:        "test-node-3",
+					CurrentRevision: 3,
+				},
+			},
+			staticPods: []*v1.Pod{
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-1"), 3, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-2"), 3, v1.PodRunning, true),
+				newStaticPod(mirrorPodNameForNode("test-pod", "test-node-3"), 3, v1.PodSucceeded, true),
+			},
+			expectedUpgradeOrder: []int{0, 1},
+		},
+		{
 			name: "first update status fails",
 			latestAvailableRevision: 2,
 			nodeStatuses: []operatorv1.NodeStatus{
@@ -709,6 +765,9 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 				kubeClient,
 				eventRecorder,
 			)
+			c.ownerRefsFn = func(revision int32) ([]metav1.OwnerReference, error) {
+				return []metav1.OwnerReference{}, nil
+			}
 			c.installerPodImageFn = func() string { return "docker.io/foo/bar" }
 
 			// Each node need at least 2 syncs to first create the pod and then acknowledge its existence.
@@ -727,7 +786,7 @@ func TestCreateInstallerPodMultiNode(t *testing.T) {
 
 			for i := range test.expectedUpgradeOrder {
 				if i >= len(createdInstallerPods) {
-					t.Fatalf("expected more installer pod in the node order %v", test.expectedUpgradeOrder[i:])
+					t.Fatalf("expected more (%d) installer pod in the node order %v", len(createdInstallerPods), test.expectedUpgradeOrder[i:])
 				}
 
 				nodeName, _ := installerNodeAndID(createdInstallerPods[i].Name)
@@ -968,29 +1027,36 @@ func TestSetConditions(t *testing.T) {
 	type TestCase struct {
 		name                      string
 		latestAvailableRevision   int32
+		lastFailedRevision        int32
 		currentRevisions          []int32
 		expectedAvailableStatus   operatorv1.ConditionStatus
 		expectedProgressingStatus operatorv1.ConditionStatus
+		expectedFailingStatus     operatorv1.ConditionStatus
 	}
 
-	testCase := func(name string, available, progressing bool, latest int32, current ...int32) TestCase {
+	testCase := func(name string, available, progressing, failed bool, lastFailedRevision, latest int32, current ...int32) TestCase {
 		availableStatus := operatorv1.ConditionFalse
 		pendingStatus := operatorv1.ConditionFalse
+		expectedFailingStatus := operatorv1.ConditionFalse
 		if available {
 			availableStatus = operatorv1.ConditionTrue
 		}
 		if progressing {
 			pendingStatus = operatorv1.ConditionTrue
 		}
-		return TestCase{name, latest, current, availableStatus, pendingStatus}
+		if failed {
+			expectedFailingStatus = operatorv1.ConditionTrue
+		}
+		return TestCase{name, latest, lastFailedRevision, current, availableStatus, pendingStatus, expectedFailingStatus}
 	}
 
 	testCases := []TestCase{
-		testCase("AvailableProgressing", true, true, 2, 2, 1, 2, 1),
-		testCase("AvailableNotProgressing", true, false, 2, 2, 2, 2),
-		testCase("NotAvailableProgressing", false, true, 2, 0, 0),
-		testCase("NotAvailableAtOldLevelProgressing", true, true, 2, 1, 1),
-		testCase("NotAvailableNotProgressing", false, false, 2),
+		testCase("AvailableProgressingFailing", true, true, true, 1, 2, 2, 1, 2, 1),
+		testCase("AvailableProgressing", true, true, false, 0, 2, 2, 1, 2, 1),
+		testCase("AvailableNotProgressing", true, false, false, 0, 2, 2, 2, 2),
+		testCase("NotAvailableProgressing", false, true, false, 0, 2, 0, 0),
+		testCase("NotAvailableAtOldLevelProgressing", true, true, false, 0, 2, 1, 1),
+		testCase("NotAvailableNotProgressing", false, false, false, 0, 2),
 	}
 
 	for _, tc := range testCases {
@@ -999,20 +1065,29 @@ func TestSetConditions(t *testing.T) {
 				LatestAvailableRevision: tc.latestAvailableRevision,
 			}
 			for _, current := range tc.currentRevisions {
-				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{CurrentRevision: current})
+				status.NodeStatuses = append(status.NodeStatuses, operatorv1.NodeStatus{CurrentRevision: current, LastFailedRevision: tc.lastFailedRevision})
 			}
-			setAvailableProgressingConditions(status)
+			setAvailableProgressingNodeInstallerFailingConditions(status)
+
 			availableCondition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeAvailable)
 			if availableCondition == nil {
 				t.Error("Available condition: not found")
 			} else if availableCondition.Status != tc.expectedAvailableStatus {
 				t.Errorf("Available condition: expected status %v, actual status %v", tc.expectedAvailableStatus, availableCondition.Status)
 			}
+
 			pendingCondition := v1helpers.FindOperatorCondition(status.Conditions, operatorv1.OperatorStatusTypeProgressing)
 			if pendingCondition == nil {
 				t.Error("Progressing condition: not found")
 			} else if pendingCondition.Status != tc.expectedProgressingStatus {
 				t.Errorf("Progressing condition: expected status %v, actual status %v", tc.expectedProgressingStatus, pendingCondition.Status)
+			}
+
+			failingCondition := v1helpers.FindOperatorCondition(status.Conditions, nodeInstallerFailing)
+			if failingCondition == nil {
+				t.Error("Failing condition: not found")
+			} else if failingCondition.Status != tc.expectedFailingStatus {
+				t.Errorf("Failing condition: expected status %v, actual status %v", tc.expectedFailingStatus, failingCondition.Status)
 			}
 		})
 	}
