@@ -184,6 +184,27 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 			Status: operatorv1.ConditionFalse,
 		})
 	}
+
+	// if we are available, we need to try to set our versions correctly.
+	if v1helpers.IsOperatorConditionTrue(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeAvailable) {
+		versionMap := map[string]string{}
+
+		versionMapping, err := c.kubeClient.CoreV1().ConfigMaps(operatorclient.OperatorNamespace).Get("version-mapping", metav1.GetOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			return false, err
+		}
+		if versionMapping != nil {
+			for version, image := range versionMapping.Data {
+				versionMap[image] = version
+			}
+		}
+
+		// we have the actual daemonset and we need the pull spec
+		openshiftAPIServerPullSpec := actualDaemonSet.Spec.Template.Spec.Containers[0].Image
+		openshiftAPIServerVersion := versionMap[openshiftAPIServerPullSpec]
+		c.versionRecorder.SetVersion("openshift-apiserver", openshiftAPIServerVersion)
+
+	}
 	if !equality.Semantic.DeepEqual(operatorConfig.Status, originalOperatorConfig.Status) {
 		if _, err := c.operatorConfigClient.OpenShiftAPIServers().UpdateStatus(operatorConfig); err != nil {
 			return false, err
