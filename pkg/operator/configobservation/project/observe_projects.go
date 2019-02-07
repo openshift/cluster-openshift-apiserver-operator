@@ -40,11 +40,6 @@ func ObserveProjectRequestTemplateName(genericListers configobserver.Listers, re
 		}
 	}
 
-	if !listers.ProjectConfigSynced() {
-		glog.Warning("project.config.openshift.io/v1 not synced")
-		return prevObservedConfig, errs
-	}
-
 	observedConfig := map[string]interface{}{}
 
 	currentClusterInstance, err := listers.ProjectConfigLister.Get("cluster")
@@ -89,11 +84,6 @@ func ObserveProjectRequestMessage(genericListers configobserver.Listers, recorde
 		if err := unstructured.SetNestedField(prevObservedConfig, currentProjectRequestMessage, projectRequestMessagePath...); err != nil {
 			return prevObservedConfig, append(errs, err)
 		}
-	}
-
-	if !listers.ProjectConfigSynced() {
-		glog.Warning("project.config.openshift.io/v1 not synced")
-		return prevObservedConfig, errs
 	}
 
 	observedConfig := map[string]interface{}{}

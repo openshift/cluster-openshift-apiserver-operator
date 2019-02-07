@@ -146,7 +146,7 @@ func TestProgressingCondition(t *testing.T) {
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
 			}
 
-			syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
 			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
 			if err != nil {
@@ -374,7 +374,7 @@ func TestAvailableStatus(t *testing.T) {
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
 			}
 
-			syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
 			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
 			if err != nil {

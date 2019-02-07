@@ -30,11 +30,6 @@ func ObserveIngressDomain(genericListers configobserver.Listers, recorder events
 		}
 	}
 
-	if !listers.IngressConfigSynced() {
-		glog.Warning("ingresses.config.openshift.io not synced")
-		return prevObservedConfig, errs
-	}
-
 	observedConfig := map[string]interface{}{}
 	configIngress, err := listers.IngressConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
