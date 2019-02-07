@@ -125,14 +125,12 @@ func TestObserveImageConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-		indexer.Add(tc.imageConfig)
+		_ = indexer.Add(tc.imageConfig)
 		listers := configobservation.Listers{
 			ImageConfigLister: configlistersv1.NewImageLister(indexer),
-			ImageConfigSynced: func() bool { return true },
 		}
 		unsyncedlisters := configobservation.Listers{
 			ImageConfigLister: configlistersv1.NewImageLister(indexer),
-			ImageConfigSynced: func() bool { return false },
 		}
 
 		result, errs := ObserveInternalRegistryHostname(listers, events.NewInMemoryRecorder(""), map[string]interface{}{})

@@ -29,7 +29,6 @@ func TestObserveProjectRequestMessage(t *testing.T) {
 		currentProjectConfig projectv1.Project
 		expectErrorsCount    int
 		expectEventCount     int
-		listersNotSynced     bool
 	}{
 		{
 			name:                 "simple update",
@@ -44,13 +43,6 @@ func TestObserveProjectRequestMessage(t *testing.T) {
 			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestMessage": ""}},
 			currentProjectConfig: fakeProjectConfig("cluster", projectv1.ProjectSpec{ProjectRequestMessage: ""}),
 			expectEventCount:     1,
-		},
-		{
-			name:             "lister not synced",
-			existingConfig:   map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestMessage": "foo"}},
-			expectedConfig:   map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestMessage": "foo"}},
-			listersNotSynced: true,
-			expectEventCount: 0,
 		},
 		{
 			name:                 "no existing",
@@ -76,7 +68,6 @@ func TestObserveProjectRequestMessage(t *testing.T) {
 
 			listers := configobservation.Listers{
 				ProjectConfigLister: configlistersv1.NewProjectLister(indexer),
-				ProjectConfigSynced: func() bool { return !test.listersNotSynced },
 			}
 
 			eventRecorder := events.NewInMemoryRecorder("")
@@ -105,7 +96,6 @@ func TestObserveProjectRequestTemplateName(t *testing.T) {
 		currentProjectConfig projectv1.Project
 		expectErrorsCount    int
 		expectEventCount     int
-		listersNotSynced     bool
 	}{
 		{
 			name:                 "simple update",
@@ -120,13 +110,6 @@ func TestObserveProjectRequestTemplateName(t *testing.T) {
 			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": ""}},
 			currentProjectConfig: fakeProjectConfig("cluster", projectv1.ProjectSpec{ProjectRequestTemplate: projectv1.TemplateReference{Name: ""}}),
 			expectEventCount:     1,
-		},
-		{
-			name:             "lister not synced",
-			existingConfig:   map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "foo-template"}},
-			expectedConfig:   map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "foo-template"}},
-			listersNotSynced: true,
-			expectEventCount: 0,
 		},
 		{
 			name:                 "no existing",
@@ -152,7 +135,6 @@ func TestObserveProjectRequestTemplateName(t *testing.T) {
 
 			listers := configobservation.Listers{
 				ProjectConfigLister: configlistersv1.NewProjectLister(indexer),
-				ProjectConfigSynced: func() bool { return !test.listersNotSynced },
 			}
 
 			eventRecorder := events.NewInMemoryRecorder("")

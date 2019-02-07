@@ -34,11 +34,6 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 		}
 	}
 
-	if !listers.ImageConfigSynced() {
-		glog.Warning("images.config.openshift.io not synced")
-		return prevObservedConfig, errs
-	}
-
 	// now gather the cluster config and turn it into the observed config
 	observedConfig := map[string]interface{}{}
 	configImage, err := listers.ImageConfigLister.Get("cluster")
@@ -78,11 +73,6 @@ func ObserveExternalRegistryHostnames(genericListers configobserver.Listers, rec
 		if err != nil {
 			return prevObservedConfig, append(errs, err)
 		}
-	}
-
-	if !listers.ImageConfigSynced() {
-		glog.Warning("images.config.openshift.io not synced")
-		return prevObservedConfig, errs
 	}
 
 	// now gather the cluster config and turn it into the observed config
@@ -132,11 +122,6 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 		if err != nil {
 			return prevObservedConfig, append(errs, err)
 		}
-	}
-
-	if !listers.ImageConfigSynced() {
-		glog.Warning("images.config.openshift.io not synced")
-		return prevObservedConfig, errs
 	}
 
 	// now gather the cluster config and turn it into the observed config

@@ -15,9 +15,6 @@ type Listers struct {
 	ProjectConfigLister configlistersv1.ProjectLister
 	IngressConfigLister configlistersv1.IngressLister
 	EndpointsLister     corelistersv1.EndpointsLister
-	ImageConfigSynced   cache.InformerSynced
-	ProjectConfigSynced cache.InformerSynced
-	IngressConfigSynced cache.InformerSynced
 	PreRunCachesSynced  []cache.InformerSynced
 }
 
