@@ -117,6 +117,37 @@ aggregatorConfig:
   - X-Remote-Group
   extraHeaderPrefixes:
   - X-Remote-Extra-
+auditConfig:
+  auditFilePath: "/var/log/openshift-apiserver/audit.log"
+  enabled: true
+  logFormat: "json"
+  maximumFileSizeMegabytes: 100
+  maximumRetainedFiles: 10
+  policyConfiguration:
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    # Don't generate audit events for all requests in RequestReceived stage.
+    omitStages:
+      - "RequestReceived"
+    rules:
+      # Don't log requests for events
+      - level: None
+        resources:
+          - group: ""
+            resources: ["events"]
+      # Don't log authenticated requests to certain non-resource URL paths.
+      - level: None
+        userGroups: ["system:authenticated", "system:unauthenticated"]
+        nonResourceURLs:
+          - "/api*" # Wildcard matching.
+          - "/version"
+          - "/healthz"
+      # A catch-all rule to log all other requests at the Metadata level.
+      - level: Metadata
+        # Long-running requests like watches that fall under this rule will not
+        # generate an audit event in RequestReceived.
+        omitStages:
+          - "RequestReceived"
 `)
 
 func v3110OpenshiftApiserverDefaultconfigYamlBytes() ([]byte, error) {
@@ -185,6 +216,8 @@ spec:
           name: image-import-ca
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
+        - mountPath: /var/log/openshift-apiserver
+          name: audit-dir
         livenessProbe:
           initialDelaySeconds: 30
           httpGet:
@@ -221,6 +254,9 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
+      - hostPath:
+          path: /var/log/openshift-apiserver
+        name: audit-dir
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
