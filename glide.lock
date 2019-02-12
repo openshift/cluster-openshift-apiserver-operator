@@ -1,5 +1,5 @@
 hash: 91ecca14db72ab033857a2b198205b02d5e1c7fb571aaa9e32b9c0251e339ccd
-updated: 2019-02-07T16:09:50.434588+01:00
+updated: 2019-02-12T10:00:55.345832+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -196,7 +196,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: d67473e7f1907b74d1f27706260eecf0bc9f2a52
+  version: 21e40de482627b2047cbf430594540413539a442
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 5af2e329a3e8b7d536a508266e3ffb485cd849b0
+  version: f8b9b0633d7fe283277fc35b437428aed9ec5464
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/fake
@@ -265,7 +265,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 569c405927d49ff843165d113f78e3e3b8feb46e
+  version: b81912a34afc470eb8038e9ac40cf9a14b23be91
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -322,7 +322,7 @@ imports:
 - name: github.com/spf13/cobra
   version: c439c4fa093711d42e1b01acb1235b52004753c1
 - name: github.com/spf13/pflag
-  version: 583c0c0531f06d5278b7d917446061adc344b5cd
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - name: github.com/ugorji/go
   version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
   subpackages:
