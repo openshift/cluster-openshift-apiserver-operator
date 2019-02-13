@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/golang/glog"
 
@@ -16,7 +17,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	appsv1lister "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -27,10 +27,10 @@ import (
 )
 
 type finalizerController struct {
-	kubeClient    kubernetes.Interface
-	podLister     corev1listers.PodLister
-	dsLister      appsv1lister.DaemonSetLister
-	eventRecorder events.Recorder
+	namespaceGetter v1.NamespacesGetter
+	podLister       corev1listers.PodLister
+	dsLister        appsv1lister.DaemonSetLister
+	eventRecorder   events.Recorder
 
 	preRunHasSynced []cache.InformerSynced
 
@@ -49,14 +49,14 @@ type finalizerController struct {
 // everything. For now, we can unbork 4.0, but clearing the finalizer after the pod and daemonset we created are gone.
 func NewFinalizerController(
 	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
-	kubeClient kubernetes.Interface,
+	namespaceGetter v1.NamespacesGetter,
 	eventRecorder events.Recorder,
 ) *finalizerController {
 	c := &finalizerController{
-		kubeClient:    kubeClient,
-		podLister:     kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
-		dsLister:      kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
-		eventRecorder: eventRecorder,
+		namespaceGetter: namespaceGetter,
+		podLister:       kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
+		dsLister:        kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
+		eventRecorder:   eventRecorder,
 
 		preRunHasSynced: []cache.InformerSynced{
 			kubeInformersForTargetNamespace.Core().V1().Pods().Informer().HasSynced,
@@ -74,7 +74,7 @@ func NewFinalizerController(
 }
 
 func (c finalizerController) sync() error {
-	ns, err := c.kubeClient.CoreV1().Namespaces().Get(operatorclient.TargetNamespaceName, metav1.GetOptions{})
+	ns, err := c.namespaceGetter.Namespaces().Get(operatorclient.TargetNamespaceName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (c finalizerController) sync() error {
 	ns.Spec.Finalizers = newFinalizers
 
 	c.eventRecorder.Event("NamespaceFinalization", fmt.Sprintf("clearing namespace finalizer on %q", operatorclient.TargetNamespaceName))
-	_, err = c.kubeClient.CoreV1().Namespaces().Finalize(ns)
+	_, err = c.namespaceGetter.Namespaces().Finalize(ns)
 	return err
 }
 

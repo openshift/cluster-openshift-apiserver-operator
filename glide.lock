@@ -1,5 +1,5 @@
 hash: 91ecca14db72ab033857a2b198205b02d5e1c7fb571aaa9e32b9c0251e339ccd
-updated: 2019-02-07T16:09:50.434588+01:00
+updated: 2019-02-12T21:37:30.581133+01:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -196,7 +196,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: d67473e7f1907b74d1f27706260eecf0bc9f2a52
+  version: a46dadea62a56ffdc361b661b40bb41ba3caa78d
   subpackages:
   - apps
   - apps/v1
@@ -242,7 +242,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 5af2e329a3e8b7d536a508266e3ffb485cd849b0
+  version: 9ecec62d3c9792a6b712bc1aefdb8ae10826fa14
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/fake
@@ -265,7 +265,7 @@ imports:
   - operator/informers/externalversions/operator/v1
   - operator/listers/operator/v1
 - name: github.com/openshift/library-go
-  version: 569c405927d49ff843165d113f78e3e3b8feb46e
+  version: 199db5a9b62513c6fff7d52baf19e8a4f1afd8fd
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -378,7 +378,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
+  version: 99bc4335fe23898c0a61f5b35afabb6d11f29094
   subpackages:
   - internal
   - internal/base
