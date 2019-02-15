@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openshift/library-go/pkg/operator/status"
+
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 
 	"github.com/pkg/errors"
@@ -144,6 +146,7 @@ func TestProgressingCondition(t *testing.T) {
 				operatorConfigClient:    apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:   openshiftConfigClient.ConfigV1(),
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
+				versionRecorder:         status.NewVersionGetter(),
 			}
 
 			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
@@ -372,6 +375,7 @@ func TestAvailableStatus(t *testing.T) {
 				operatorConfigClient:    apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:   openshiftConfigClient.ConfigV1(),
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
+				versionRecorder:         status.NewVersionGetter(),
 			}
 
 			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
