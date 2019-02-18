@@ -285,6 +285,14 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.Dae
 	if len(imagePullSpec) > 0 {
 		required.Spec.Template.Spec.Containers[0].Image = imagePullSpec
 	}
+	// we set this so that when the requested image pull spec changes, we always have a diff.  Remember that we don't directly
+	// diff any fields on the daemonset because they can be rewritten by admission and we don't want to constantly be fighting
+	// against admission or defaults.  That was a problem with original versions of apply.
+	if required.Annotations == nil {
+		required.Annotations = map[string]string{}
+	}
+	required.Annotations["openshiftapiservers.operator.openshift.io/pull-spec"] = imagePullSpec
+
 	switch operatorConfig.Spec.LogLevel {
 	case operatorv1.Normal:
 		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
