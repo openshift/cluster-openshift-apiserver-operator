@@ -74,7 +74,7 @@ func NewFinalizerController(
 }
 
 func (c finalizerController) sync() error {
-	ns, err := c.namespaceGetter.Namespaces().Get(operatorclient.TargetNamespaceName, metav1.GetOptions{})
+	ns, err := c.namespaceGetter.Namespaces().Get(operatorclient.TargetNamespace, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -85,14 +85,14 @@ func (c finalizerController) sync() error {
 		return nil
 	}
 
-	pods, err := c.podLister.Pods(operatorclient.TargetNamespaceName).List(labels.Everything())
+	pods, err := c.podLister.Pods(operatorclient.TargetNamespace).List(labels.Everything())
 	if err != nil {
 		return err
 	}
 	if len(pods) > 0 {
 		return nil
 	}
-	dses, err := c.dsLister.DaemonSets(operatorclient.TargetNamespaceName).List(labels.Everything())
+	dses, err := c.dsLister.DaemonSets(operatorclient.TargetNamespace).List(labels.Everything())
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (c finalizerController) sync() error {
 	}
 	ns.Spec.Finalizers = newFinalizers
 
-	c.eventRecorder.Event("NamespaceFinalization", fmt.Sprintf("clearing namespace finalizer on %q", operatorclient.TargetNamespaceName))
+	c.eventRecorder.Event("NamespaceFinalization", fmt.Sprintf("clearing namespace finalizer on %q", operatorclient.TargetNamespace))
 	_, err = c.namespaceGetter.Namespaces().Finalize(ns)
 	return err
 }
@@ -131,7 +131,7 @@ func (c *finalizerController) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	// always kick at least once in case we started after the namespace was cleared
-	c.queue.Add(operatorclient.TargetNamespaceName)
+	c.queue.Add(operatorclient.TargetNamespace)
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
@@ -169,8 +169,8 @@ func (c *finalizerController) processNextWorkItem() bool {
 // eventHandler queues the operator to check spec and status
 func (c *finalizerController) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(operatorclient.TargetNamespaceName) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(operatorclient.TargetNamespaceName) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(operatorclient.TargetNamespaceName) },
+		AddFunc:    func(obj interface{}) { c.queue.Add(operatorclient.TargetNamespace) },
+		UpdateFunc: func(old, new interface{}) { c.queue.Add(operatorclient.TargetNamespace) },
+		DeleteFunc: func(obj interface{}) { c.queue.Add(operatorclient.TargetNamespace) },
 	}
 }

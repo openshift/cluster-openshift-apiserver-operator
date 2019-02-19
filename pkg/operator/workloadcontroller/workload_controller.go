@@ -115,7 +115,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 
 	case operatorsv1.Removed:
 		// TODO probably need to watch until the NS is really gone
-		if err := c.kubeClient.CoreV1().Namespaces().Delete(operatorclient.TargetNamespaceName, nil); err != nil && !apierrors.IsNotFound(err) {
+		if err := c.kubeClient.CoreV1().Namespaces().Delete(operatorclient.TargetNamespace, nil); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 		return nil
@@ -204,7 +204,7 @@ func (c *OpenShiftAPIServerOperator) eventHandler() cache.ResourceEventHandler {
 }
 
 // this set of namespaces will include things like logging and metrics which are used to drive
-var interestingNamespaces = sets.NewString(operatorclient.TargetNamespaceName)
+var interestingNamespaces = sets.NewString(operatorclient.TargetNamespace)
 
 func (c *OpenShiftAPIServerOperator) namespaceEventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
@@ -213,7 +213,7 @@ func (c *OpenShiftAPIServerOperator) namespaceEventHandler() cache.ResourceEvent
 			if !ok {
 				c.queue.Add(workQueueKey)
 			}
-			if ns.Name == operatorclient.TargetNamespaceName {
+			if ns.Name == operatorclient.TargetNamespace {
 				c.queue.Add(workQueueKey)
 			}
 		},
@@ -222,7 +222,7 @@ func (c *OpenShiftAPIServerOperator) namespaceEventHandler() cache.ResourceEvent
 			if !ok {
 				c.queue.Add(workQueueKey)
 			}
-			if ns.Name == operatorclient.TargetNamespaceName {
+			if ns.Name == operatorclient.TargetNamespace {
 				c.queue.Add(workQueueKey)
 			}
 		},
@@ -240,7 +240,7 @@ func (c *OpenShiftAPIServerOperator) namespaceEventHandler() cache.ResourceEvent
 					return
 				}
 			}
-			if ns.Name == operatorclient.TargetNamespaceName {
+			if ns.Name == operatorclient.TargetNamespace {
 				c.queue.Add(workQueueKey)
 			}
 		},
