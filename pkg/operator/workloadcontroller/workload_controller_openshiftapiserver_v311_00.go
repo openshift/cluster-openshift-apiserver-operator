@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/openshift/library-go/pkg/operator/status"
+
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -187,22 +189,13 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 
 	// if we are available, we need to try to set our versions correctly.
 	if v1helpers.IsOperatorConditionTrue(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeAvailable) {
-		versionMap := map[string]string{}
-
-		versionMapping, err := c.kubeClient.CoreV1().ConfigMaps(operatorclient.OperatorNamespace).Get("version-mapping", metav1.GetOptions{})
-		if err != nil && !apierrors.IsNotFound(err) {
-			return false, err
-		}
-		if versionMapping != nil {
-			for version, image := range versionMapping.Data {
-				versionMap[image] = version
-			}
-		}
-
 		// we have the actual daemonset and we need the pull spec
-		openshiftAPIServerPullSpec := actualDaemonSet.Spec.Template.Spec.Containers[0].Image
-		openshiftAPIServerVersion := versionMap[openshiftAPIServerPullSpec]
-		c.versionRecorder.SetVersion("openshift-apiserver", openshiftAPIServerVersion)
+		operandVersion := status.VersionForOperand(
+			operatorclient.OperatorNamespace,
+			actualDaemonSet.Spec.Template.Spec.Containers[0].Image,
+			c.kubeClient.CoreV1(),
+			c.eventRecorder)
+		c.versionRecorder.SetVersion("openshift-apiserver", operandVersion)
 
 	}
 	if !equality.Semantic.DeepEqual(operatorConfig.Status, originalOperatorConfig.Status) {
@@ -236,7 +229,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 		return false, nil
 	}
 	if len(imageConfig.Spec.AdditionalTrustedCA.Name) == 0 {
-		err := client.ConfigMaps(operatorclient.TargetNamespaceName).Delete(imageImportCAName, nil)
+		err := client.ConfigMaps(operatorclient.TargetNamespace).Delete(imageImportCAName, nil)
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}
@@ -245,7 +238,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 		}
 		return true, nil
 	}
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.UserSpecifiedGlobalConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespaceName, imageImportCAName, nil)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.GlobalMachineSpecifiedConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespace, imageImportCAName, nil)
 	if err != nil {
 		return false, err
 	}
@@ -263,11 +256,11 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	// we can embed input hashes on our main configmap to drive rollouts when they change.
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
 		kubeClient,
-		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("aggregator-client-ca"),
-		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("client-ca"),
-		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespaceName).Named("etcd-client"),
-		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespaceName).Named("etcd-serving-ca"),
-		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespaceName).Named("serving-cert"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("aggregator-client-ca"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("client-ca"),
+		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespace).Named("etcd-client"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("etcd-serving-ca"),
+		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespace).Named("serving-cert"),
 	)
 	if err != nil {
 		return nil, false, err
@@ -323,7 +316,7 @@ func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServi
 				Group:   apiServiceGroupVersion.Group,
 				Version: apiServiceGroupVersion.Version,
 				Service: &apiregistrationv1.ServiceReference{
-					Namespace: operatorclient.TargetNamespaceName,
+					Namespace: operatorclient.TargetNamespace,
 					Name:      "api",
 				},
 				GroupPriorityMinimum: 9900,
