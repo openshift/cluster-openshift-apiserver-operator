@@ -20,7 +20,6 @@ import (
 	appsv1lister "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -36,8 +35,6 @@ type finalizerController struct {
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
-
-	rateLimiter flowcontrol.RateLimiter
 }
 
 // NewFinalizerController is here because
@@ -63,8 +60,6 @@ func NewFinalizerController(
 			kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer().HasSynced,
 		},
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "FinalizerController"),
-
-		rateLimiter: flowcontrol.NewTokenBucketRateLimiter(0.05 /*3 per minute*/, 4),
 	}
 
 	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
@@ -150,9 +145,6 @@ func (c *finalizerController) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(dsKey)
-
-	// before we call sync, we want to wait for token.  We do this to avoid hot looping.
-	c.rateLimiter.Accept()
 
 	err := c.sync()
 	if err == nil {

@@ -19,7 +19,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/flowcontrol"
 	"k8s.io/client-go/util/workqueue"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
@@ -51,8 +50,6 @@ type OpenShiftAPIServerOperator struct {
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
-
-	rateLimiter flowcontrol.RateLimiter
 }
 
 func NewWorkloadController(
@@ -81,8 +78,6 @@ func NewWorkloadController(
 		eventRecorder:           eventRecorder,
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "OpenShiftAPIServerOperator"),
-
-		rateLimiter: flowcontrol.NewTokenBucketRateLimiter(0.05 /*3 per minute*/, 4),
 	}
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
@@ -180,9 +175,6 @@ func (c *OpenShiftAPIServerOperator) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(dsKey)
-
-	// before we call sync, we want to wait for token.  We do this to avoid hot looping.
-	c.rateLimiter.Accept()
 
 	err := c.sync()
 	if err == nil {
