@@ -60,9 +60,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	operatorConfigInformers := operatorv1informers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
 		"",
+		operatorclient.GlobalUserSpecifiedConfigNamespace,
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
-		operatorclient.MachineSpecifiedGlobalConfigNamespace,
-		operatorclient.KubeAPIServerNamespaceName,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
 		"kube-system",
@@ -103,8 +102,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.EtcdNamespaceName),
-		kubeInformersForNamespaces.InformersFor(operatorclient.KubeAPIServerNamespaceName),
-		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		apiregistrationInformers,
 		configInformers,
 		operatorConfigClient.OperatorV1(),
@@ -133,8 +131,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		append(
 			[]configv1.ObjectReference{
 				{Group: "operator.openshift.io", Resource: "openshiftapiservers", Name: "cluster"},
+				{Resource: "namespaces", Name: operatorclient.GlobalUserSpecifiedConfigNamespace},
 				{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
-				{Resource: "namespaces", Name: operatorclient.MachineSpecifiedGlobalConfigNamespace},
 				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 				{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 			},
