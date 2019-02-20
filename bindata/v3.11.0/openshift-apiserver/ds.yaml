@@ -90,6 +90,7 @@ spec:
           secretName: serving-cert
       - hostPath:
           path: /var/log/openshift-apiserver
+          type: DirectoryOrCreate
         name: audit-dir
       nodeSelector:
         node-role.kubernetes.io/master: ""
