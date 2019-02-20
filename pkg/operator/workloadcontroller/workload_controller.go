@@ -109,15 +109,19 @@ func (c OpenShiftAPIServerOperator) sync() error {
 	if err != nil {
 		return err
 	}
+
 	switch operatorConfig.Spec.ManagementState {
+	case operatorsv1.Managed:
 	case operatorsv1.Unmanaged:
 		return nil
-
 	case operatorsv1.Removed:
 		// TODO probably need to watch until the NS is really gone
 		if err := c.kubeClient.CoreV1().Namespaces().Delete(operatorclient.TargetNamespace, nil); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
+		return nil
+	default:
+		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorConfig.Spec.ManagementState)
 		return nil
 	}
 
