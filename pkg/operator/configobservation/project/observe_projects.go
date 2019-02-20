@@ -2,6 +2,7 @@ package project
 
 import (
 	"github.com/golang/glog"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -51,10 +52,13 @@ func ObserveProjectRequestTemplateName(genericListers configobserver.Listers, re
 		return prevObservedConfig, append(errs, err)
 	}
 
-	observedProjectRequestTemplateName := currentClusterInstance.Spec.ProjectRequestTemplate.Name
-
-	if err := unstructured.SetNestedField(observedConfig, observedProjectRequestTemplateName, projectRequestTemplateNamePath...); err != nil {
-		return prevObservedConfig, append(errs, err)
+	// the openshift-apiserver takes a namespace/name format, but we require a particular namespace.  Prepend it here.
+	observedProjectRequestTemplateName := ""
+	if len(currentClusterInstance.Spec.ProjectRequestTemplate.Name) > 0 {
+		observedProjectRequestTemplateName = operatorclient.GlobalUserSpecifiedConfigNamespace + "/" + currentClusterInstance.Spec.ProjectRequestTemplate.Name
+		if err := unstructured.SetNestedField(observedConfig, observedProjectRequestTemplateName, projectRequestTemplateNamePath...); err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
 	}
 
 	// no change, return early to skip the event

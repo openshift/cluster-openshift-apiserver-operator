@@ -85,7 +85,7 @@ func Resources() resourcegraph.Resources {
 		Add(ret)
 
 	// aggregator CA
-	kasAggregatorCA := resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-aggregator-client-ca").
+	kasAggregatorCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "kube-apiserver-aggregator-client-ca").
 		Note("Synchronized").
 		From(kasOperator).
 		Add(ret)
@@ -95,7 +95,7 @@ func Resources() resourcegraph.Resources {
 		Add(ret)
 
 	// client CA
-	kasClientCA := resourcegraph.NewConfigMap(operatorclient.GlobalMachineSpecifiedConfigNamespace, "kube-apiserver-client-ca").
+	kasClientCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "kube-apiserver-client-ca").
 		Note("Synchronized").
 		From(kasOperator).
 		Add(ret)

@@ -99,28 +99,27 @@ func TestObserveProjectRequestTemplateName(t *testing.T) {
 	}{
 		{
 			name:                 "simple update",
-			existingConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "foo-template"}},
-			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "bar-template"}},
+			existingConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "openshift-config/foo-template"}},
+			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "openshift-config/bar-template"}},
 			currentProjectConfig: fakeProjectConfig("cluster", projectv1.ProjectSpec{ProjectRequestTemplate: projectv1.TemplateReference{Name: "bar-template"}}),
 			expectEventCount:     1,
 		},
 		{
 			name:                 "empty field",
-			existingConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "foo-template"}},
-			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": ""}},
+			existingConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "openshift-config/foo-template"}},
 			currentProjectConfig: fakeProjectConfig("cluster", projectv1.ProjectSpec{ProjectRequestTemplate: projectv1.TemplateReference{Name: ""}}),
 			expectEventCount:     1,
 		},
 		{
 			name:                 "no existing",
-			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "bar-template"}},
+			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "openshift-config/bar-template"}},
 			currentProjectConfig: fakeProjectConfig("cluster", projectv1.ProjectSpec{ProjectRequestTemplate: projectv1.TemplateReference{Name: "bar-template"}}),
 			expectEventCount:     1,
 		},
 		{
 			name:                 "no change",
-			existingConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "bar-template"}},
-			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "bar-template"}},
+			existingConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "openshift-config/bar-template"}},
+			expectedConfig:       map[string]interface{}{"projectConfig": map[string]interface{}{"projectRequestTemplate": "openshift-config/bar-template"}},
 			currentProjectConfig: fakeProjectConfig("cluster", projectv1.ProjectSpec{ProjectRequestTemplate: projectv1.TemplateReference{Name: "bar-template"}}),
 			expectEventCount:     0, // Do not fire events on no-op change
 		},

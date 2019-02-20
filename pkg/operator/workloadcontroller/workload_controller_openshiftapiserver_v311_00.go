@@ -238,7 +238,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 		}
 		return true, nil
 	}
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.GlobalMachineSpecifiedConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespace, imageImportCAName, nil)
+	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.GlobalUserSpecifiedConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespace, imageImportCAName, nil)
 	if err != nil {
 		return false, err
 	}
