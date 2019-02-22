@@ -148,7 +148,9 @@ auditConfig:
         # generate an audit event in RequestReceived.
         omitStages:
           - "RequestReceived"
-`)
+apiServerArguments:
+  minimal-shutdown-duration:
+  - 3s # give SDN some time to converge`)
 
 func v3110OpenshiftApiserverDefaultconfigYamlBytes() ([]byte, error) {
 	return _v3110OpenshiftApiserverDefaultconfigYaml, nil
