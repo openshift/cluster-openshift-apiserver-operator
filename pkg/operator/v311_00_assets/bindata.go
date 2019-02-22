@@ -200,6 +200,9 @@ spec:
           requests:
             memory: 200Mi
             cpu: 150m
+        # we need to set this to privileged to be able to write audit to /var/log/openshift-apiserver
+        securityContext:
+          privileged: true
         ports:
         - containerPort: 8443
         volumeMounts:
