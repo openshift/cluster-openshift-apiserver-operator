@@ -26,6 +26,7 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -144,6 +145,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
+	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, ctx.EventRecorder)
+
 	operatorConfigInformers.Start(ctx.Done())
 	kubeInformersForNamespaces.Start(ctx.Done())
 	apiregistrationInformers.Start(ctx.Done())
@@ -154,6 +157,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go clusterOperatorStatus.Run(1, ctx.Done())
 	go finalizerController.Run(1, ctx.Done())
 	go resourceSyncController.Run(1, ctx.Done())
+	go configUpgradeableController.Run(1, ctx.Done())
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
