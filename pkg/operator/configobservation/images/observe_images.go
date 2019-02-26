@@ -39,6 +39,11 @@ func ObserveInternalRegistryHostname(genericListers configobserver.Listers, reco
 	configImage, err := listers.ImageConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
 		glog.Warningf("image.config.openshift.io/cluster: not found")
+		// if we have no cluster image config object, default the internal registry hostname to what we expect it will be
+		// once the cluster image config object is created.
+		if err := unstructured.SetNestedField(observedConfig, "image-registry.openshift-image-registry.svc:5000", internalRegistryHostnamePath...); err != nil {
+			errs = append(errs, err)
+		}
 		return observedConfig, errs
 	}
 	if err != nil {
