@@ -303,6 +303,9 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.Dae
 	required := resourceread.ReadDaemonSetV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml"))
 	if len(imagePullSpec) > 0 {
 		required.Spec.Template.Spec.Containers[0].Image = imagePullSpec
+		if len(required.Spec.Template.Spec.InitContainers) > 0 {
+			required.Spec.Template.Spec.InitContainers[0].Image = imagePullSpec
+		}
 	}
 	// we set this so that when the requested image pull spec changes, we always have a diff.  Remember that we don't directly
 	// diff any fields on the daemonset because they can be rewritten by admission and we don't want to constantly be fighting
