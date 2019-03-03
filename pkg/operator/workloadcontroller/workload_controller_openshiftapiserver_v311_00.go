@@ -2,32 +2,36 @@ package workloadcontroller
 
 import (
 	"fmt"
+	"sort"
 	"strings"
-
-	"github.com/openshift/library-go/pkg/operator/status"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 
+	openshiftapi "github.com/openshift/api"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -35,7 +39,6 @@ import (
 // most of the time the sync method will be good for a large span of minor versions
 func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *operatorv1.OpenShiftAPIServer) (bool, error) {
 	errors := []error{}
-	var err error
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
 	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
@@ -45,7 +48,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		"v3.11.0/openshift-apiserver/sa.yaml",
 	)
 	resourcesThatForceRedeployment := sets.NewString("v3.11.0/openshift-apiserver/sa.yaml")
-	forceRollingUpdate := false
+	var reasonsForForcedRollingUpdate []string
 
 	for _, currResult := range directResourceResults {
 		if currResult.Error != nil {
@@ -54,22 +57,36 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		}
 
 		if currResult.Changed && resourcesThatForceRedeployment.Has(currResult.File) {
-			forceRollingUpdate = true
+			reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(currResult.Result))
 		}
 	}
 
-	_, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
+	configMapModifiedObject, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
+	if configMapModified {
+		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(configMapModifiedObject))
+	}
 
-	imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
+	imageImportCAModifiedObject, imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
 	}
+	if imageImportCAModified {
+		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(imageImportCAModifiedObject))
+	}
 
-	forceRollingUpdate = forceRollingUpdate || operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration
-	forceRollingUpdate = forceRollingUpdate || configMapModified || imageImportCAModified
+	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
+		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, fmt.Sprintf("operator config spec generation %q does not match status generation %q", operatorConfig.ObjectMeta.Generation, operatorConfig.Status.ObservedGeneration))
+	}
+
+	forceRollingUpdate := len(reasonsForForcedRollingUpdate) > 0
+
+	if forceRollingUpdate {
+		sort.Sort(sort.StringSlice(reasonsForForcedRollingUpdate))
+		c.eventRecorder.Eventf("RollingUpdateForced", "Rolling update forced because:\n* %s", strings.Join(reasonsForForcedRollingUpdate, "\n"))
+	}
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
@@ -220,29 +237,39 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	return false, nil
 }
 
-func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (bool, error) {
+// manageOpenShiftAPIServerImageImportCA_v311_00_to_latest synchronizes image import ca-bundle. Returns the modified
+// ca-bundle ConfigMap.
+func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	imageConfig, err := openshiftConfigClient.Images().Get("cluster", metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
-		return false, err
+		return nil, false, err
 	}
 	if apierrors.IsNotFound(err) {
-		return false, nil
+		return nil, false, nil
 	}
 	if len(imageConfig.Spec.AdditionalTrustedCA.Name) == 0 {
-		err := client.ConfigMaps(operatorclient.TargetNamespace).Delete(imageImportCAName, nil)
+		existingCM, err := client.ConfigMaps(operatorclient.TargetNamespace).Get(imageImportCAName, metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
-			return false, nil
+			return nil, false, nil
 		}
 		if err != nil {
-			return false, err
+			return nil, false, err
 		}
-		return true, nil
+		err = client.ConfigMaps(operatorclient.TargetNamespace).Delete(imageImportCAName, nil)
+		if err != nil {
+			return nil, false, err
+		}
+		return existingCM, true, nil
 	}
-	_, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.GlobalUserSpecifiedConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespace, imageImportCAName, nil)
-	if err != nil {
-		return false, err
+	configMap, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.GlobalUserSpecifiedConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespace, imageImportCAName, nil)
+	switch {
+	case err != nil:
+		return nil, false, err
+	case caChanged:
+		return configMap, true, nil
+	default:
+		return nil, false, nil
 	}
-	return caChanged, nil
 }
 
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
@@ -331,4 +358,41 @@ func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServi
 	}
 
 	return apiServices, nil
+}
+
+var openshiftScheme = runtime.NewScheme()
+
+func init() {
+	if err := openshiftapi.Install(openshiftScheme); err != nil {
+		panic(err)
+	}
+}
+
+func resourceSelectorForCLI(obj runtime.Object) string {
+	groupVersionKind := obj.GetObjectKind().GroupVersionKind()
+	if len(groupVersionKind.Kind) == 0 {
+		if kinds, _, _ := scheme.Scheme.ObjectKinds(obj); len(kinds) > 0 {
+			groupVersionKind = kinds[0]
+		}
+	}
+	if len(groupVersionKind.Kind) == 0 {
+		if kinds, _, _ := openshiftScheme.ObjectKinds(obj); len(kinds) > 0 {
+			groupVersionKind = kinds[0]
+		}
+	}
+	if len(groupVersionKind.Kind) == 0 {
+		groupVersionKind = schema.GroupVersionKind{Kind: "Unknown"}
+	}
+	kind := groupVersionKind.Kind
+	group := groupVersionKind.Group
+	var name string
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		name = "unknown"
+	}
+	name = accessor.GetName()
+	if len(group) > 0 {
+		group = "." + group
+	}
+	return kind + group + "/" + name
 }
