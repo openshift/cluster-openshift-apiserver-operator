@@ -3,3 +3,9 @@ kind: ClusterOperator
 metadata:
   name: openshift-apiserver
 spec: {}
+status:
+  versions:
+    - name: operator
+      version: "0.0.1-snapshot"
+    - name: openshift-apiserver
+      version: "0.0.1-snapshot_openshift"
