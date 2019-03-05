@@ -35,7 +35,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
-	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(ctx.KubeConfig)
+	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(ctx.ProtoKubeConfig)
 	if err != nil {
 		return err
 	}
