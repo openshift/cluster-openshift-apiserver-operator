@@ -78,7 +78,8 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	}
 
 	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
-		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, fmt.Sprintf("operator config spec generation %q does not match status generation %q", operatorConfig.ObjectMeta.Generation, operatorConfig.Status.ObservedGeneration))
+		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, fmt.Sprintf("operator config spec generation %d does not match status generation %d", operatorConfig.ObjectMeta.Generation,
+			operatorConfig.Status.ObservedGeneration))
 	}
 
 	forceRollingUpdate := len(reasonsForForcedRollingUpdate) > 0
