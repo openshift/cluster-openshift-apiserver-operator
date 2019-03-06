@@ -75,7 +75,7 @@ func NewWorkloadController(
 		openshiftConfigClient:   openshiftConfigClient,
 		kubeClient:              kubeClient,
 		apiregistrationv1Client: apiregistrationv1Client,
-		eventRecorder:           eventRecorder,
+		eventRecorder:           eventRecorder.WithComponentSuffix("workload-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "OpenShiftAPIServerOperator"),
 	}

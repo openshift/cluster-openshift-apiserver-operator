@@ -53,7 +53,7 @@ func NewFinalizerController(
 		namespaceGetter: namespaceGetter,
 		podLister:       kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
 		dsLister:        kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
-		eventRecorder:   eventRecorder,
+		eventRecorder:   eventRecorder.WithComponentSuffix("finalizer-controller"),
 
 		preRunHasSynced: []cache.InformerSynced{
 			kubeInformersForTargetNamespace.Core().V1().Pods().Informer().HasSynced,
