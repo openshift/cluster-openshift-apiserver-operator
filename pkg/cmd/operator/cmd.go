@@ -10,7 +10,7 @@ import (
 
 func NewOperator() *cobra.Command {
 	cmd := controllercmd.
-		NewControllerCommandConfig("openshift-cluster-openshift-apiserver-operator", version.Get(), operator.RunOperator).
+		NewControllerCommandConfig("openshift-apiserver-operator", version.Get(), operator.RunOperator).
 		NewCommand()
 	cmd.Use = "operator"
 	cmd.Short = "Start the Cluster openshift-apiserver Operator"
