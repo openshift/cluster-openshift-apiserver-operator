@@ -191,6 +191,14 @@ spec:
     spec:
       serviceAccountName: openshift-apiserver-sa
       priorityClassName: system-node-critical
+      initContainers:
+        - name: fix-audit-permissions
+          image: ${IMAGE}
+          imagePullPolicy: IfNotPresent
+          command: ['sh', '-c', 'chmod 0700 /var/log/openshift-apiserver']
+          volumeMounts:
+            - mountPath: /var/log/openshift-apiserver
+              name: audit-dir
       containers:
       - name: openshift-apiserver
         image: ${IMAGE}
