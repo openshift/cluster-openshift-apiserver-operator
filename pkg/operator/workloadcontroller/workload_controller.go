@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/status"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,13 +19,19 @@ import (
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
-	operatorsv1 "github.com/openshift/api/operator/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions/operator/v1"
 	clusteroperatorv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/management"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 )
 
 const (
@@ -44,6 +46,7 @@ type OpenShiftAPIServerOperator struct {
 
 	operatorConfigClient    operatorv1client.OpenShiftAPIServersGetter
 	openshiftConfigClient   openshiftconfigclientv1.ConfigV1Interface
+	operatorStatusProvider  operatorv1helpers.OperatorClient
 	kubeClient              kubernetes.Interface
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface
 	eventRecorder           events.Recorder
@@ -65,6 +68,7 @@ func NewWorkloadController(
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
 	kubeClient kubernetes.Interface,
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
+	operatorStatusProvider operatorv1helpers.OperatorClient,
 	eventRecorder events.Recorder,
 ) *OpenShiftAPIServerOperator {
 	c := &OpenShiftAPIServerOperator{
@@ -73,6 +77,7 @@ func NewWorkloadController(
 
 		operatorConfigClient:    operatorConfigClient,
 		openshiftConfigClient:   openshiftConfigClient,
+		operatorStatusProvider:  operatorStatusProvider,
 		kubeClient:              kubeClient,
 		apiregistrationv1Client: apiregistrationv1Client,
 		eventRecorder:           eventRecorder.WithComponentSuffix("workload-controller"),
@@ -103,19 +108,13 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return err
 	}
 
-	switch operatorConfig.Spec.ManagementState {
-	case operatorsv1.Managed:
-	case operatorsv1.Unmanaged:
+	if !management.IsOperatorManaged(operatorConfig.Spec.ManagementState) {
 		return nil
-	case operatorsv1.Removed:
-		// TODO probably need to watch until the NS is really gone
-		if err := c.kubeClient.CoreV1().Namespaces().Delete(operatorclient.TargetNamespace, nil); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		return nil
-	default:
-		c.eventRecorder.Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorConfig.Spec.ManagementState)
-		return nil
+	}
+
+	cond := operatorv1.OperatorCondition{
+		Type:   "PreRequirementNotReady",
+		Status: operatorv1.ConditionFalse,
 	}
 
 	kubeAPIServerOperator, err := c.openshiftConfigClient.ClusterOperators().Get("kube-apiserver", metav1.GetOptions{})
@@ -123,23 +122,24 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		kubeAPIServerOperator, err = c.openshiftConfigClient.ClusterOperators().Get("openshift-kube-apiserver-operator", metav1.GetOptions{})
 	}
 	if apierrors.IsNotFound(err) {
-		message := "clusteroperator/kube-apiserver not found"
-		c.eventRecorder.Warning("PrereqNotReady", message)
-		return fmt.Errorf(message)
+		return c.reportNotReadyPreRequirements("NotFound", fmt.Sprintf("clusteroperator/kube-apiserver: %v", err))
 	}
 	if err != nil {
 		return err
 	}
 	if !clusteroperatorv1helpers.IsStatusConditionTrue(kubeAPIServerOperator.Status.Conditions, "Available") {
-		message := fmt.Sprintf("clusteroperator/%s is not Available", kubeAPIServerOperator.Name)
-		c.eventRecorder.Warning("PrereqNotReady", message)
-		return fmt.Errorf(message)
+		return c.reportNotReadyPreRequirements("NotAvailable", fmt.Sprintf("clusteroperator/%s is not Available", kubeAPIServerOperator.Name))
 	}
 
 	// block until config is obvserved
 	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
-		glog.Info("Waiting for observed configuration to be available")
-		return nil
+		return c.reportNotReadyPreRequirements("NoConfig", "waiting for config")
+	}
+
+	// clean up the prereq not ready condition
+	_, _, updateError := v1helpers.UpdateStatus(c.operatorStatusProvider, v1helpers.UpdateConditionFn(cond))
+	if updateError != nil {
+		return err
 	}
 
 	forceRequeue, err := syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
@@ -148,6 +148,22 @@ func (c OpenShiftAPIServerOperator) sync() error {
 	}
 
 	return err
+}
+
+func (c OpenShiftAPIServerOperator) reportNotReadyPreRequirements(reason, message string) error {
+	cond := operatorv1.OperatorCondition{
+		Type:    "PreRequirementNotReady",
+		Status:  operatorv1.ConditionTrue,
+		Reason:  reason,
+		Message: message,
+	}
+	_, _, updateError := v1helpers.UpdateStatus(c.operatorStatusProvider, v1helpers.UpdateConditionFn(cond))
+	if updateError == nil {
+		c.eventRecorder.Warning("PrereqNotReady", cond.Message)
+	} else {
+		return updateError
+	}
+	return fmt.Errorf(cond.Message)
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.

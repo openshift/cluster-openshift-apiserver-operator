@@ -110,6 +110,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		configClient.ConfigV1(),
 		kubeClient,
 		apiregistrationv1Client.ApiregistrationV1(),
+		operatorClient,
 		ctx.EventRecorder,
 	)
 	finalizerController := NewFinalizerController(
