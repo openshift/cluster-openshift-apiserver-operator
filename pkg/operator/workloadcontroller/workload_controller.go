@@ -58,7 +58,8 @@ type OpenShiftAPIServerOperator struct {
 func NewWorkloadController(
 	targetImagePullSpec string,
 	versionRecorder status.VersionGetter,
-	operatorConfigInformer operatorv1informers.OpenShiftAPIServerInformer,
+	openshiftAPIOperatorConfigInformer operatorv1informers.OpenShiftAPIServerInformer,
+	kubeAPIOperatorConfigInformer operatorv1informers.KubeAPIServerInformer,
 	kubeInformersForOpenShiftAPIServerNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForOpenShiftConfigNamespace kubeinformers.SharedInformerFactory,
@@ -85,7 +86,7 @@ func NewWorkloadController(
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "OpenShiftAPIServerOperator"),
 	}
 
-	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
+	openshiftAPIOperatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForEtcdNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForEtcdNamespace.Core().V1().Secrets().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
@@ -95,6 +96,9 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftConfigNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	configInformers.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 	apiregistrationInformers.Apiregistration().V1().APIServices().Informer().AddEventHandler(c.eventHandler())
+
+	// requeue when the cluster operators kube-apiserver change
+	kubeAPIOperatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
 
 	// we only watch some namespaces
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().Namespaces().Informer().AddEventHandler(c.namespaceEventHandler())
@@ -113,7 +117,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 	}
 
 	cond := operatorv1.OperatorCondition{
-		Type:   "PreRequirementNotReady",
+		Type:   "PrerequisiteNotReady",
 		Status: operatorv1.ConditionFalse,
 	}
 
@@ -152,14 +156,14 @@ func (c OpenShiftAPIServerOperator) sync() error {
 
 func (c OpenShiftAPIServerOperator) reportNotReadyPreRequirements(reason, message string) error {
 	cond := operatorv1.OperatorCondition{
-		Type:    "PreRequirementNotReady",
+		Type:    "PrerequisiteNotReady",
 		Status:  operatorv1.ConditionTrue,
 		Reason:  reason,
 		Message: message,
 	}
 	_, _, updateError := v1helpers.UpdateStatus(c.operatorStatusProvider, v1helpers.UpdateConditionFn(cond))
 	if updateError == nil {
-		c.eventRecorder.Warning("PrereqNotReady", cond.Message)
+		c.eventRecorder.Warning("PrerequisiteNotReady", cond.Message)
 	} else {
 		return updateError
 	}

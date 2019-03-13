@@ -101,6 +101,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		os.Getenv("IMAGE"),
 		versionRecorder,
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
+		operatorConfigInformers.Operator().V1().KubeAPIServers(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.EtcdNamespaceName),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
