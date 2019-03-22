@@ -150,7 +150,7 @@ auditConfig:
           - "RequestReceived"
 apiServerArguments:
   minimal-shutdown-duration:
-  - 3s # give SDN some time to converge`)
+  - 35s # give SDN some time to converge: 30s for iptable lock contention, 5s for the second try.`)
 
 func v3110OpenshiftApiserverDefaultconfigYamlBytes() ([]byte, error) {
 	return _v3110OpenshiftApiserverDefaultconfigYaml, nil
