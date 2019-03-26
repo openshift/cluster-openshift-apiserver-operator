@@ -75,7 +75,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		Client:    operatorConfigClient.OperatorV1(),
 	}
 
-	resourceSyncController, err := resourcesynccontroller.NewResourceSyncController(
+	resourceSyncController, debugHandler, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
 		kubeInformersForNamespaces,
 		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
@@ -147,6 +147,10 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	)
 
 	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, ctx.EventRecorder)
+
+	if ctx.Server != nil {
+		ctx.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
+	}
 
 	operatorConfigInformers.Start(ctx.Done())
 	kubeInformersForNamespaces.Start(ctx.Done())
