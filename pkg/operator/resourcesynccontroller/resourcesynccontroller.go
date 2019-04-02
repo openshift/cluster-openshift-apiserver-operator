@@ -1,6 +1,8 @@
 package resourcesynccontroller
 
 import (
+	"net/http"
+
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -15,7 +17,7 @@ func NewResourceSyncController(
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configMapsGetter corev1client.ConfigMapsGetter,
 	secretsGetter corev1client.SecretsGetter,
-	eventRecorder events.Recorder) (*resourcesynccontroller.ResourceSyncController, error) {
+	eventRecorder events.Recorder) (*resourcesynccontroller.ResourceSyncController, http.Handler, error) {
 
 	resourceSyncController := resourcesynccontroller.NewResourceSyncController(
 		operatorConfigClient,
@@ -28,26 +30,26 @@ func NewResourceSyncController(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "etcd-serving-ca"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.EtcdNamespaceName, Name: "etcd-serving-ca"},
 	); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := resourceSyncController.SyncSecret(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "etcd-client"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.EtcdNamespaceName, Name: "etcd-client"},
 	); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "client-ca"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-client-ca"},
 	); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := resourceSyncController.SyncConfigMap(
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "aggregator-client-ca"},
 		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace, Name: "kube-apiserver-aggregator-client-ca"},
 	); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return resourceSyncController, nil
+	return resourceSyncController, resourcesynccontroller.NewDebugHandler(resourceSyncController), nil
 }
