@@ -44,7 +44,7 @@ spec:
         - name: OPERATOR_IMAGE_VERSION
           value: "0.0.1-snapshot"
         - name: OPERAND_IMAGE_VERSION
-          value: "0.0.1-snapshot_openshift"
+          value: "0.0.1-snapshot-hypershift"
       volumes:
       - name: serving-cert
         secret:
