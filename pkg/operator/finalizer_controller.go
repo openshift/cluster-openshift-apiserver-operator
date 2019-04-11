@@ -7,8 +7,7 @@ import (
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"k8s.io/client-go/kubernetes/typed/core/v1"
-
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -117,8 +116,8 @@ func (c *finalizerController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	glog.Infof("Starting FinalizerController")
-	defer glog.Infof("Shutting down FinalizerController")
+	klog.Infof("Starting FinalizerController")
+	defer klog.Infof("Shutting down FinalizerController")
 
 	if !cache.WaitForCacheSync(stopCh, c.preRunHasSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))

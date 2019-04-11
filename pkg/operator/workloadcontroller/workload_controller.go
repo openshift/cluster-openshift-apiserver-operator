@@ -8,8 +8,6 @@ import (
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 
-	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
@@ -138,7 +137,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 
 	// block until config is obvserved
 	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
-		glog.Info("Waiting for observed configuration to be available")
+		klog.Info("Waiting for observed configuration to be available")
 		return nil
 	}
 
@@ -155,8 +154,8 @@ func (c *OpenShiftAPIServerOperator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	glog.Infof("Starting OpenShiftAPIServerOperator")
-	defer glog.Infof("Shutting down OpenShiftAPIServerOperator")
+	klog.Infof("Starting OpenShiftAPIServerOperator")
+	defer klog.Infof("Shutting down OpenShiftAPIServerOperator")
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
