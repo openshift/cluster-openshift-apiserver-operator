@@ -3,10 +3,9 @@ package ingresses
 import (
 	"reflect"
 
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
@@ -33,7 +32,7 @@ func ObserveIngressDomain(genericListers configobserver.Listers, recorder events
 	observedConfig := map[string]interface{}{}
 	configIngress, err := listers.IngressConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.Warningf("ingress.config.openshift.io/cluster: not found")
+		klog.Warningf("ingress.config.openshift.io/cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {

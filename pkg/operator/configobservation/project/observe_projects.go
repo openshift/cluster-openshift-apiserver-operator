@@ -1,11 +1,11 @@
 package project
 
 import (
-	"github.com/golang/glog"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/klog"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -45,7 +45,7 @@ func ObserveProjectRequestTemplateName(genericListers configobserver.Listers, re
 
 	currentClusterInstance, err := listers.ProjectConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.V(4).Infof("project.config.openshift.io/v1: cluster: not found")
+		klog.V(4).Infof("project.config.openshift.io/v1: cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {
@@ -94,7 +94,7 @@ func ObserveProjectRequestMessage(genericListers configobserver.Listers, recorde
 
 	currentClusterInstance, err := listers.ProjectConfigLister.Get("cluster")
 	if errors.IsNotFound(err) {
-		glog.V(4).Infof("project.config.openshift.io/v1: cluster: not found")
+		klog.V(4).Infof("project.config.openshift.io/v1: cluster: not found")
 		return observedConfig, errs
 	}
 	if err != nil {
