@@ -193,6 +193,7 @@ spec:
       priorityClassName: system-node-critical
       initContainers:
         - name: fix-audit-permissions
+          terminationMessagePolicy: FallbackToLogsOnError
           image: ${IMAGE}
           imagePullPolicy: IfNotPresent
           command: ['sh', '-c', 'chmod 0700 /var/log/openshift-apiserver']
@@ -201,6 +202,7 @@ spec:
               name: audit-dir
       containers:
       - name: openshift-apiserver
+        terminationMessagePolicy: FallbackToLogsOnError
         image: ${IMAGE}
         imagePullPolicy: IfNotPresent
         command: ["hypershift", "openshift-apiserver"]

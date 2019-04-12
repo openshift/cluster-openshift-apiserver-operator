@@ -19,6 +19,7 @@ spec:
       serviceAccountName: openshift-apiserver-operator
       containers:
       - name: operator
+        terminationMessagePolicy: FallbackToLogsOnError
         image: docker.io/openshift/origin-cluster-openshift-apiserver-operator:v4.0
         imagePullPolicy: IfNotPresent
         ports:
