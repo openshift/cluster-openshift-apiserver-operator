@@ -32,9 +32,9 @@ import (
 )
 
 const (
-	workloadFailingCondition = "WorkloadFailing"
-	imageImportCAName        = "image-import-ca"
-	workQueueKey             = "key"
+	workloadDegradedCondition = "WorkloadDegraded"
+	imageImportCAName         = "image-import-ca"
+	workQueueKey              = "key"
 )
 
 type OpenShiftAPIServerOperator struct {

@@ -408,7 +408,7 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			}
 			if len(tc.expectedFailingMessages) > 0 {
-				failingCondition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, workloadFailingCondition)
+				failingCondition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, workloadDegradedCondition)
 				for _, expected := range tc.expectedFailingMessages {
 					if failingCondition == nil {
 						t.Errorf("expected failing message not found: %q", expected)

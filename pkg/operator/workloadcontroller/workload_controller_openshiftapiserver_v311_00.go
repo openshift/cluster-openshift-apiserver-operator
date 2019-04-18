@@ -193,14 +193,14 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 			message = message + err.Error() + "\n"
 		}
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    workloadFailingCondition,
+			Type:    workloadDegradedCondition,
 			Status:  operatorv1.ConditionTrue,
 			Message: message,
 			Reason:  "SyncError",
 		})
 	} else {
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:   workloadFailingCondition,
+			Type:   workloadDegradedCondition,
 			Status: operatorv1.ConditionFalse,
 		})
 	}
