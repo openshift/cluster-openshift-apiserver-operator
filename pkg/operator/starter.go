@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/loglevel"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -146,6 +148,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	)
 
 	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, ctx.EventRecorder)
+	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorClient, ctx.EventRecorder)
 
 	if ctx.Server != nil {
 		ctx.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
@@ -162,6 +165,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go finalizerController.Run(1, ctx.Done())
 	go resourceSyncController.Run(1, ctx.Done())
 	go configUpgradeableController.Run(1, ctx.Done())
+	go logLevelController.Run(1, ctx.Done())
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
