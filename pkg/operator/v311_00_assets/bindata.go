@@ -5,7 +5,6 @@
 // bindata/v3.11.0/openshift-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/openshift-apiserver/ds.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
-// bindata/v3.11.0/openshift-apiserver/operator-config.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
 // DO NOT EDIT!
@@ -316,34 +315,6 @@ func v3110OpenshiftApiserverNsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110OpenshiftApiserverOperatorConfigYaml = []byte(`apiVersion: operator.openshift.io/v1
-kind: OpenShiftAPIServer
-metadata:
-  name: cluster
-spec:
-  managementState: Managed
-  imagePullSpec: openshift/origin-hypershift:latest
-  version: 3.11.0
-  logging:
-    level: 4
-  replicas: 2
-`)
-
-func v3110OpenshiftApiserverOperatorConfigYamlBytes() ([]byte, error) {
-	return _v3110OpenshiftApiserverOperatorConfigYaml, nil
-}
-
-func v3110OpenshiftApiserverOperatorConfigYaml() (*asset, error) {
-	bytes, err := v3110OpenshiftApiserverOperatorConfigYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/operator-config.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
 var _v3110OpenshiftApiserverSaYaml = []byte(`apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -456,7 +427,6 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/defaultconfig.yaml":                v3110OpenshiftApiserverDefaultconfigYaml,
 	"v3.11.0/openshift-apiserver/ds.yaml":                           v3110OpenshiftApiserverDsYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
-	"v3.11.0/openshift-apiserver/operator-config.yaml":              v3110OpenshiftApiserverOperatorConfigYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
 }
@@ -509,7 +479,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml":                {v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"ds.yaml":                           {v3110OpenshiftApiserverDsYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
-			"operator-config.yaml":              {v3110OpenshiftApiserverOperatorConfigYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
 		}},
