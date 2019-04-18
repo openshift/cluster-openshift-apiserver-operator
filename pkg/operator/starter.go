@@ -65,7 +65,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
-		"kube-system",
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -102,7 +101,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		versionRecorder,
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		kubeInformersForNamespaces.InformersFor(operatorclient.EtcdNamespaceName),
+		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		apiregistrationInformers,
 		configInformers,
@@ -122,7 +121,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorClient,
 		resourceSyncController,
 		operatorConfigInformers,
-		kubeInformersForNamespaces.InformersFor("kube-system"),
+		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		configInformers,
 		ctx.EventRecorder,
 	)
