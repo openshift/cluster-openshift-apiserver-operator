@@ -45,6 +45,8 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		"v3.11.0/openshift-apiserver/ns.yaml",
 		"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
 		"v3.11.0/openshift-apiserver/svc.yaml",
+		"v3.11.0/openshift-apiserver/etcd-service.yaml",
+		"v3.11.0/openshift-apiserver/etcd-ns.yaml",
 		"v3.11.0/openshift-apiserver/sa.yaml",
 	)
 	resourcesThatForceRedeployment := sets.NewString("v3.11.0/openshift-apiserver/sa.yaml")

@@ -4,6 +4,8 @@
 // bindata/v3.11.0/openshift-apiserver/cm.yaml
 // bindata/v3.11.0/openshift-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/openshift-apiserver/ds.yaml
+// bindata/v3.11.0/openshift-apiserver/etcd-ns.yaml
+// bindata/v3.11.0/openshift-apiserver/etcd-service.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
@@ -293,6 +295,64 @@ func v3110OpenshiftApiserverDsYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverEtcdNsYaml = []byte(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-etcd
+  labels:
+    openshift.io/run-level: "1"
+`)
+
+func v3110OpenshiftApiserverEtcdNsYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverEtcdNsYaml, nil
+}
+
+func v3110OpenshiftApiserverEtcdNsYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverEtcdNsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/etcd-ns.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110OpenshiftApiserverEtcdServiceYaml = []byte(`apiVersion: v1
+kind: Service
+metadata:
+  name: etcd
+  namespace: openshift-etcd
+  labels:
+    # this label is used to indicate that it should be scraped by prometheus
+    k8s-app: etcd
+spec:
+  selector:
+    k8s-app: etcd
+  ports:
+  - name: etcd
+    port: 2379
+    protocol: TCP
+  - name: etcd-metrics
+    port: 9979
+    protocol: TCP
+`)
+
+func v3110OpenshiftApiserverEtcdServiceYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverEtcdServiceYaml, nil
+}
+
+func v3110OpenshiftApiserverEtcdServiceYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverEtcdServiceYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/etcd-service.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110OpenshiftApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
@@ -426,6 +486,8 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
 	"v3.11.0/openshift-apiserver/defaultconfig.yaml":                v3110OpenshiftApiserverDefaultconfigYaml,
 	"v3.11.0/openshift-apiserver/ds.yaml":                           v3110OpenshiftApiserverDsYaml,
+	"v3.11.0/openshift-apiserver/etcd-ns.yaml":                      v3110OpenshiftApiserverEtcdNsYaml,
+	"v3.11.0/openshift-apiserver/etcd-service.yaml":                 v3110OpenshiftApiserverEtcdServiceYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
@@ -478,6 +540,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":                {v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"ds.yaml":                           {v3110OpenshiftApiserverDsYaml, map[string]*bintree{}},
+			"etcd-ns.yaml":                      {v3110OpenshiftApiserverEtcdNsYaml, map[string]*bintree{}},
+			"etcd-service.yaml":                 {v3110OpenshiftApiserverEtcdServiceYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},

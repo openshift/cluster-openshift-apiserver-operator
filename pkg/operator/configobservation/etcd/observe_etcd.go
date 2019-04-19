@@ -28,7 +28,11 @@ func ObserveEtcd(genericListers configobserver.Listers, recorder events.Recorder
 		}
 	}
 
-	if _, err := listers.EndpointsLister.Endpoints(etcdNamespace).Get(etcdServiceName); err != nil {
+	endpoints, err := listers.EndpointsLister.Endpoints(etcdNamespace).Get(etcdServiceName)
+	if err != nil {
+		return
+	}
+	if len(endpoints.Subsets) == 0 || len(endpoints.Subsets[0].Addresses) == 0 {
 		return
 	}
 
