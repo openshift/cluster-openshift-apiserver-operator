@@ -12,6 +12,7 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcd"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/ingresses"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/project"
@@ -48,6 +49,7 @@ func NewConfigObserver(
 					configInformers.Config().V1().Ingresses().Informer().HasSynced,
 				},
 			},
+			etcd.ObserveEtcd,
 			images.ObserveInternalRegistryHostname,
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
