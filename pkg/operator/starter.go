@@ -53,7 +53,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
-		"openshift-etcd",
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -110,7 +109,6 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorClient,
 		resourceSyncController,
 		operatorConfigInformers,
-		kubeInformersForNamespaces.InformersFor("openshift-etcd"),
 		configInformers,
 		ctx.EventRecorder,
 	)
