@@ -300,9 +300,12 @@ func v3110OpenshiftApiserverDsYaml() (*asset, error) {
 var _v3110OpenshiftApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
+  annotations:
+    openshift.io/node-selector: ""
   name: openshift-apiserver
   labels:
-    openshift.io/run-level: "1"`)
+    openshift.io/run-level: "1"
+`)
 
 func v3110OpenshiftApiserverNsYamlBytes() ([]byte, error) {
 	return _v3110OpenshiftApiserverNsYaml, nil
