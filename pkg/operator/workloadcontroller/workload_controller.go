@@ -27,7 +27,6 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions/operator/v1"
-	clusteroperatorv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
@@ -117,25 +116,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return nil
 	}
 
-	kubeAPIServerOperator, err := c.openshiftConfigClient.ClusterOperators().Get("kube-apiserver", metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		kubeAPIServerOperator, err = c.openshiftConfigClient.ClusterOperators().Get("openshift-kube-apiserver-operator", metav1.GetOptions{})
-	}
-	if apierrors.IsNotFound(err) {
-		message := "clusteroperator/kube-apiserver not found"
-		c.eventRecorder.Warning("PrereqNotReady", message)
-		return fmt.Errorf(message)
-	}
-	if err != nil {
-		return err
-	}
-	if !clusteroperatorv1helpers.IsStatusConditionTrue(kubeAPIServerOperator.Status.Conditions, "Available") {
-		message := fmt.Sprintf("clusteroperator/%s is not Available", kubeAPIServerOperator.Name)
-		c.eventRecorder.Warning("PrereqNotReady", message)
-		return fmt.Errorf(message)
-	}
-
-	// block until config is obvserved
+	// block until config is observed
 	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
 		klog.Info("Waiting for observed configuration to be available")
 		return nil
