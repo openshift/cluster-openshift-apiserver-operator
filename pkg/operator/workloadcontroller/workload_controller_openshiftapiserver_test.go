@@ -5,10 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openshift/library-go/pkg/operator/status"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-
 	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -26,7 +22,9 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	operatorfake "github.com/openshift/client-go/operator/clientset/versioned/fake"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/status"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -139,24 +137,26 @@ func TestProgressingCondition(t *testing.T) {
 			apiServiceOperatorClient := operatorfake.NewSimpleClientset(operatorConfig)
 			openshiftConfigClient := configfake.NewSimpleClientset()
 			kubeAggregatorClient := kubeaggregatorfake.NewSimpleClientset()
+			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorConfig.Spec.OperatorSpec, &operatorConfig.Status.OperatorStatus, nil)
 
 			operator := OpenShiftAPIServerOperator{
 				kubeClient:              kubeClient,
 				eventRecorder:           events.NewInMemoryRecorder(""),
+				operatorClient:          fakeOperatorClient,
 				operatorConfigClient:    apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:   openshiftConfigClient.ConfigV1(),
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
 				versionRecorder:         status.NewVersionGetter(),
 			}
 
-			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_, _ = syncOpenShiftAPIServer(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+			_, result, _, err := fakeOperatorClient.GetOperatorState()
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeProgressing)
+			condition := operatorv1helpers.FindOperatorCondition(result.Conditions, operatorv1.OperatorStatusTypeProgressing)
 			if condition == nil {
 				t.Fatalf("No %v condition found.", operatorv1.OperatorStatusTypeProgressing)
 			}
@@ -361,6 +361,7 @@ func TestAvailableStatus(t *testing.T) {
 						Status:     apiregistrationv1.APIServiceStatus{Conditions: []apiregistrationv1.APIServiceCondition{{Type: apiregistrationv1.Available, Status: apiregistrationv1.ConditionTrue}}},
 					}, nil
 			})
+			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorConfig.Spec.OperatorSpec, &operatorConfig.Status.OperatorStatus, nil)
 
 			if tc.daemonReactor != nil {
 				kubeClient.PrependReactor("*", "daemonsets", tc.daemonReactor)
@@ -372,20 +373,21 @@ func TestAvailableStatus(t *testing.T) {
 			operator := OpenShiftAPIServerOperator{
 				kubeClient:              kubeClient,
 				eventRecorder:           events.NewInMemoryRecorder(""),
+				operatorClient:          fakeOperatorClient,
 				operatorConfigClient:    apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:   openshiftConfigClient.ConfigV1(),
 				apiregistrationv1Client: kubeAggregatorClient.ApiregistrationV1(),
 				versionRecorder:         status.NewVersionGetter(),
 			}
 
-			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_, _ = syncOpenShiftAPIServer(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+			_, result, _, err := fakeOperatorClient.GetOperatorState()
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeAvailable)
+			condition := operatorv1helpers.FindOperatorCondition(result.Conditions, operatorv1.OperatorStatusTypeAvailable)
 			if condition == nil {
 				t.Fatal("Available condition not found")
 			}
@@ -408,7 +410,7 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			}
 			if len(tc.expectedFailingMessages) > 0 {
-				failingCondition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, workloadDegradedCondition)
+				failingCondition := operatorv1helpers.FindOperatorCondition(result.Conditions, workloadDegradedCondition)
 				for _, expected := range tc.expectedFailingMessages {
 					if failingCondition == nil {
 						t.Errorf("expected failing message not found: %q", expected)
