@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/status"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +23,10 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions/operator/v1"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/status"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 const (
@@ -41,6 +40,7 @@ type OpenShiftAPIServerOperator struct {
 	versionRecorder     status.VersionGetter
 
 	operatorConfigClient    operatorv1client.OpenShiftAPIServersGetter
+	operatorClient          v1helpers.OperatorClient
 	openshiftConfigClient   openshiftconfigclientv1.ConfigV1Interface
 	kubeClient              kubernetes.Interface
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface
@@ -59,6 +59,7 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftConfigNamespace kubeinformers.SharedInformerFactory,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
+	operatorClient v1helpers.OperatorClient,
 	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
 	kubeClient kubernetes.Interface,
@@ -69,6 +70,7 @@ func NewWorkloadController(
 		targetImagePullSpec: targetImagePullSpec,
 		versionRecorder:     versionRecorder,
 
+		operatorClient:          operatorClient,
 		operatorConfigClient:    operatorConfigClient,
 		openshiftConfigClient:   openshiftConfigClient,
 		kubeClient:              kubeClient,
@@ -122,7 +124,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return nil
 	}
 
-	forceRequeue, err := syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
+	forceRequeue, err := syncOpenShiftAPIServer(c, operatorConfig)
 	if forceRequeue && err != nil {
 		c.queue.AddRateLimited(workQueueKey)
 	}

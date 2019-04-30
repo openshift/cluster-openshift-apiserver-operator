@@ -93,6 +93,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		apiregistrationInformers,
 		configInformers,
+		operatorClient,
 		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
 		kubeClient,
