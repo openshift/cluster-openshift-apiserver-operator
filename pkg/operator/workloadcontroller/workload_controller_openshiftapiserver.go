@@ -93,10 +93,10 @@ func syncOpenShiftAPIServer(c OpenShiftAPIServerOperator, originalOperatorConfig
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
 
-	// only manage the apiservices if we have ready pods for the daemonset.  This makes sure that if we're taking over for
+	// only manage the apiservices if we have a daemonset.  This makes sure that if we're taking over for
 	// something else, we don't stomp their apiservices until ours have a reasonable chance at working.
 	var actualAPIServices []*apiregistrationv1.APIService
-	if actualDaemonSet != nil && actualDaemonSet.Status.NumberAvailable > 0 {
+	if actualDaemonSet != nil {
 		actualAPIServices, err = manageAPIServices(c.apiregistrationv1Client, c.eventRecorder)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("%q: %v", "apiservices", err))
