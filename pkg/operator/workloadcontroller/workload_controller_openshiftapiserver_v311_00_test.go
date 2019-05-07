@@ -149,7 +149,7 @@ func TestProgressingCondition(t *testing.T) {
 				versionRecorder:         status.NewVersionGetter(),
 			}
 
-			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_, _ = syncOpenShiftAPIServer_v410_00_to_latest(operator, operatorConfig)
 
 			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
 			if err != nil {
@@ -378,7 +378,7 @@ func TestAvailableStatus(t *testing.T) {
 				versionRecorder:         status.NewVersionGetter(),
 			}
 
-			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_, _ = syncOpenShiftAPIServer_v410_00_to_latest(operator, operatorConfig)
 
 			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
 			if err != nil {

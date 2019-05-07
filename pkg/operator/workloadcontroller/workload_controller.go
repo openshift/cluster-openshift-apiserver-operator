@@ -141,7 +141,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return nil
 	}
 
-	forceRequeue, err := syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
+	forceRequeue, err := syncOpenShiftAPIServer_v410_00_to_latest(c, operatorConfig)
 	if forceRequeue && err != nil {
 		c.queue.AddRateLimited(workQueueKey)
 	}

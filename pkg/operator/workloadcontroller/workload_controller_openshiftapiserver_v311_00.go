@@ -25,7 +25,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v410_00_assets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
@@ -35,19 +35,19 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
+// syncOpenShiftAPIServer_v410_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *operatorv1.OpenShiftAPIServer) (bool, error) {
+func syncOpenShiftAPIServer_v410_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *operatorv1.OpenShiftAPIServer) (bool, error) {
 	errors := []error{}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
-	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
-		"v3.11.0/openshift-apiserver/ns.yaml",
-		"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
-		"v3.11.0/openshift-apiserver/svc.yaml",
-		"v3.11.0/openshift-apiserver/sa.yaml",
+	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v410_00_assets.Asset,
+		"v4.1.0/openshift-apiserver/ns.yaml",
+		"v4.1.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
+		"v4.1.0/openshift-apiserver/svc.yaml",
+		"v4.1.0/openshift-apiserver/sa.yaml",
 	)
-	resourcesThatForceRedeployment := sets.NewString("v3.11.0/openshift-apiserver/sa.yaml")
+	resourcesThatForceRedeployment := sets.NewString("v4.1.0/openshift-apiserver/sa.yaml")
 	var reasonsForForcedRollingUpdate []string
 
 	for _, currResult := range directResourceResults {
@@ -61,7 +61,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		}
 	}
 
-	configMapModifiedObject, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
+	configMapModifiedObject, configMapModified, err := manageOpenShiftAPIServerConfigMap_v410_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -69,7 +69,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(configMapModifiedObject))
 	}
 
-	imageImportCAModifiedObject, imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
+	imageImportCAModifiedObject, imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v410_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
 	}
@@ -91,7 +91,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
-	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, operatorConfig, operatorConfig.Status.Generations, forceRollingUpdate)
+	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v410_00_to_latest(c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, operatorConfig, operatorConfig.Status.Generations, forceRollingUpdate)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
@@ -100,7 +100,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	// something else, we don't stomp their apiservices until ours have a reasonable chance at working.
 	var actualAPIServices []*apiregistrationv1.APIService
 	if actualDaemonSet != nil && actualDaemonSet.Status.NumberAvailable > 0 {
-		actualAPIServices, err = manageAPIServices_v311_00_to_latest(c.apiregistrationv1Client, c.eventRecorder)
+		actualAPIServices, err = manageAPIServices_v410_00_to_latest(c.apiregistrationv1Client, c.eventRecorder)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("%q: %v", "apiservices", err))
 		}
@@ -238,9 +238,9 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	return false, nil
 }
 
-// manageOpenShiftAPIServerImageImportCA_v311_00_to_latest synchronizes image import ca-bundle. Returns the modified
+// manageOpenShiftAPIServerImageImportCA_v410_00_to_latest synchronizes image import ca-bundle. Returns the modified
 // ca-bundle ConfigMap.
-func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+func manageOpenShiftAPIServerImageImportCA_v410_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
 	imageConfig, err := openshiftConfigClient.Images().Get("cluster", metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, false, err
@@ -273,9 +273,9 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 	}
 }
 
-func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
-	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
-	defaultConfig := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/defaultconfig.yaml")
+func manageOpenShiftAPIServerConfigMap_v410_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
+	configMap := resourceread.ReadConfigMapV1OrDie(v410_00_assets.MustAsset("v4.1.0/openshift-apiserver/cm.yaml"))
+	defaultConfig := v410_00_assets.MustAsset("v4.1.0/openshift-apiserver/defaultconfig.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
 	if err != nil {
 		return nil, false, err
@@ -297,8 +297,8 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, imagePullSpec string, operatorConfig *operatorv1.OpenShiftAPIServer, generationStatus []operatorv1.GenerationStatus, forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
-	required := resourceread.ReadDaemonSetV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml"))
+func manageOpenShiftAPIServerDaemonSet_v410_00_to_latest(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, imagePullSpec string, operatorConfig *operatorv1.OpenShiftAPIServer, generationStatus []operatorv1.GenerationStatus, forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
+	required := resourceread.ReadDaemonSetV1OrDie(v410_00_assets.MustAsset("v4.1.0/openshift-apiserver/ds.yaml"))
 	if len(imagePullSpec) > 0 {
 		required.Spec.Template.Spec.Containers[0].Image = imagePullSpec
 		if len(required.Spec.Template.Spec.InitContainers) > 0 {
@@ -329,7 +329,7 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.Dae
 	return resourceapply.ApplyDaemonSet(client, recorder, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), forceRollingUpdate)
 }
 
-func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServicesGetter, recorder events.Recorder) ([]*apiregistrationv1.APIService, error) {
+func manageAPIServices_v410_00_to_latest(client apiregistrationv1client.APIServicesGetter, recorder events.Recorder) ([]*apiregistrationv1.APIService, error) {
 	var apiServices []*apiregistrationv1.APIService
 	for _, apiServiceGroupVersion := range apiServiceGroupVersions {
 		obj := &apiregistrationv1.APIService{
