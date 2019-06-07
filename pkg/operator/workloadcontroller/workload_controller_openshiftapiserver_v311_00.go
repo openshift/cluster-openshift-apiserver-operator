@@ -135,7 +135,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
 	// of something delaying them.  This isn't perfect because of round-robining, but let's see if we get an improvement
 	if len(availableConditionMessages) == 0 && c.kubeClient.Discovery().RESTClient() != nil {
-		missingAPIMessages := checkForAPIs(c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...)
+		missingAPIMessages := checkForAPIs(c.eventRecorder, c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...)
 		availableConditionMessages = append(availableConditionMessages, missingAPIMessages...)
 	}
 

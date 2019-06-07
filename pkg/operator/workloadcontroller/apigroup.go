@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"k8s.io/client-go/rest"
-
 	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
+
+	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 var apiServiceGroupVersions = []schema.GroupVersion{
@@ -25,15 +26,17 @@ var apiServiceGroupVersions = []schema.GroupVersion{
 	{Group: "user.openshift.io", Version: "v1"},
 }
 
-func checkForAPIs(restclient rest.Interface, groupVersions ...schema.GroupVersion) []string {
+func checkForAPIs(recorder events.Recorder, restclient rest.Interface, groupVersions ...schema.GroupVersion) []string {
 	missingMessages := []string{}
 	for _, groupVersion := range groupVersions {
 		url := "/apis/" + groupVersion.Group + "/" + groupVersion.Version
 
 		statusCode := 0
-		restclient.Get().AbsPath(url).Do().StatusCode(&statusCode)
+		result := restclient.Get().AbsPath(url).Do().StatusCode(&statusCode)
 		if statusCode != http.StatusOK {
-			missingMessages = append(missingMessages, fmt.Sprintf("%s.%s is not ready: %v", groupVersion.Version, groupVersion.Group, statusCode))
+			groupVersionString := fmt.Sprintf("%s.%s", groupVersion.Group, groupVersion.Version)
+			recorder.Warningf("OpenShiftAPICheckFailed", fmt.Sprintf("%q failed with HTTP status code %d (%v)", groupVersionString, statusCode, result.Error()))
+			missingMessages = append(missingMessages, fmt.Sprintf("%q is not ready: %d (%v)", groupVersionString, statusCode, result.Error()))
 		}
 	}
 
