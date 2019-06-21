@@ -310,6 +310,7 @@ metadata:
   name: openshift-apiserver
   labels:
     openshift.io/run-level: "1"
+    openshift.io/cluster-monitoring: "true"
 `)
 
 func v3110OpenshiftApiserverNsYamlBytes() ([]byte, error) {
