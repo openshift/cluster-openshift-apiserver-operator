@@ -1,5 +1,5 @@
-hash: 312b9487cbe0033002ab12280ba260b24698ae7596165589c9efe16bcb19807e
-updated: 2019-05-03T14:51:43.155347+02:00
+hash: 58e01ff24a594f0591075e04d1e590714e77b17de2326b779f3e302674bbd99c
+updated: 2019-07-10T12:58:52.494103777-04:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -114,7 +114,7 @@ imports:
 - name: github.com/evanphx/json-patch
   version: 5858425f75500d40c52783dce87d085a483ce135
 - name: github.com/getsentry/raven-go
-  version: 32a13797442ccb601b11761d74232773c1402d14
+  version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
   version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
 - name: github.com/go-openapi/jsonpointer
@@ -232,7 +232,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 168fd4e3c55217ad0042c4ee1ec79e9ce40d5c21
+  version: 1fc8159732e8f46a0f24c51358b3dfe2a08e4fa6
   subpackages:
   - apps
   - apps/v1
@@ -278,7 +278,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: 0255926f53935175fe90b8e7672c4c06c17d79e6
+  version: c44a8b61b9f46cd9e802384dfeda0bc9942db68a
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/fake
@@ -295,13 +295,17 @@ imports:
   - operator/clientset/versioned/scheme
   - operator/clientset/versioned/typed/operator/v1
   - operator/clientset/versioned/typed/operator/v1/fake
+  - operator/clientset/versioned/typed/operator/v1alpha1
+  - operator/clientset/versioned/typed/operator/v1alpha1/fake
   - operator/informers/externalversions
   - operator/informers/externalversions/internalinterfaces
   - operator/informers/externalversions/operator
   - operator/informers/externalversions/operator/v1
+  - operator/informers/externalversions/operator/v1alpha1
   - operator/listers/operator/v1
+  - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: 30efb8b70b661872bd0fd9de4ae37f61815bf161
+  version: f8abdcd57c468b7f49a91caa77212c12bd05fa9f
   subpackages:
   - cmd/crd-schema-gen/generator
   - pkg/assets
@@ -314,6 +318,7 @@ imports:
   - pkg/controller/fileobserver
   - pkg/controller/metrics
   - pkg/crypto
+  - pkg/operator/condition
   - pkg/operator/configobserver
   - pkg/operator/events
   - pkg/operator/loglevel
@@ -359,7 +364,7 @@ imports:
 - name: github.com/PuerkitoBio/urlesc
   version: 5bd2802263f21d8788851d5305584c82a5c75d7e
 - name: github.com/rogpeppe/go-internal
-  version: 438578804ca6f31be148c27683afc419ce47c06e
+  version: 6f68bf1e81f8552c7dbd47f3bc4371c2db0941a6
   subpackages:
   - modfile
   - module
@@ -433,7 +438,7 @@ imports:
   - go/ast/astutil
   - imports
 - name: google.golang.org/appengine
-  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
+  version: b2f4a3cf3c67576a2ee09e1fe62656a5086ce880
   subpackages:
   - internal
   - internal/base
@@ -519,8 +524,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 3c74db8dd172051b029f91536c681a1b43694809
-  repo: https://github.com/openshift/kubernetes-apiextensions-apiserver
+  version: 53c4693659ed354d76121458fb819202dd1635fa
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
@@ -856,6 +860,11 @@ imports:
   - util/workqueue
 - name: k8s.io/code-generator
   version: c2090bec4d9b1fb25de3812f868accc2bc9ecbae
+- name: k8s.io/component-base
+  version: 4a91899592f42b2f5859587cc5a676a5b94d2ee3
+  subpackages:
+  - cli/flag
+  - logs
 - name: k8s.io/gengo
   version: e17681d19d3ac4837a019ece36c2a0ec31ffe985
   subpackages:

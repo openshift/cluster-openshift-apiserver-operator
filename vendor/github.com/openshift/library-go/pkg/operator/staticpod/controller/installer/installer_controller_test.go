@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
+	"github.com/openshift/library-go/pkg/operator/condition"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/events/eventstesting"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
@@ -1248,15 +1249,15 @@ func TestNodeToStartRevisionWith(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			fakeGetStaticPodState := func(nodeName string) (state staticPodState, revision string, errs []string, err error) {
+			fakeGetStaticPodState := func(nodeName string) (state staticPodState, revision, reason string, errs []string, err error) {
 				for _, p := range test.pods {
 					if p.name == nodeName {
-						return p.state, strconv.Itoa(int(p.revision)), nil, nil
+						return p.state, strconv.Itoa(int(p.revision)), "", nil, nil
 					}
 				}
-				return staticPodStatePending, "", nil, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
+				return staticPodStatePending, "", "", nil, errors.NewNotFound(schema.GroupResource{Resource: "pods"}, nodeName)
 			}
-			i, err := nodeToStartRevisionWith(fakeGetStaticPodState, test.nodes)
+			i, _, err := nodeToStartRevisionWith(fakeGetStaticPodState, test.nodes)
 			if err == nil && test.expectedErr {
 				t.Fatalf("expected error, got none")
 			}
@@ -1331,7 +1332,7 @@ func TestSetConditions(t *testing.T) {
 				t.Errorf("Progressing condition: expected status %v, actual status %v", tc.expectedProgressingStatus, pendingCondition.Status)
 			}
 
-			failingCondition := v1helpers.FindOperatorCondition(status.Conditions, nodeInstallerDegraded)
+			failingCondition := v1helpers.FindOperatorCondition(status.Conditions, condition.NodeInstallerDegradedConditionType)
 			if failingCondition == nil {
 				t.Error("Failing condition: not found")
 			} else if failingCondition.Status != tc.expectedFailingStatus {
