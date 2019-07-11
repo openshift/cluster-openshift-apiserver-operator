@@ -94,6 +94,10 @@ type DefaultNetworkDefinition struct {
 	// not implemented.
 	// +optional
 	OVNKubernetesConfig *OVNKubernetesConfig `json:"ovnKubernetesConfig,omitempty"`
+
+	// KuryrConfig configures the kuryr plugin
+	// +optional
+	KuryrConfig *KuryrConfig `json:"kuryrConfig,omitempty"`
 }
 
 // AdditionalNetworkDefinition configures an extra network that is available but not
@@ -137,6 +141,17 @@ type OpenShiftSDNConfig struct {
 	UseExternalOpenvswitch *bool `json:"useExternalOpenvswitch,omitempty"`
 }
 
+// KuryrConfig configures the Kuryr-Kubernetes SDN
+type KuryrConfig struct {
+	// The port kuryr-daemon will listen for readiness and liveness requests.
+	// +optional
+	DaemonProbesPort *uint32 `json:"daemonProbesPort,omitempty"`
+
+	// The port kuryr-controller will listen for readiness and liveness requests.
+	// +optional
+	ControllerProbesPort *uint32 `json:"controllerProbesPort,omitempty"`
+}
+
 // ovnKubernetesConfig is the proposed configuration parameters for networks
 // using the ovn-kubernetes network project
 type OVNKubernetesConfig struct {
@@ -148,6 +163,9 @@ type OVNKubernetesConfig struct {
 
 // NetworkType describes the network plugin type to configure
 type NetworkType string
+
+// ProxyArgumentList is a list of arguments to pass to the kubeproxy process
+type ProxyArgumentList []string
 
 // ProxyConfig defines the configuration knobs for kubeproxy
 // All of these are optional and have sensible defaults
@@ -161,7 +179,7 @@ type ProxyConfig struct {
 	BindAddress string `json:"bindAddress,omitempty"`
 
 	// Any additional arguments to pass to the kubeproxy process
-	ProxyArguments map[string][]string `json:"proxyArguments,omitempty"`
+	ProxyArguments map[string]ProxyArgumentList `json:"proxyArguments,omitempty"`
 }
 
 const (
@@ -171,6 +189,9 @@ const (
 	// NetworkTypeOVNKubernetes means the ovn-kubernetes project will be configured.
 	// This is currently not implemented.
 	NetworkTypeOVNKubernetes NetworkType = "OVNKubernetes"
+
+	// NetworkTypeKuryr means the kuryr-kubernetes project will be configured.
+	NetworkTypeKuryr NetworkType = "Kuryr"
 
 	// NetworkTypeRaw
 	NetworkTypeRaw NetworkType = "Raw"
