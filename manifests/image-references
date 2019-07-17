@@ -6,7 +6,7 @@ spec:
     from:
       kind: DockerImage
       name: docker.io/openshift/origin-cluster-openshift-apiserver-operator:v4.0
-  - name: hypershift
+  - name: openshift-apiserver
     from:
       kind: DockerImage
-      name: quay.io/openshift/origin-hypershift:v4.0
+      name: quay.io/openshift/openshift-apiserver:v4.0

@@ -213,7 +213,7 @@ spec:
         terminationMessagePolicy: FallbackToLogsOnError
         image: ${IMAGE}
         imagePullPolicy: IfNotPresent
-        command: ["hypershift", "openshift-apiserver"]
+        command: ["openshift-apiserver", "start"]
         args:
         - "--config=/var/run/configmaps/config/config.yaml"
         resources:

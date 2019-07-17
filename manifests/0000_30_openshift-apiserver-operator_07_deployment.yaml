@@ -42,7 +42,7 @@ spec:
           name: serving-cert
         env:
         - name: IMAGE
-          value: quay.io/openshift/origin-hypershift:v4.0
+          value: quay.io/openshift/openshift-apiserver:v4.0
         - name: OPERATOR_IMAGE_VERSION
           value: "0.0.1-snapshot"
         - name: OPERAND_IMAGE_VERSION
@@ -65,8 +65,8 @@ spec:
       - key: "node.kubernetes.io/unreachable"
         operator: "Exists"
         effect: "NoExecute"
-        tolerationSeconds: 120 
+        tolerationSeconds: 120
       - key: "node.kubernetes.io/not-ready"
         operator: "Exists"
         effect: "NoExecute"
-        tolerationSeconds: 120 
+        tolerationSeconds: 120
