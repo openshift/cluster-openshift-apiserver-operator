@@ -4,6 +4,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -36,11 +37,13 @@ func NewConfigObserver(
 				ResourceSync:        resourceSyncer,
 				ImageConfigLister:   configInformers.Config().V1().Images().Lister(),
 				ProjectConfigLister: configInformers.Config().V1().Projects().Lister(),
+				ProxyLister_:        configInformers.Config().V1().Proxies().Lister(),
 				IngressConfigLister: configInformers.Config().V1().Ingresses().Lister(),
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
 					configInformers.Config().V1().Images().Informer().HasSynced,
 					configInformers.Config().V1().Projects().Informer().HasSynced,
+					configInformers.Config().V1().Proxies().Informer().HasSynced,
 					configInformers.Config().V1().Ingresses().Informer().HasSynced,
 				},
 			},
@@ -50,11 +53,13 @@ func NewConfigObserver(
 			ingresses.ObserveIngressDomain,
 			project.ObserveProjectRequestMessage,
 			project.ObserveProjectRequestTemplateName,
+			proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
 		),
 	}
 	operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Ingresses().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Projects().Informer().AddEventHandler(c.EventHandler())
+	configInformers.Config().V1().Proxies().Informer().AddEventHandler(c.EventHandler())
 	return c
 }

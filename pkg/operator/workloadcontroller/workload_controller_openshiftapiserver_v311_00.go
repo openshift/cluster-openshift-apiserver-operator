@@ -5,12 +5,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ghodss/yaml"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -22,6 +25,7 @@ import (
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 
 	openshiftapi "github.com/openshift/api"
+	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
@@ -276,7 +280,15 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/defaultconfig.yaml")
-	requiredConfigMap, _, err := resourcemerge.MergeConfigMap(configMap, "config.yaml", nil, defaultConfig, operatorConfig.Spec.ObservedConfig.Raw, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
+	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
+		&openshiftcontrolplanev1.OpenShiftAPIServerConfig{},
+		configMap,
+		"config.yaml",
+		nil,
+		defaultConfig,
+		operatorConfig.Spec.ObservedConfig.Raw,
+		operatorConfig.Spec.UnsupportedConfigOverrides.Raw,
+	)
 	if err != nil {
 		return nil, false, err
 	}
@@ -324,6 +336,20 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.Dae
 		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 8))
 	default:
 		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
+	}
+
+	var observedConfig map[string]interface{}
+	if err := yaml.Unmarshal(operatorConfig.Spec.ObservedConfig.Raw, &observedConfig); err != nil {
+		return nil, false, fmt.Errorf("failed to unmarshal the observedConfig: %v", err)
+	}
+	proxyConfig, _, err := unstructured.NestedStringMap(observedConfig, "workloadcontroller", "proxy")
+	if err != nil {
+		return nil, false, fmt.Errorf("couldn't get the proxy config from observedConfig: %v", err)
+	}
+
+	proxyEnvVars := proxyMapToEnvVars(proxyConfig)
+	for i, container := range required.Spec.Template.Spec.Containers {
+		required.Spec.Template.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
 	return resourceapply.ApplyDaemonSet(client, recorder, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), forceRollingUpdate)
@@ -396,4 +422,17 @@ func resourceSelectorForCLI(obj runtime.Object) string {
 		group = "." + group
 	}
 	return kind + group + "/" + name
+}
+
+func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
+	if proxyConfig == nil {
+		return nil
+	}
+
+	envVars := []corev1.EnvVar{}
+	for k, v := range proxyConfig {
+		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v})
+	}
+
+	return envVars
 }

@@ -13,6 +13,7 @@ type Listers struct {
 
 	ImageConfigLister   configlistersv1.ImageLister
 	ProjectConfigLister configlistersv1.ProjectLister
+	ProxyLister_        configlistersv1.ProxyLister
 	IngressConfigLister configlistersv1.IngressLister
 	EndpointsLister     corelistersv1.EndpointsLister
 	PreRunCachesSynced  []cache.InformerSynced
@@ -24,4 +25,8 @@ func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {
 	return l.PreRunCachesSynced
+}
+
+func (l Listers) ProxyLister() configlistersv1.ProxyLister {
+	return l.ProxyLister_
 }
