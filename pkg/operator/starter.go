@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+
 	"github.com/openshift/library-go/pkg/operator/loglevel"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -14,6 +16,7 @@ import (
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
@@ -57,9 +60,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
-	operatorClient := &operatorclient.OperatorClient{
-		Informers: operatorConfigInformers,
-		Client:    operatorConfigClient.OperatorV1(),
+	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(ctx.KubeConfig, operatorv1.GroupVersion.WithResource("openshiftapiservers"))
+	if err != nil {
+		return err
 	}
 
 	resourceSyncController, debugHandler, err := resourcesynccontroller.NewResourceSyncController(
@@ -143,6 +146,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	kubeInformersForNamespaces.Start(ctx.Done())
 	apiregistrationInformers.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
+	dynamicInformers.Start(ctx.Done())
 
 	go workloadController.Run(1, ctx.Done())
 	go configObserver.Run(1, ctx.Done())
