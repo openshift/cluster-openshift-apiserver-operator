@@ -1,5 +1,5 @@
 hash: a996fbdd007a43f4fe9815b2239fd107c712d50ba7c06f0d33f2a8b610383e72
-updated: 2019-07-26T14:34:10.098626642-04:00
+updated: 2019-07-30T13:16:39.962803053+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -31,11 +31,11 @@ imports:
   subpackages:
   - log
 - name: github.com/evanphx/json-patch
-  version: 5858425f75500d40c52783dce87d085a483ce135
+  version: 026c730a0dcc5d11f93f1cf1cc65b01247ea7b6f
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: c7ce16629ff4cd059ed96ed06419dd3856fd3577
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -139,7 +139,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 406574a7aa1eb0e916f4029433e5c28c6a53099b
+  version: a33d022e090746dfe27a1dc417c6b84cc640800f
   subpackages:
   - apps
   - apps/v1
@@ -212,7 +212,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: 3679c350479175dceb60cbdafe68f0d92280952f
+  version: 06fca5b7f9cc44922a00a9850755a79e3060213e
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -226,7 +226,9 @@ imports:
   - pkg/crypto
   - pkg/operator/condition
   - pkg/operator/configobserver
+  - pkg/operator/configobserver/proxy
   - pkg/operator/events
+  - pkg/operator/genericoperatorclient
   - pkg/operator/loglevel
   - pkg/operator/management
   - pkg/operator/resource/resourceapply
@@ -241,6 +243,8 @@ imports:
   - pkg/serviceability
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
+- name: github.com/pkg/errors
+  version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
   version: f6fe06335df110bcf1ed6d4e852b760bfc15beee
 - name: github.com/prometheus/client_golang
@@ -318,7 +322,7 @@ imports:
   subpackages:
   - rate
 - name: golang.org/x/tools
-  version: 2e34cfcb95cb3d24b197d58fe6d25046b8f25c86
+  version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
   subpackages:
   - container/intsets
 - name: google.golang.org/appengine
@@ -572,6 +576,8 @@ imports:
   - discovery
   - discovery/fake
   - dynamic
+  - dynamic/dynamicinformer
+  - dynamic/dynamiclister
   - informers
   - informers/admissionregistration
   - informers/admissionregistration/v1beta1
@@ -771,7 +777,7 @@ imports:
   subpackages:
   - args
 - name: k8s.io/klog
-  version: 8e90cee79f823779174776412c13478955131846
+  version: 6a023d6d0e0954feabd46dc2d3a6a2c3c991fe1a
 - name: k8s.io/kube-aggregator
   version: da8327669ac57b6e6a06676eeb7de19c9780f76d
   subpackages:
@@ -818,6 +824,4 @@ imports:
   - value
 - name: sigs.k8s.io/yaml
   version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
-testImports:
-- name: github.com/pkg/errors
-  version: 645ef00459ed84a119197bfb8d8205042c6df63d
+testImports: []
