@@ -1,5 +1,5 @@
 hash: a996fbdd007a43f4fe9815b2239fd107c712d50ba7c06f0d33f2a8b610383e72
-updated: 2019-07-30T13:16:39.962803053+02:00
+updated: 2019-08-02T14:01:46.555094257+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -31,7 +31,7 @@ imports:
   subpackages:
   - log
 - name: github.com/evanphx/json-patch
-  version: 026c730a0dcc5d11f93f1cf1cc65b01247ea7b6f
+  version: 5858425f75500d40c52783dce87d085a483ce135
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
@@ -139,7 +139,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: a33d022e090746dfe27a1dc417c6b84cc640800f
+  version: 0922aa5a655be314e20a3e0e94f4f2b105100154
   subpackages:
   - apps
   - apps/v1
@@ -212,7 +212,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: 06fca5b7f9cc44922a00a9850755a79e3060213e
+  version: 2532fbc98082c0e00f29fca09d97bcb0d774b9d2
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -243,8 +243,6 @@ imports:
   - pkg/serviceability
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
-- name: github.com/pkg/errors
-  version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
   version: f6fe06335df110bcf1ed6d4e852b760bfc15beee
 - name: github.com/prometheus/client_golang
@@ -326,7 +324,7 @@ imports:
   subpackages:
   - container/intsets
 - name: google.golang.org/appengine
-  version: b2f4a3cf3c67576a2ee09e1fe62656a5086ce880
+  version: fb139bde60fa77cede04f226b4d5a3cf68dcce27
   subpackages:
   - internal
   - internal/base
@@ -768,7 +766,7 @@ imports:
 - name: k8s.io/code-generator
   version: 50b561225d70b3eb79a1faafd3dfe7b1a62cbe73
 - name: k8s.io/component-base
-  version: 4a91899592f42b2f5859587cc5a676a5b94d2ee3
+  version: f0322db00a103489b85cb3835886741a3911636b
   subpackages:
   - cli/flag
   - logs
@@ -824,4 +822,6 @@ imports:
   - value
 - name: sigs.k8s.io/yaml
   version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
-testImports: []
+testImports:
+- name: github.com/pkg/errors
+  version: 645ef00459ed84a119197bfb8d8205042c6df63d
