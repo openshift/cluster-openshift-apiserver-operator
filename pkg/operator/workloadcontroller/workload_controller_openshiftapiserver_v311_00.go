@@ -434,5 +434,6 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v})
 	}
 
+	sort.Slice(envVars, func(i, j int) bool { return envVars[i].Name < envVars[j].Name })
 	return envVars
 }
