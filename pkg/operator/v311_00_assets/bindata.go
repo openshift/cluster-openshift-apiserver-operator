@@ -4,6 +4,7 @@
 // bindata/v3.11.0/openshift-apiserver/cm.yaml
 // bindata/v3.11.0/openshift-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/openshift-apiserver/ds.yaml
+// bindata/v3.11.0/openshift-apiserver/metrics.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
@@ -302,6 +303,85 @@ func v3110OpenshiftApiserverDsYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverMetricsYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s
+  namespace: openshift-apiserver
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s
+  namespace: openshift-apiserver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: openshift-monitoring
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: openshift-apiserver
+  namespace: openshift-apiserver
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    metricRelabelings:
+    - action: drop
+      regex: etcd_(debugging|disk|request|server).*
+      sourceLabels:
+      - __name__
+    - action: drop
+      regex: apiserver_admission_controller_admission_latencies_seconds_.*
+      sourceLabels:
+      - __name__
+    - action: drop
+      regex: apiserver_admission_step_admission_latencies_seconds_.*
+      sourceLabels:
+      - __name__
+    port: https
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt
+      serverName: api.openshift-apiserver.svc
+  namespaceSelector:
+    matchNames:
+    - openshift-apiserver
+  selector: {}
+`)
+
+func v3110OpenshiftApiserverMetricsYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverMetricsYaml, nil
+}
+
+func v3110OpenshiftApiserverMetricsYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverMetricsYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/metrics.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110OpenshiftApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
@@ -439,6 +519,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
 	"v3.11.0/openshift-apiserver/defaultconfig.yaml":                v3110OpenshiftApiserverDefaultconfigYaml,
 	"v3.11.0/openshift-apiserver/ds.yaml":                           v3110OpenshiftApiserverDsYaml,
+	"v3.11.0/openshift-apiserver/metrics.yaml":                      v3110OpenshiftApiserverMetricsYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
@@ -491,6 +572,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":                {v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"ds.yaml":                           {v3110OpenshiftApiserverDsYaml, map[string]*bintree{}},
+			"metrics.yaml":                      {v3110OpenshiftApiserverMetricsYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
