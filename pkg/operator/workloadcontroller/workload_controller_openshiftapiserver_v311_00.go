@@ -81,6 +81,12 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(imageImportCAModifiedObject))
 	}
 
+	// we don't need to check for the CM changes, those are handled by the watchdog
+	err = ensureOpenShiftAPIServerTrustedCA_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("%q: %v", "trusted-ca-bundle", err))
+	}
+
 	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
 		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, fmt.Sprintf("operator config spec generation %d does not match status generation %d", operatorConfig.ObjectMeta.Generation,
 			operatorConfig.Status.ObservedGeneration))
@@ -95,7 +101,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
-	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, operatorConfig, operatorConfig.Status.Generations, forceRollingUpdate)
+	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations, forceRollingUpdate)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
@@ -277,6 +283,28 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 	}
 }
 
+func ensureOpenShiftAPIServerTrustedCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
+	required := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/trusted-ca-cm.yaml"))
+	cmCLient := client.ConfigMaps(operatorclient.TargetNamespace)
+
+	cm, err := cmCLient.Get("trusted-ca-bundle", metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			_, err = cmCLient.Create(required)
+		}
+		return err
+	}
+
+	// update if modified by the user
+	if val, ok := cm.Labels["config.openshift.io/inject-trusted-cabundle"]; !ok || val != "true" {
+		cm.Labels["config.openshift.io/inject-trusted-cabundle"] = "true"
+		_, err = cmCLient.Update(cm)
+		return err
+	}
+
+	return nil
+}
+
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/defaultconfig.yaml")
@@ -309,14 +337,43 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.DaemonSetsGetter, recorder events.Recorder, imagePullSpec string, operatorConfig *operatorv1.OpenShiftAPIServer, generationStatus []operatorv1.GenerationStatus, forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
+func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
+	client appsclientv1.DaemonSetsGetter,
+	recorder events.Recorder,
+	imagePullSpec string,
+	operatorImagePullSpec string,
+	operatorConfig *operatorv1.OpenShiftAPIServer,
+	generationStatus []operatorv1.GenerationStatus,
+	forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
 	required := resourceread.ReadDaemonSetV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml"))
-	if len(imagePullSpec) > 0 {
-		required.Spec.Template.Spec.Containers[0].Image = imagePullSpec
-		if len(required.Spec.Template.Spec.InitContainers) > 0 {
-			required.Spec.Template.Spec.InitContainers[0].Image = imagePullSpec
+
+	for i := range required.Spec.Template.Spec.Containers {
+		img := strings.TrimSpace(required.Spec.Template.Spec.Containers[i].Image)
+		switch img {
+		case "${IMAGE}":
+			required.Spec.Template.Spec.Containers[i].Image = imagePullSpec
+		case "${OPERATOR_IMAGE}":
+			required.Spec.Template.Spec.Containers[i].Image = operatorImagePullSpec
+		default:
+			if strings.Contains(img, "$") {
+				return nil, false, fmt.Errorf("invalid image reference %q", img)
+			}
 		}
 	}
+	for i := range required.Spec.Template.Spec.InitContainers {
+		img := strings.TrimSpace(required.Spec.Template.Spec.InitContainers[i].Image)
+		switch img {
+		case "${IMAGE}":
+			required.Spec.Template.Spec.InitContainers[i].Image = imagePullSpec
+		case "${OPERATOR_IMAGE}":
+			required.Spec.Template.Spec.InitContainers[i].Image = operatorImagePullSpec
+		default:
+			if strings.Contains(img, "$") {
+				return nil, false, fmt.Errorf("invalid image reference %q", img)
+			}
+		}
+	}
+
 	// we set this so that when the requested image pull spec changes, we always have a diff.  Remember that we don't directly
 	// diff any fields on the daemonset because they can be rewritten by admission and we don't want to constantly be fighting
 	// against admission or defaults.  That was a problem with original versions of apply.
@@ -324,6 +381,7 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(client appsclientv1.Dae
 		required.Annotations = map[string]string{}
 	}
 	required.Annotations["openshiftapiservers.operator.openshift.io/pull-spec"] = imagePullSpec
+	required.Annotations["openshiftapiservers.operator.openshift.io/operator-pull-spec"] = operatorImagePullSpec
 
 	switch operatorConfig.Spec.LogLevel {
 	case operatorv1.Normal:

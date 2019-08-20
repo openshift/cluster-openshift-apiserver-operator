@@ -88,7 +88,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
 	workloadController := workloadcontroller.NewWorkloadController(
-		os.Getenv("IMAGE"),
+		os.Getenv("IMAGE"), os.Getenv("OPERATOR_IMAGE"),
 		versionRecorder,
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
