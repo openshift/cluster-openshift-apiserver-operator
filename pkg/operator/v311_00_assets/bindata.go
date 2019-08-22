@@ -4,7 +4,9 @@
 // bindata/v3.11.0/openshift-apiserver/cm.yaml
 // bindata/v3.11.0/openshift-apiserver/defaultconfig.yaml
 // bindata/v3.11.0/openshift-apiserver/ds.yaml
-// bindata/v3.11.0/openshift-apiserver/metrics.yaml
+// bindata/v3.11.0/openshift-apiserver/metrics-role.yaml
+// bindata/v3.11.0/openshift-apiserver/metrics-rolebinding.yaml
+// bindata/v3.11.0/openshift-apiserver/metrics-servicemonitor.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
@@ -303,7 +305,7 @@ func v3110OpenshiftApiserverDsYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110OpenshiftApiserverMetricsYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
+var _v3110OpenshiftApiserverMetricsRoleYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: prometheus-k8s
@@ -319,8 +321,24 @@ rules:
   - get
   - list
   - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
+`)
+
+func v3110OpenshiftApiserverMetricsRoleYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverMetricsRoleYaml, nil
+}
+
+func v3110OpenshiftApiserverMetricsRoleYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverMetricsRoleYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/metrics-role.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110OpenshiftApiserverMetricsRolebindingYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: prometheus-k8s
@@ -333,8 +351,24 @@ subjects:
 - kind: ServiceAccount
   name: prometheus-k8s
   namespace: openshift-monitoring
----
-apiVersion: monitoring.coreos.com/v1
+`)
+
+func v3110OpenshiftApiserverMetricsRolebindingYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverMetricsRolebindingYaml, nil
+}
+
+func v3110OpenshiftApiserverMetricsRolebindingYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverMetricsRolebindingYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/metrics-rolebinding.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110OpenshiftApiserverMetricsServicemonitorYaml = []byte(`apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: openshift-apiserver
@@ -367,17 +401,17 @@ spec:
   selector: {}
 `)
 
-func v3110OpenshiftApiserverMetricsYamlBytes() ([]byte, error) {
-	return _v3110OpenshiftApiserverMetricsYaml, nil
+func v3110OpenshiftApiserverMetricsServicemonitorYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverMetricsServicemonitorYaml, nil
 }
 
-func v3110OpenshiftApiserverMetricsYaml() (*asset, error) {
-	bytes, err := v3110OpenshiftApiserverMetricsYamlBytes()
+func v3110OpenshiftApiserverMetricsServicemonitorYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverMetricsServicemonitorYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/metrics.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/metrics-servicemonitor.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -519,7 +553,9 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
 	"v3.11.0/openshift-apiserver/defaultconfig.yaml":                v3110OpenshiftApiserverDefaultconfigYaml,
 	"v3.11.0/openshift-apiserver/ds.yaml":                           v3110OpenshiftApiserverDsYaml,
-	"v3.11.0/openshift-apiserver/metrics.yaml":                      v3110OpenshiftApiserverMetricsYaml,
+	"v3.11.0/openshift-apiserver/metrics-role.yaml":                 v3110OpenshiftApiserverMetricsRoleYaml,
+	"v3.11.0/openshift-apiserver/metrics-rolebinding.yaml":          v3110OpenshiftApiserverMetricsRolebindingYaml,
+	"v3.11.0/openshift-apiserver/metrics-servicemonitor.yaml":       v3110OpenshiftApiserverMetricsServicemonitorYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
@@ -572,7 +608,9 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
 			"defaultconfig.yaml":                {v3110OpenshiftApiserverDefaultconfigYaml, map[string]*bintree{}},
 			"ds.yaml":                           {v3110OpenshiftApiserverDsYaml, map[string]*bintree{}},
-			"metrics.yaml":                      {v3110OpenshiftApiserverMetricsYaml, map[string]*bintree{}},
+			"metrics-role.yaml":                 {v3110OpenshiftApiserverMetricsRoleYaml, map[string]*bintree{}},
+			"metrics-rolebinding.yaml":          {v3110OpenshiftApiserverMetricsRolebindingYaml, map[string]*bintree{}},
+			"metrics-servicemonitor.yaml":       {v3110OpenshiftApiserverMetricsServicemonitorYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
