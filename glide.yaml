@@ -22,3 +22,7 @@ import:
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
   version: e17681d19d3ac4837a019ece36c2a0ec31ffe985
+
+# pin klog because glide pulls in the latest one and that fails
+- package: k8s.io/klog
+  version: 8e90cee79f823779174776412c13478955131846
