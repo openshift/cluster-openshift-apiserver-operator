@@ -60,7 +60,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
-	operatorClient, dynamicInformers, err := genericoperatorclient.NewStaticPodOperatorClient(ctx.KubeConfig, operatorv1.GroupVersion.WithResource("openshiftapiservers"))
+	operatorClient, dynamicInformers, err := genericoperatorclient.NewClusterScopedOperatorClient(ctx.KubeConfig, operatorv1.GroupVersion.WithResource("openshiftapiservers"))
 	if err != nil {
 		return err
 	}
