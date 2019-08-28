@@ -22,7 +22,6 @@ spec:
     spec:
       serviceAccountName: openshift-apiserver-sa
       priorityClassName: system-node-critical
-      shareProcessNamespace: true
       initContainers:
         - name: fix-audit-permissions
           terminationMessagePolicy: FallbackToLogsOnError
@@ -40,13 +39,6 @@ spec:
         command: ["/bin/bash", "-ec"]
         args:
           - |
-            echo $$$$ > /var/run/watchdog/pid
-            echo -n "Waiting for watchdog..."
-            while [ ! -f /var/run/watchdog/ready ]; do
-              echo -n "."
-              sleep 1
-            done
-            echo
             if [ -s /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem ]; then
               echo "Copying system trust bundle"
               cp -f /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
@@ -80,8 +72,6 @@ spec:
           name: serving-cert
         - mountPath: /var/log/openshift-apiserver
           name: audit-dir
-        - mountPath: /var/run/watchdog
-          name: watchdog-dir
         livenessProbe:
           initialDelaySeconds: 30
           httpGet:
@@ -94,39 +84,6 @@ spec:
             scheme: HTTPS
             port: 8443
             path: healthz
-      - name: openshift-apiserver-watchdog
-        command: ["cluster-openshift-apiserver-operator", "file-watcher-watchdog"]
-        args:
-          - --namespace=$(POD_NAMESPACE)
-          - --termination-grace-period=60s
-          - --files=/var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem
-          - --pid-file=/var/run/watchdog/pid
-          - --ready-file=/var/run/watchdog/ready
-        securityContext:
-          capabilities:
-            add:
-              - SYS_PTRACE
-        env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-        image: ${OPERATOR_IMAGE}
-        imagePullPolicy: IfNotPresent
-        volumeMounts:
-          - mountPath: /etc/pki/ca-trust/extracted/pem/
-            name: trusted-ca-bundle
-          - mountPath: /var/run/watchdog
-            name: watchdog-dir
-        terminationMessagePolicy: FallbackToLogsOnError
-        resources:
-          requests:
-            memory: 50Mi
-            cpu: 10m
       terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
       volumes:
       - name: aggregator-client-ca
@@ -161,8 +118,6 @@ spec:
       - hostPath:
           path: /var/log/openshift-apiserver
         name: audit-dir
-      - emptyDir: {}
-        name: watchdog-dir
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
