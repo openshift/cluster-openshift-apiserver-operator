@@ -15,6 +15,7 @@ import (
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/cmd/resourcegraph"
+	"github.com/openshift/library-go/pkg/operator/watchdog"
 )
 
 func main() {
@@ -45,6 +46,7 @@ func NewSSCSCommand() *cobra.Command {
 
 	cmd.AddCommand(operator.NewOperator())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
+	cmd.AddCommand(watchdog.NewFileWatcherWatchdog())
 
 	return cmd
 }

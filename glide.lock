@@ -1,5 +1,5 @@
-hash: a996fbdd007a43f4fe9815b2239fd107c712d50ba7c06f0d33f2a8b610383e72
-updated: 2019-08-08T16:36:25.792570531+02:00
+hash: 7cf0c95d7b5875ad7f2af27869e68bef181419730dadc98bad1c179158a7c578
+updated: 2019-08-27T10:59:24.083427+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -23,7 +23,7 @@ imports:
   subpackages:
   - daemon
 - name: github.com/davecgh/go-spew
-  version: 782f4967f2dc4564575ca782fe2d04090b5faca8
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
 - name: github.com/emicklei/go-restful
@@ -31,11 +31,11 @@ imports:
   subpackages:
   - log
 - name: github.com/evanphx/json-patch
-  version: 5858425f75500d40c52783dce87d085a483ce135
+  version: e83c0a1c26c884f8ec4fb743f6db92a941f605f1
 - name: github.com/getsentry/raven-go
   version: c977f96e109525a5d8fa10a19165341f601f38b0
 - name: github.com/ghodss/yaml
-  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+  version: 25d852aebe32c875e9c044af3eef9c7dc6bc777f
 - name: github.com/go-openapi/jsonpointer
   version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
@@ -139,7 +139,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: b76189cc788c46038952dba8fbccd76b3eba866f
+  version: 58aab2885e38fd7f4fd57f2615f5f9fe38039e22
   subpackages:
   - apps
   - apps/v1
@@ -185,7 +185,7 @@ imports:
   - webconsole
   - webconsole/v1
 - name: github.com/openshift/client-go
-  version: e9678e3b850da36470c5554609c6cd110aace47e
+  version: 5a5508328169b8a6992ea4ef711add89ddce3c6d
   subpackages:
   - config/clientset/versioned
   - config/clientset/versioned/fake
@@ -212,7 +212,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: a5507e7eb29c0ec68b73bd355cf5d248586fd776
+  version: 7591501955d9277b5f5cd27e600a58d977736cd1
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -236,13 +236,17 @@ imports:
   - pkg/operator/resource/resourcehash
   - pkg/operator/resource/resourcemerge
   - pkg/operator/resource/resourceread
+  - pkg/operator/resource/retry
   - pkg/operator/resourcesynccontroller
   - pkg/operator/status
   - pkg/operator/unsupportedconfigoverridescontroller
   - pkg/operator/v1helpers
+  - pkg/operator/watchdog
   - pkg/serviceability
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
+- name: github.com/pkg/errors
+  version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/pkg/profile
   version: f6fe06335df110bcf1ed6d4e852b760bfc15beee
 - name: github.com/prometheus/client_golang
@@ -279,7 +283,7 @@ imports:
   subpackages:
   - ssh/terminal
 - name: golang.org/x/net
-  version: 65e2d4e15006aab9813ff8769e768bbf4bb667a0
+  version: cdfb69ac37fc6fa907650654115ebebb3aae2087
   subpackages:
   - context
   - http/httpguts
@@ -320,7 +324,7 @@ imports:
   subpackages:
   - rate
 - name: golang.org/x/tools
-  version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
+  version: 71894ab67ee38e5f4b1d98f5edc384c5c872c94f
   subpackages:
   - container/intsets
 - name: google.golang.org/appengine
@@ -766,7 +770,7 @@ imports:
 - name: k8s.io/code-generator
   version: 50b561225d70b3eb79a1faafd3dfe7b1a62cbe73
 - name: k8s.io/component-base
-  version: 4a91899592f42b2f5859587cc5a676a5b94d2ee3
+  version: f3799749b6b739bf4bb6ef1c79e63081bf109f15
   subpackages:
   - cli/flag
   - logs
@@ -775,7 +779,7 @@ imports:
   subpackages:
   - args
 - name: k8s.io/klog
-  version: 8139d8cb77af419532b33dfa7dd09fbc5f1d344f
+  version: 8e90cee79f823779174776412c13478955131846
 - name: k8s.io/kube-aggregator
   version: da8327669ac57b6e6a06676eeb7de19c9780f76d
   subpackages:
@@ -822,6 +826,4 @@ imports:
   - value
 - name: sigs.k8s.io/yaml
   version: fd68e9863619f6ec2fdd8625fe1f02e7c877e480
-testImports:
-- name: github.com/pkg/errors
-  version: 645ef00459ed84a119197bfb8d8205042c6df63d
+testImports: []

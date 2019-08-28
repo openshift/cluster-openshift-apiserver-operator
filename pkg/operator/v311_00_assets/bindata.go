@@ -7,6 +7,7 @@
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
+// bindata/v3.11.0/openshift-apiserver/trusted-ca-cm.yaml
 // DO NOT EDIT!
 
 package v311_00_assets
@@ -199,6 +200,7 @@ spec:
     spec:
       serviceAccountName: openshift-apiserver-sa
       priorityClassName: system-node-critical
+      shareProcessNamespace: true
       initContainers:
         - name: fix-audit-permissions
           terminationMessagePolicy: FallbackToLogsOnError
@@ -213,9 +215,21 @@ spec:
         terminationMessagePolicy: FallbackToLogsOnError
         image: ${IMAGE}
         imagePullPolicy: IfNotPresent
-        command: ["openshift-apiserver", "start"]
+        command: ["/bin/bash", "-ec"]
         args:
-        - "--config=/var/run/configmaps/config/config.yaml"
+          - |
+            echo $$$$ > /var/run/watchdog/pid
+            echo -n "Waiting for watchdog..."
+            while [ ! -f /var/run/watchdog/ready ]; do
+              echo -n "."
+              sleep 1
+            done
+            echo
+            if [ -s /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem ]; then
+              echo "Copying system trust bundle"
+              cp -f /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+            fi
+            exec openshift-apiserver start --config=/var/run/configmaps/config/config.yaml
         resources:
           requests:
             memory: 200Mi
@@ -238,10 +252,14 @@ spec:
           name: etcd-serving-ca
         - mountPath: /var/run/configmaps/image-import-ca
           name: image-import-ca
+        - mountPath: /var/run/configmaps/trusted-ca-bundle
+          name: trusted-ca-bundle
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
         - mountPath: /var/log/openshift-apiserver
           name: audit-dir
+        - mountPath: /var/run/watchdog
+          name: watchdog-dir
         livenessProbe:
           initialDelaySeconds: 30
           httpGet:
@@ -254,6 +272,39 @@ spec:
             scheme: HTTPS
             port: 8443
             path: healthz
+      - name: openshift-apiserver-watchdog
+        command: ["cluster-openshift-apiserver-operator", "file-watcher-watchdog"]
+        args:
+          - --namespace=$(POD_NAMESPACE)
+          - --termination-grace-period=60s
+          - --files=/var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem
+          - --pid-file=/var/run/watchdog/pid
+          - --ready-file=/var/run/watchdog/ready
+        securityContext:
+          capabilities:
+            add:
+              - SYS_PTRACE
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        image: ${OPERATOR_IMAGE}
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+          - mountPath: /etc/pki/ca-trust/extracted/pem/
+            name: trusted-ca-bundle
+          - mountPath: /var/run/watchdog
+            name: watchdog-dir
+        terminationMessagePolicy: FallbackToLogsOnError
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 10m
       terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
       volumes:
       - name: aggregator-client-ca
@@ -278,9 +329,18 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
+      - name: trusted-ca-bundle
+        configMap:
+          name: trusted-ca-bundle
+          optional: true
+          items:
+          - key: ca-bundle.crt
+            path: tls-ca-bundle.pem
       - hostPath:
           path: /var/log/openshift-apiserver
         name: audit-dir
+      - emptyDir: {}
+        name: watchdog-dir
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
@@ -383,6 +443,30 @@ func v3110OpenshiftApiserverSvcYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverTrustedCaCmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-apiserver
+  name: trusted-ca-bundle
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+`)
+
+func v3110OpenshiftApiserverTrustedCaCmYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverTrustedCaCmYaml, nil
+}
+
+func v3110OpenshiftApiserverTrustedCaCmYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverTrustedCaCmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/trusted-ca-cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -442,6 +526,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
+	"v3.11.0/openshift-apiserver/trusted-ca-cm.yaml":                v3110OpenshiftApiserverTrustedCaCmYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -494,6 +579,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
+			"trusted-ca-cm.yaml":                {v3110OpenshiftApiserverTrustedCaCmYaml, map[string]*bintree{}},
 		}},
 	}},
 }}
