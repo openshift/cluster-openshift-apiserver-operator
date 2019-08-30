@@ -3,5 +3,7 @@ kind: ConfigMap
 metadata:
   namespace: openshift-apiserver-operator
   name: trusted-ca-bundle
+  annotations:
+    release.openshift.io/create-only: "true"
   labels:
     config.openshift.io/inject-trusted-cabundle: "true"

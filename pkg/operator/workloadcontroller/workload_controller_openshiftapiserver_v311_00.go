@@ -81,11 +81,6 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(imageImportCAModifiedObject))
 	}
 
-	err = ensureOpenShiftAPIServerTrustedCA_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "trusted-ca-bundle", err))
-	}
-
 	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
 		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, fmt.Sprintf("operator config spec generation %d does not match status generation %d", operatorConfig.ObjectMeta.Generation,
 			operatorConfig.Status.ObservedGeneration))
@@ -280,28 +275,6 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 	default:
 		return nil, false, nil
 	}
-}
-
-func ensureOpenShiftAPIServerTrustedCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
-	required := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/trusted-ca-cm.yaml"))
-	cmCLient := client.ConfigMaps(operatorclient.TargetNamespace)
-
-	cm, err := cmCLient.Get("trusted-ca-bundle", metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			_, err = cmCLient.Create(required)
-		}
-		return err
-	}
-
-	// update if modified by the user
-	if val, ok := cm.Labels["config.openshift.io/inject-trusted-cabundle"]; !ok || val != "true" {
-		cm.Labels["config.openshift.io/inject-trusted-cabundle"] = "true"
-		_, err = cmCLient.Update(cm)
-		return err
-	}
-
-	return nil
 }
 
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
