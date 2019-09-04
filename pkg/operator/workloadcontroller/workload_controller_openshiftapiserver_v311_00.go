@@ -383,18 +383,27 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 	required.Annotations["openshiftapiservers.operator.openshift.io/pull-spec"] = imagePullSpec
 	required.Annotations["openshiftapiservers.operator.openshift.io/operator-pull-spec"] = operatorImagePullSpec
 
+	containerArgsWithLoglevel := required.Spec.Template.Spec.Containers[0].Args
+	if argsCount := len(containerArgsWithLoglevel); argsCount > 1 {
+		return nil, false, fmt.Errorf("expected only one container argument, got %d", argsCount)
+	}
+	if !strings.Contains(containerArgsWithLoglevel[0], "exec openshift-apiserver") {
+		return nil, false, fmt.Errorf("exec openshift-apiserver not found in first argument %q", containerArgsWithLoglevel[0])
+	}
+	containerArgsWithLoglevel[0] = strings.TrimSpace(containerArgsWithLoglevel[0])
 	switch operatorConfig.Spec.LogLevel {
 	case operatorv1.Normal:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 2)
 	case operatorv1.Debug:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 4))
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 4)
 	case operatorv1.Trace:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 6))
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 6)
 	case operatorv1.TraceAll:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 8))
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 8)
 	default:
-		required.Spec.Template.Spec.Containers[0].Args = append(required.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("-v=%d", 2))
+		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 2)
 	}
+	required.Spec.Template.Spec.Containers[0].Args = containerArgsWithLoglevel
 
 	var observedConfig map[string]interface{}
 	if err := yaml.Unmarshal(operatorConfig.Spec.ObservedConfig.Raw, &observedConfig); err != nil {
