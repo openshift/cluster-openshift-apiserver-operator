@@ -50,12 +50,6 @@ func NewResourceSyncController(
 	); err != nil {
 		return nil, nil, err
 	}
-	if err := resourceSyncController.SyncConfigMap(
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.TargetNamespace, Name: "trusted-ca-bundle"},
-		resourcesynccontroller.ResourceLocation{Namespace: operatorclient.OperatorNamespace, Name: "trusted-ca-bundle"},
-	); err != nil {
-		return nil, nil, err
-	}
 
 	return resourceSyncController, resourcesynccontroller.NewDebugHandler(resourceSyncController), nil
 }
