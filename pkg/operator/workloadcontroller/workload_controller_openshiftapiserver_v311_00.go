@@ -297,6 +297,7 @@ func syncOpenShiftAPIServerTrustedCA_v311_00_to_latest(client coreclientv1.CoreV
 
 	// get the copy of the sourceCM, remove the annotations and labels we set for CVO and network operator
 	requiredCM := sourceCM.DeepCopy()
+	requiredCM.UID = ""
 	requiredCM.ObjectMeta.ResourceVersion = ""
 	requiredCM.ObjectMeta.Namespace = operatorclient.TargetNamespace
 	delete(requiredCM.Annotations, "release.openshift.io/create-only")
@@ -315,6 +316,7 @@ func syncOpenShiftAPIServerTrustedCA_v311_00_to_latest(client coreclientv1.CoreV
 
 	// if the target CM Data differs, update it
 	if !reflect.DeepEqual(sourceCM.Data, imageCM.Data) {
+		requiredCM.UID = imageCM.UID
 		requiredCM.ResourceVersion = imageCM.ResourceVersion
 		_, err = targetClient.Update(requiredCM)
 	}
