@@ -37,12 +37,6 @@ func matchArgTypeInternal(pass *analysis.Pass, t printfArgType, typ types.Type, 
 			return true // probably a type check problem
 		}
 	}
-
-	// %w accepts only errors.
-	if t == argError {
-		return types.ConvertibleTo(typ, errorType)
-	}
-
 	// If the type implements fmt.Formatter, we have nothing to check.
 	if isFormatter(typ) {
 		return true
