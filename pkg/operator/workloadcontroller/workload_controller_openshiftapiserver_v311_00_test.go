@@ -22,6 +22,7 @@ import (
 	kubetesting "k8s.io/client-go/testing"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	kubeaggregatorfake "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/fake"
+	utilpointer "k8s.io/utils/pointer"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configfake "github.com/openshift/client-go/config/clientset/versioned/fake"
@@ -173,7 +174,7 @@ func TestProgressingCondition(t *testing.T) {
 }
 
 func TestAvailableStatus(t *testing.T) {
-
+	servicePort := utilpointer.Int32Ptr(443)
 	testCases := []struct {
 		name                    string
 		expectedStatus          operatorv1.ConditionStatus
@@ -264,7 +265,7 @@ func TestAvailableStatus(t *testing.T) {
 						Spec: apiregistrationv1.APIServiceSpec{
 							Group:                "build.openshift.io",
 							Version:              "v1",
-							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api"},
+							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api", Port: servicePort},
 							GroupPriorityMinimum: 9900,
 							VersionPriority:      15,
 						},
@@ -301,7 +302,7 @@ func TestAvailableStatus(t *testing.T) {
 						Spec: apiregistrationv1.APIServiceSpec{
 							Group:                action.GetResource().Group,
 							Version:              action.GetResource().Version,
-							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api"},
+							Service:              &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api", Port: servicePort},
 							GroupPriorityMinimum: 9900,
 							VersionPriority:      15,
 						},
@@ -357,7 +358,7 @@ func TestAvailableStatus(t *testing.T) {
 				return true,
 					&apiregistrationv1.APIService{
 						ObjectMeta: metav1.ObjectMeta{Name: action.(kubetesting.GetAction).GetName(), Annotations: map[string]string{"service.alpha.openshift.io/inject-cabundle": "true"}},
-						Spec:       apiregistrationv1.APIServiceSpec{Group: action.GetResource().Group, Version: action.GetResource().Version, Service: &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api"}, GroupPriorityMinimum: 9900, VersionPriority: 15},
+						Spec:       apiregistrationv1.APIServiceSpec{Group: action.GetResource().Group, Version: action.GetResource().Version, Service: &apiregistrationv1.ServiceReference{Namespace: operatorclient.TargetNamespace, Name: "api", Port: servicePort}, GroupPriorityMinimum: 9900, VersionPriority: 15},
 						Status:     apiregistrationv1.APIServiceStatus{Conditions: []apiregistrationv1.APIServiceCondition{{Type: apiregistrationv1.Available, Status: apiregistrationv1.ConditionTrue}}},
 					}, nil
 			})

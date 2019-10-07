@@ -463,6 +463,7 @@ func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServi
 				VersionPriority:      15,
 			},
 		}
+		apiregistrationv1.SetDefaults_ServiceReference(obj.Spec.Service)
 
 		apiService, _, err := resourceapply.ApplyAPIService(client, recorder, obj)
 		if err != nil {
