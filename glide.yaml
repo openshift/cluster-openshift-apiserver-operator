@@ -1,17 +1,19 @@
+# Update deps with `glide update --strip-vendor`
+
 package: github.com/openshift/cluster-openshift-apiserver-operator
 import:
 - package: k8s.io/apimachinery
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/api
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/apiserver
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/client-go
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: k8s.io/code-generator
-  version: kubernetes-1.14.0
+  version: kubernetes-1.16.0
 - package: github.com/openshift/api
   version: master
 - package: github.com/openshift/client-go
@@ -21,8 +23,10 @@ import:
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
-  version: e17681d19d3ac4837a019ece36c2a0ec31ffe985
+  version: 26a664648505d962332bda642b27306bc10d1082
 
-# pin klog because glide pulls in the latest one and that fails
+# Pin kube deps to the versions vendored by the release
 - package: k8s.io/klog
-  version: 8e90cee79f823779174776412c13478955131846
+  version: v0.4.0
+- package: sigs.k8s.io/structured-merge-diff
+  version: 6149e4549fca4602cb9449007ff8ef61b2feff3b

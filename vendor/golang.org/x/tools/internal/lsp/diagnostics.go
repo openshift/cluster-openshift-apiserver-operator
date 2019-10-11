@@ -6,95 +6,75 @@ package lsp
 
 import (
 	"context"
-	"strings"
+	"sort"
 
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
-	"golang.org/x/tools/internal/lsp/telemetry"
-	"golang.org/x/tools/internal/span"
-	"golang.org/x/tools/internal/telemetry/log"
 )
 
-func (s *Server) Diagnostics(ctx context.Context, view source.View, uri span.URI) {
-	ctx = telemetry.File.With(ctx, uri)
-	f, err := view.GetFile(ctx, uri)
+func (s *server) cacheAndDiagnose(ctx context.Context, uri string, content string) {
+	sourceURI, err := fromProtocolURI(uri)
 	if err != nil {
-		log.Error(ctx, "no file", err, telemetry.File)
-		return
+		return // handle error?
 	}
-	// For non-Go files, don't return any diagnostics.
-	gof, ok := f.(source.GoFile)
-	if !ok {
-		return
+	if err := s.setContent(ctx, sourceURI, []byte(content)); err != nil {
+		return // handle error?
 	}
-	reports, err := source.Diagnostics(ctx, view, gof, s.disabledAnalyses)
-	if err != nil {
-		log.Error(ctx, "failed to compute diagnostics", err, telemetry.File)
-		return
-	}
-
-	s.undeliveredMu.Lock()
-	defer s.undeliveredMu.Unlock()
-
-	for uri, diagnostics := range reports {
-		if err := s.publishDiagnostics(ctx, uri, diagnostics); err != nil {
-			if s.undelivered == nil {
-				s.undelivered = make(map[span.URI][]source.Diagnostic)
-			}
-			log.Error(ctx, "failed to deliver diagnostic (will retry)", err, telemetry.File)
-			s.undelivered[uri] = diagnostics
-			continue
+	go func() {
+		ctx := s.view.BackgroundContext()
+		if ctx.Err() != nil {
+			return
 		}
-		// In case we had old, undelivered diagnostics.
-		delete(s.undelivered, uri)
-	}
-	// Anytime we compute diagnostics, make sure to also send along any
-	// undelivered ones (only for remaining URIs).
-	for uri, diagnostics := range s.undelivered {
-		if err := s.publishDiagnostics(ctx, uri, diagnostics); err != nil {
-			log.Error(ctx, "failed to deliver diagnostic for (will not retry)", err, telemetry.File)
+		reports, err := source.Diagnostics(ctx, s.view, sourceURI)
+		if err != nil {
+			return // handle error?
 		}
-		// If we fail to deliver the same diagnostics twice, just give up.
-		delete(s.undelivered, uri)
-	}
+		for filename, diagnostics := range reports {
+			s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+				URI:         string(source.ToURI(filename)),
+				Diagnostics: toProtocolDiagnostics(ctx, s.view, diagnostics),
+			})
+		}
+	}()
 }
 
-func (s *Server) publishDiagnostics(ctx context.Context, uri span.URI, diagnostics []source.Diagnostic) error {
-	protocolDiagnostics, err := toProtocolDiagnostics(ctx, diagnostics)
-	if err != nil {
-		return err
-	}
-	s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		Diagnostics: protocolDiagnostics,
-		URI:         protocol.NewURI(uri),
-	})
-	return nil
+func (s *server) setContent(ctx context.Context, uri source.URI, content []byte) error {
+	return s.view.SetContent(ctx, uri, content)
 }
 
-func toProtocolDiagnostics(ctx context.Context, diagnostics []source.Diagnostic) ([]protocol.Diagnostic, error) {
+func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []source.Diagnostic) []protocol.Diagnostic {
 	reports := []protocol.Diagnostic{}
 	for _, diag := range diagnostics {
-		diagnostic, err := toProtocolDiagnostic(ctx, diag)
-		if err != nil {
-			return nil, err
+		tok := v.FileSet().File(diag.Start)
+		src := diag.Source
+		if src == "" {
+			src = "LSP"
 		}
-		reports = append(reports, diagnostic)
+		var severity protocol.DiagnosticSeverity
+		switch diag.Severity {
+		case source.SeverityError:
+			severity = protocol.SeverityError
+		case source.SeverityWarning:
+			severity = protocol.SeverityWarning
+		}
+		reports = append(reports, protocol.Diagnostic{
+			Message:  diag.Message,
+			Range:    toProtocolRange(tok, diag.Range),
+			Severity: severity,
+			Source:   src,
+		})
 	}
-	return reports, nil
+	return reports
 }
 
-func toProtocolDiagnostic(ctx context.Context, diag source.Diagnostic) (protocol.Diagnostic, error) {
-	var severity protocol.DiagnosticSeverity
-	switch diag.Severity {
-	case source.SeverityError:
-		severity = protocol.SeverityError
-	case source.SeverityWarning:
-		severity = protocol.SeverityWarning
-	}
-	return protocol.Diagnostic{
-		Message:  strings.TrimSpace(diag.Message), // go list returns errors prefixed by newline
-		Range:    diag.Range,
-		Severity: severity,
-		Source:   diag.Source,
-	}, nil
+func sorted(d []protocol.Diagnostic) {
+	sort.Slice(d, func(i int, j int) bool {
+		if d[i].Range.Start.Line == d[j].Range.Start.Line {
+			if d[i].Range.Start.Character == d[j].Range.Start.Character {
+				return d[i].Message < d[j].Message
+			}
+			return d[i].Range.Start.Character < d[j].Range.Start.Character
+		}
+		return d[i].Range.Start.Line < d[j].Range.Start.Line
+	})
 }
