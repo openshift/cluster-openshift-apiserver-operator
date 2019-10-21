@@ -325,6 +325,13 @@ spec:
                     type: string
                 type: object
               type: array
+            latestAvailableRevision:
+              description: latestAvailableRevision is the latest revision used as
+                suffix of revisioned secrets like encryption-config. A new revision
+                causes a new deployment of pods.
+              format: int32
+              minimum: 0
+              type: integer
             observedGeneration:
               description: observedGeneration is the last generation change you've
                 dealt with

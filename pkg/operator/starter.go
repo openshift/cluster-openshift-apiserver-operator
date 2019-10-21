@@ -5,12 +5,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-
-	"github.com/openshift/library-go/pkg/operator/loglevel"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
@@ -21,18 +19,31 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	"github.com/openshift/library-go/pkg/operator/encryption"
+	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+
+	revisioncontroller "github.com/openshift/library-go/pkg/operator/revisioncontroller"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
 	kubeClient, err := kubernetes.NewForConfig(ctx.ProtoKubeConfig)
+	if err != nil {
+		return err
+	}
+	dynamicClient, err := dynamic.NewForConfig(ctx.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -76,6 +87,20 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		return err
 	}
 
+	revisionController := revisioncontroller.NewRevisionController(
+		operatorclient.TargetNamespace,
+		nil,
+		[]revision.RevisionResource{{
+			Name:     "encryption-config",
+			Optional: true,
+		}},
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
+		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
+		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
+		ctx.EventRecorder,
+	)
+
 	// don't change any versions until we sync
 	versionRecorder := status.NewVersionGetter()
 	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get("openshift-apiserver", metav1.GetOptions{})
@@ -109,6 +134,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		operatorClient,
 		resourceSyncController,
 		operatorConfigInformers,
@@ -135,6 +161,43 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
+	nodeProvider := DaemonSetNodeProvider{
+		TargetNamespaceDaemonSetInformer: kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Apps().V1().DaemonSets(),
+		NodeInformer:                     kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes(),
+	}
+	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), nodeProvider)
+	if err != nil {
+		return err
+	}
+
+	encryptionControllers, err := encryption.NewControllers(
+		operatorclient.TargetNamespace,
+		deployer,
+		operatorClient,
+		configClient.ConfigV1().APIServers(),
+		configInformers.Config().V1().APIServers(),
+		kubeInformersForNamespaces,
+		kubeClient.CoreV1(),
+		kubeClient.Discovery(),
+		ctx.EventRecorder,
+		dynamicClient,
+		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
+		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
+		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
+	)
+	if err != nil {
+		return err
+	}
+
+	pruneController := prune.NewPruneController(
+		operatorclient.TargetNamespace,
+		[]string{"encryption-config-"},
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		kubeInformersForNamespaces,
+		ctx.EventRecorder,
+	)
+
 	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, ctx.EventRecorder)
 	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorClient, ctx.EventRecorder)
 
@@ -153,6 +216,9 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go clusterOperatorStatus.Run(1, ctx.Done())
 	go finalizerController.Run(1, ctx.Done())
 	go resourceSyncController.Run(1, ctx.Done())
+	go revisionController.Run(1, ctx.Done())
+	go encryptionControllers.Run(ctx.Done())
+	go pruneController.Run(1, ctx.Done())
 	go configUpgradeableController.Run(1, ctx.Done())
 	go logLevelController.Run(1, ctx.Done())
 

@@ -1,20 +1,23 @@
 package configobservercontroller
 
 import (
+	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 
+	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
+	"github.com/openshift/library-go/pkg/operator/encryption/observer"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
-	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/ingresses"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/project"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 )
 
 type ConfigObserver struct {
@@ -23,6 +26,7 @@ type ConfigObserver struct {
 
 // NewConfigObserver initializes a new configuration observer.
 func NewConfigObserver(
+	kubeInformers kubeinformers.SharedInformerFactory,
 	operatorClient v1helpers.OperatorClient,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	operatorConfigInformers operatorv1informers.SharedInformerFactory,
@@ -39,6 +43,7 @@ func NewConfigObserver(
 				ProjectConfigLister: configInformers.Config().V1().Projects().Lister(),
 				ProxyLister_:        configInformers.Config().V1().Proxies().Lister(),
 				IngressConfigLister: configInformers.Config().V1().Ingresses().Lister(),
+				SecretLister_:       kubeInformers.Core().V1().Secrets().Lister(),
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
 					configInformers.Config().V1().Images().Informer().HasSynced,
@@ -54,6 +59,7 @@ func NewConfigObserver(
 			project.ObserveProjectRequestMessage,
 			project.ObserveProjectRequestTemplateName,
 			proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
+			observer.NewEncryptionConfigObserver(operatorclient.TargetNamespace, "/var/run/secrets/encryption-config"),
 		),
 	}
 	operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().AddEventHandler(c.EventHandler())

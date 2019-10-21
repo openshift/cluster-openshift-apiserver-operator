@@ -3,7 +3,9 @@ package workloadcontroller
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -365,34 +367,21 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 	operatorConfig *operatorv1.OpenShiftAPIServer,
 	generationStatus []operatorv1.GenerationStatus,
 	forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
-	required := resourceread.ReadDaemonSetV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml"))
+	tmpl := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml")
 
-	for i := range required.Spec.Template.Spec.Containers {
-		img := strings.TrimSpace(required.Spec.Template.Spec.Containers[i].Image)
-		switch img {
-		case "${IMAGE}":
-			required.Spec.Template.Spec.Containers[i].Image = imagePullSpec
-		case "${OPERATOR_IMAGE}":
-			required.Spec.Template.Spec.Containers[i].Image = operatorImagePullSpec
-		default:
-			if strings.Contains(img, "$") {
-				return nil, false, fmt.Errorf("invalid image reference %q", img)
-			}
-		}
+	r := strings.NewReplacer(
+		"${IMAGE}", imagePullSpec,
+		"${OPERATOR_IMAGE}", operatorImagePullSpec,
+		"${REVISION}", strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision)),
+	)
+	tmpl = []byte(r.Replace(string(tmpl)))
+
+	re := regexp.MustCompile("\\$\\{[^}]*}")
+	if match := re.Find(tmpl); len(match) > 0 {
+		return nil, false, fmt.Errorf("invalid template reference %q", string(match))
 	}
-	for i := range required.Spec.Template.Spec.InitContainers {
-		img := strings.TrimSpace(required.Spec.Template.Spec.InitContainers[i].Image)
-		switch img {
-		case "${IMAGE}":
-			required.Spec.Template.Spec.InitContainers[i].Image = imagePullSpec
-		case "${OPERATOR_IMAGE}":
-			required.Spec.Template.Spec.InitContainers[i].Image = operatorImagePullSpec
-		default:
-			if strings.Contains(img, "$") {
-				return nil, false, fmt.Errorf("invalid image reference %q", img)
-			}
-		}
-	}
+
+	required := resourceread.ReadDaemonSetV1OrDie(tmpl)
 
 	// we set this so that when the requested image pull spec changes, we always have a diff.  Remember that we don't directly
 	// diff any fields on the daemonset because they can be rewritten by admission and we don't want to constantly be fighting
@@ -402,6 +391,9 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 	}
 	required.Annotations["openshiftapiservers.operator.openshift.io/pull-spec"] = imagePullSpec
 	required.Annotations["openshiftapiservers.operator.openshift.io/operator-pull-spec"] = operatorImagePullSpec
+
+	required.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
+	required.Spec.Template.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
 
 	containerArgsWithLoglevel := required.Spec.Template.Spec.Containers[0].Args
 	if argsCount := len(containerArgsWithLoglevel); argsCount > 1 {
