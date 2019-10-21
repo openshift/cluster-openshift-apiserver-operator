@@ -205,6 +205,8 @@ spec:
           image: ${IMAGE}
           imagePullPolicy: IfNotPresent
           command: ['sh', '-c', 'chmod 0700 /var/log/openshift-apiserver']
+          securityContext:
+            privileged: true
           volumeMounts:
             - mountPath: /var/log/openshift-apiserver
               name: audit-dir
