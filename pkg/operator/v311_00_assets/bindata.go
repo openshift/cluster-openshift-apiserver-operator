@@ -249,6 +249,8 @@ spec:
           name: trusted-ca-bundle
         - mountPath: /var/run/secrets/serving-cert
           name: serving-cert
+        - mountPath: /var/run/secrets/encryption-config
+          name: encryption-config
         - mountPath: /var/log/openshift-apiserver
           name: audit-dir
         livenessProbe:
@@ -294,6 +296,10 @@ spec:
           items:
           - key: ca-bundle.crt
             path: tls-ca-bundle.pem
+      - name: encryption-config
+        secret:
+          secretName: encryption-config-${REVISION}
+          optional: true
       - hostPath:
           path: /var/log/openshift-apiserver
         name: audit-dir

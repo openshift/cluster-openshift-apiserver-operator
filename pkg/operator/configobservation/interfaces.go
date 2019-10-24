@@ -17,10 +17,15 @@ type Listers struct {
 	IngressConfigLister configlistersv1.IngressLister
 	EndpointsLister     corelistersv1.EndpointsLister
 	PreRunCachesSynced  []cache.InformerSynced
+	SecretLister_       corelistersv1.SecretLister
 }
 
 func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
 	return l.ResourceSync
+}
+
+func (l Listers) SecretLister() corelistersv1.SecretLister {
+	return l.SecretLister_
 }
 
 func (l Listers) PreRunHasSynced() []cache.InformerSynced {
