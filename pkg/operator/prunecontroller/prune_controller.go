@@ -8,15 +8,19 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informer "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 
+	encryptionsecrets "github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
@@ -96,7 +100,35 @@ func (c *PruneController) sync() error {
 
 	for _, s := range secretsToBePruned(minRevision, c.secretPrefixes, secrets) {
 		klog.V(4).Infof("Pruning old secret %q", s.Name)
-		if err := c.secretGetter.Secrets(s.Namespace).Delete(s.Name, nil); err != nil {
+
+		// remove finalizer
+		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			s, err := c.secretGetter.Secrets(s.Namespace).Get(s.Name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+
+			// remove finalizer
+			newFinalizers := make([]string, 0, len(s.Finalizers))
+			for _, f := range s.Finalizers {
+				if f == encryptionsecrets.EncryptionSecretFinalizer {
+					continue
+				}
+				newFinalizers = append(newFinalizers, f)
+			}
+			if len(newFinalizers) == len(s.Finalizers) {
+				return nil
+			}
+			s.Finalizers = newFinalizers
+
+			_, err = c.secretGetter.Secrets(s.Namespace).Update(s)
+			return err
+		})
+
+		if err := c.secretGetter.Secrets(s.Namespace).Delete(s.Name, nil); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
