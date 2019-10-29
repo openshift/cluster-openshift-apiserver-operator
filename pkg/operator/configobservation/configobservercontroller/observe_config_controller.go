@@ -7,6 +7,7 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
+	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
 	"github.com/openshift/library-go/pkg/operator/encryption/observer"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -39,6 +40,7 @@ func NewConfigObserver(
 			eventRecorder,
 			configobservation.Listers{
 				ResourceSync:        resourceSyncer,
+				APIServerLister_:    configInformers.Config().V1().APIServers().Lister(),
 				ImageConfigLister:   configInformers.Config().V1().Images().Lister(),
 				ProjectConfigLister: configInformers.Config().V1().Projects().Lister(),
 				ProxyLister_:        configInformers.Config().V1().Proxies().Lister(),
@@ -56,6 +58,7 @@ func NewConfigObserver(
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
 			ingresses.ObserveIngressDomain,
+			libgoapiserver.ObserveTLSSecurityProfile,
 			project.ObserveProjectRequestMessage,
 			project.ObserveProjectRequestTemplateName,
 			proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
