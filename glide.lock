@@ -1,5 +1,5 @@
 hash: 1e99b4b7c4d142c8dd3cf58ad86240772945a4028ad66ab84a4d8a9a8e88d48e
-updated: 2019-10-24T14:38:24.776451+02:00
+updated: 2019-10-28T17:00:37.428356+01:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -168,7 +168,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: de6d5d3f2db2d4c707e4a02c5af4d2c70b3059d3
+  version: abf28f93703b8d52d7f5022aa2e074d1620ca895
   subpackages:
   - apps
   - apps/v1
@@ -239,7 +239,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: e3ad4b18b12faccd2d7fbf413632ab0b9fcb1e2a
+  version: 5d99e4749ec13918fe7d8f279ac53c16a60ebcfc
   subpackages:
   - pkg/assets
   - pkg/config/client
