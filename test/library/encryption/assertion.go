@@ -52,7 +52,7 @@ func assertRoutes(t testing.TB, etcdClient library.EtcdClient, expectedMode stri
 
 func assertAccessTokens(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
 	t.Logf("Checking if all OauthAccessTokens where encrypted/decrypted for %q mode", expectedMode)
-	totalAccessTokens, err := library.VerifyResources(t, etcdClient, "/openshift.io/oauth/accesstokens/", expectedMode, false)
+	totalAccessTokens, err := library.VerifyResources(t, etcdClient, "/openshift.io/oauth/accesstokens/", expectedMode, true)
 	t.Logf("Verified %d OauthAccessTokens, err %v", totalAccessTokens, err)
 	require.NoError(t, err)
 }
