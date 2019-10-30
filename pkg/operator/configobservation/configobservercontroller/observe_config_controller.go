@@ -59,7 +59,7 @@ func NewConfigObserver(
 			project.ObserveProjectRequestMessage,
 			project.ObserveProjectRequestTemplateName,
 			proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
-			observer.NewEncryptionConfigObserver(operatorclient.TargetNamespace, "/var/run/secrets/encryption-config"),
+			observer.NewEncryptionConfigObserver(operatorclient.TargetNamespace, "/var/run/secrets/encryption-config/encryption-config"),
 		),
 	}
 	operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().AddEventHandler(c.EventHandler())
