@@ -36,29 +36,29 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		name     string
 		testFunc func(*testing.T)
 	}{
-		{name: "CreateAndStoreSecretOfLife", testFunc: func(t *testing.T) {
+		{name: "CreateAndStoreTokenOfLife", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e), operatorclient.GlobalMachineSpecifiedConfigNamespace)
+			operatorencryption.CreateAndStoreTokenOfLife(e, operatorencryption.GetClients(e))
 		}},
 		{name: "OnAESCBC", testFunc: operatorencryption.TestEncryptionTypeAESCBC},
-		{name: "AssertSecretOfLifeEncrypted", testFunc: func(t *testing.T) {
+		{name: "AssertTokenOfLifeEncrypted", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			operatorencryption.AssertTokenOfLifeEncrypted(e, encryption.GetClients(e), operatorencryption.TokenOfLife(e))
 		}},
 		{name: "OffIdentity", testFunc: TestEncryptionTypeIdentity},
-		{name: "AssertSecretOfLifeNotEncrypted", testFunc: func(t *testing.T) {
+		{name: "AssertTokenOfLifeNotEncrypted", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			operatorencryption.AssertTokenOfLifeNotEncrypted(e, encryption.GetClients(e), operatorencryption.TokenOfLife(e))
 		}},
 		{name: "OnAESCBCSecond", testFunc: operatorencryption.TestEncryptionTypeAESCBC},
-		{name: "AssertSecretOfLifeEncryptedSecond", testFunc: func(t *testing.T) {
+		{name: "AssertTokenOfLifeEncryptedSecond", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			operatorencryption.AssertTokenOfLifeEncrypted(e, encryption.GetClients(e), operatorencryption.TokenOfLife(e))
 		}},
 		{name: "OffIdentitySecond", testFunc: TestEncryptionTypeIdentity},
-		{name: "AssertSecretOfLifeNotEncryptedSecond", testFunc: func(t *testing.T) {
+		{name: "AssertTokenOfLifeNotEncryptedSecond", testFunc: func(t *testing.T) {
 			e := encryption.NewE(t)
-			encryption.AssertSecretOfLifeNotEncrypted(e, encryption.GetClients(e), encryption.SecretOfLife(e, operatorclient.GlobalMachineSpecifiedConfigNamespace))
+			operatorencryption.AssertTokenOfLifeNotEncrypted(e, encryption.GetClients(e), operatorencryption.TokenOfLife(e))
 		}},
 	}
 
@@ -84,37 +84,36 @@ func TestEncryptionRotation(t *testing.T) {
 	// step 1: create the secret of life
 	e := encryption.NewE(t)
 	clientSet := encryption.GetClients(e)
-	encryption.CreateAndStoreSecretOfLife(e, encryption.GetClients(e), ns)
+	operatorencryption.CreateAndStoreTokenOfLife(e, operatorencryption.GetClients(e))
 
 	// step 2: run encryption aescbc scenario
 	operatorencryption.TestEncryptionTypeAESCBC(t)
 
 	// step 3: take samples
-	rawEncryptedSecretOfLifeWithKey1 := encryption.GetRawSecretOfLife(e, clientSet, ns)
+	rawEncryptedTokenOfLifeWithKey1 := operatorencryption.GetRawTokenOfLife(e, clientSet)
 
 	// step 4: force key rotation and wait for migration to complete
 	lastMigratedKeyMeta, err := encryption.GetLastKeyMeta(clientSet.Kube, ns, labelSelector)
 	require.NoError(e, err)
 	require.NoError(e, encryption.ForceKeyRotation(e, func(raw []byte) error {
-		operatorClient := operatorencryption.GetOperator(t)
-		apiServerOperator, err := operatorClient.Get("cluster", metav1.GetOptions{})
+		cs := operatorencryption.GetClients(t)
+		apiServerOperator, err := cs.OperatorClient.Get("cluster", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
-		_, err = operatorClient.Update(apiServerOperator)
+		_, err = cs.OperatorClient.Update(apiServerOperator)
 		return err
 	}, fmt.Sprintf("test-key-rotation-%s", rand.String(4))))
 	encryption.WaitForNextMigratedKey(e, clientSet.Kube, lastMigratedKeyMeta, operatorencryption.DefaultTargetGRs, ns, labelSelector)
 	operatorencryption.AssertRoutesAndTokens(e, clientSet, configv1.EncryptionTypeAESCBC, ns, labelSelector)
 
 	// step 5: verify if the secret of life was encrypted with a different key (step 2 vs step 4)
-	rawEncryptedSecretOfLifeWithKey2 := encryption.GetRawSecretOfLife(e, clientSet, ns)
-	if rawEncryptedSecretOfLifeWithKey1 == rawEncryptedSecretOfLifeWithKey2 {
-		t.Errorf("expected the secret of life to has a differnt content after a key rotation,\ncontentBeforeRotation %s\ncontentAfterRotation %s", rawEncryptedSecretOfLifeWithKey1, rawEncryptedSecretOfLifeWithKey2)
+	rawEncryptedTokenOfLifeWithKey2 := operatorencryption.GetRawTokenOfLife(e, clientSet)
+	if rawEncryptedTokenOfLifeWithKey1 == rawEncryptedTokenOfLifeWithKey2 {
+		t.Errorf("expected the token of life to has a differnt content after a key rotation,\ncontentBeforeRotation %s\ncontentAfterRotation %s", rawEncryptedTokenOfLifeWithKey1, rawEncryptedTokenOfLifeWithKey2)
 	}
 
 	// TODO: assert conditions - operator and encryption migration controller must report status as active not progressing, and not failing for all scenarios
 	// TODO: assert encryption config (resources) for all scenarios
 }
-
