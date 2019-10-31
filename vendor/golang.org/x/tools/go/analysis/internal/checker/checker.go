@@ -295,8 +295,7 @@ func printDiagnostics(roots []*action) (exitcode int) {
 		// avoid double-reporting in source files that belong to
 		// multiple packages, such as foo and foo.test.
 		type key struct {
-			pos token.Position
-			end token.Position
+			token.Position
 			*analysis.Analyzer
 			message string
 		}
@@ -314,8 +313,7 @@ func printDiagnostics(roots []*action) (exitcode int) {
 					// as most users don't care.
 
 					posn := act.pkg.Fset.Position(diag.Pos)
-					end := act.pkg.Fset.Position(diag.End)
-					k := key{posn, end, act.a, diag.Message}
+					k := key{posn, act.a, diag.Message}
 					if seen[k] {
 						continue // duplicate
 					}
@@ -505,8 +503,6 @@ func (act *action) execOnce() {
 		ExportObjectFact:  act.exportObjectFact,
 		ImportPackageFact: act.importPackageFact,
 		ExportPackageFact: act.exportPackageFact,
-		AllObjectFacts:    act.allObjectFacts,
-		AllPackageFacts:   act.allPackageFacts,
 	}
 	act.pass = pass
 
@@ -549,11 +545,11 @@ func inheritFacts(act, dep *action) {
 		// Optionally serialize/deserialize fact
 		// to verify that it works across address spaces.
 		if serialize {
-			encodedFact, err := codeFact(fact)
+			var err error
+			fact, err = codeFact(fact)
 			if err != nil {
 				log.Panicf("internal error: encoding of %T fact failed in %v", fact, act)
 			}
-			fact = encodedFact
 		}
 
 		if false {
@@ -571,11 +567,11 @@ func inheritFacts(act, dep *action) {
 		// to verify that it works across address spaces
 		// and is deterministic.
 		if serialize {
-			encodedFact, err := codeFact(fact)
+			var err error
+			fact, err = codeFact(fact)
 			if err != nil {
 				log.Panicf("internal error: encoding of %T fact failed in %v", fact, act)
 			}
-			fact = encodedFact
 		}
 
 		if false {
@@ -670,15 +666,6 @@ func (act *action) exportObjectFact(obj types.Object, fact analysis.Fact) {
 	}
 }
 
-// allObjectFacts implements Pass.AllObjectFacts.
-func (act *action) allObjectFacts() []analysis.ObjectFact {
-	facts := make([]analysis.ObjectFact, 0, len(act.objectFacts))
-	for k := range act.objectFacts {
-		facts = append(facts, analysis.ObjectFact{k.obj, act.objectFacts[k]})
-	}
-	return facts
-}
-
 // importPackageFact implements Pass.ImportPackageFact.
 // Given a non-nil pointer ptr of type *T, where *T satisfies Fact,
 // fact copies the fact value to *ptr.
@@ -714,15 +701,6 @@ func factType(fact analysis.Fact) reflect.Type {
 		log.Fatalf("invalid Fact type: got %T, want pointer", t)
 	}
 	return t
-}
-
-// allObjectFacts implements Pass.AllObjectFacts.
-func (act *action) allPackageFacts() []analysis.PackageFact {
-	facts := make([]analysis.PackageFact, 0, len(act.packageFacts))
-	for k := range act.packageFacts {
-		facts = append(facts, analysis.PackageFact{k.pkg, act.packageFacts[k]})
-	}
-	return facts
 }
 
 func dbg(b byte) bool { return strings.IndexByte(Debug, b) >= 0 }

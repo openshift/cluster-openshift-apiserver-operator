@@ -19,7 +19,6 @@ import (
 
 	"golang.org/x/tools/internal/jsonrpc2"
 	"golang.org/x/tools/internal/lsp"
-	"golang.org/x/tools/internal/lsp/debug"
 	"golang.org/x/tools/internal/tool"
 )
 
@@ -30,8 +29,6 @@ type Serve struct {
 	Mode    string `flag:"mode" help:"no effect"`
 	Port    int    `flag:"port" help:"port on which to run gopls for debugging purposes"`
 	Address string `flag:"listen" help:"address on which to listen for remote connections"`
-	Trace   bool   `flag:"rpc.trace" help:"Print the full rpc trace in lsp inspector format"`
-	Debug   string `flag:"debug" help:"Serve debug information on the supplied address"`
 
 	app *Application
 }
@@ -71,55 +68,10 @@ func (s *Serve) Run(ctx context.Context, args ...string) error {
 		log.SetOutput(io.MultiWriter(os.Stderr, f))
 		out = f
 	}
-
-	debug.Serve(ctx, s.Debug)
-
 	if s.app.Remote != "" {
 		return s.forward()
 	}
-
-	// For debugging purposes only.
-	run := func(srv *lsp.Server) {
-		srv.Conn.Logger = logger(s.Trace, out)
-		go srv.Run(ctx)
-	}
-	if s.Address != "" {
-		return lsp.RunServerOnAddress(ctx, s.app.cache, s.Address, run)
-	}
-	if s.Port != 0 {
-		return lsp.RunServerOnPort(ctx, s.app.cache, s.Port, run)
-	}
-	stream := jsonrpc2.NewHeaderStream(os.Stdin, os.Stdout)
-	srv := lsp.NewServer(s.app.cache, stream)
-	srv.Conn.Logger = logger(s.Trace, out)
-	return srv.Run(ctx)
-}
-
-func (s *Serve) forward() error {
-	conn, err := net.Dial("tcp", s.app.Remote)
-	if err != nil {
-		return err
-	}
-	errc := make(chan error)
-
-	go func(conn net.Conn) {
-		_, err := io.Copy(conn, os.Stdin)
-		errc <- err
-	}(conn)
-
-	go func(conn net.Conn) {
-		_, err := io.Copy(os.Stdout, conn)
-		errc <- err
-	}(conn)
-
-	return <-errc
-}
-
-func logger(trace bool, out io.Writer) jsonrpc2.Logger {
-	return func(direction jsonrpc2.Direction, id *jsonrpc2.ID, elapsed time.Duration, method string, payload *json.RawMessage, err *jsonrpc2.Error) {
-		if !trace {
-			return
-		}
+	logger := func(direction jsonrpc2.Direction, id *jsonrpc2.ID, elapsed time.Duration, method string, payload *json.RawMessage, err *jsonrpc2.Error) {
 		const eol = "\r\n\r\n\r\n"
 		if err != nil {
 			fmt.Fprintf(out, "[Error - %v] %s %s%s %v%s", time.Now().Format("3:04:05 PM"),
@@ -166,4 +118,33 @@ func logger(trace bool, out io.Writer) jsonrpc2.Logger {
 		fmt.Fprintf(outx, ".\r\nParams: %s%s", params, eol)
 		fmt.Fprintf(out, "%s", outx.String())
 	}
+	// For debugging purposes only.
+	if s.Address != "" {
+		return lsp.RunServerOnAddress(ctx, s.Address, logger)
+	}
+	if s.Port != 0 {
+		return lsp.RunServerOnPort(ctx, s.Port, logger)
+	}
+	stream := jsonrpc2.NewHeaderStream(os.Stdin, os.Stdout)
+	return lsp.RunServer(ctx, stream, logger)
+}
+
+func (s *Serve) forward() error {
+	conn, err := net.Dial("tcp", s.app.Remote)
+	if err != nil {
+		return err
+	}
+	errc := make(chan error)
+
+	go func(conn net.Conn) {
+		_, err := io.Copy(conn, os.Stdin)
+		errc <- err
+	}(conn)
+
+	go func(conn net.Conn) {
+		_, err := io.Copy(os.Stdout, conn)
+		errc <- err
+	}(conn)
+
+	return <-errc
 }
