@@ -8,6 +8,7 @@ import (
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	test "github.com/openshift/cluster-openshift-apiserver-operator/test/library"
+	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
 )
 
 func TestOperatorNamespace(t *testing.T) {
@@ -23,4 +24,8 @@ func TestOperatorNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestEncryptionTypeAESCBC(t *testing.T) {
+	operatorencryption.TestEncryptionTypeAESCBC(t)
 }

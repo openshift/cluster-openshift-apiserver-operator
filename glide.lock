@@ -1,5 +1,5 @@
 hash: 1e99b4b7c4d142c8dd3cf58ad86240772945a4028ad66ab84a4d8a9a8e88d48e
-updated: 2019-10-31T10:03:26.775093+01:00
+updated: 2019-10-31T16:32:54.129988+01:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -224,6 +224,8 @@ imports:
   - config/informers/externalversions/config/v1
   - config/informers/externalversions/internalinterfaces
   - config/listers/config/v1
+  - oauth/clientset/versioned/scheme
+  - oauth/clientset/versioned/typed/oauth/v1
   - operator/clientset/versioned
   - operator/clientset/versioned/fake
   - operator/clientset/versioned/scheme
@@ -280,10 +282,16 @@ imports:
   - pkg/operator/unsupportedconfigoverridescontroller
   - pkg/operator/v1helpers
   - pkg/serviceability
+  - test/library
+  - test/library/encryption
 - name: github.com/pborman/uuid
   version: 8b1b92947f46224e3b97bb1a3a5b0382be00d31e
 - name: github.com/pkg/profile
   version: f6fe06335df110bcf1ed6d4e852b760bfc15beee
+- name: github.com/pmezard/go-difflib
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  subpackages:
+  - difflib
 - name: github.com/prometheus/client_golang
   version: 505eaef017263e299324067d40ca2c48f6a2cf50
   subpackages:
@@ -316,6 +324,11 @@ imports:
   version: f2b07da1e2c38d5f12845a4f607e2e1018cbb1f5
 - name: github.com/spf13/pflag
   version: 298182f68c66c05229eb03ac171abe6e309ee79a
+- name: github.com/stretchr/testify
+  version: ffdc059bfe9ce6a4e144ba849dbedead332c6053
+  subpackages:
+  - assert
+  - require
 - name: go.uber.org/atomic
   version: 8dc6146f7569370a472715e178d8ae31172ee6da
 - name: go.uber.org/multierr
