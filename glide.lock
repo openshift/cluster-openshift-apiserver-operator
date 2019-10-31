@@ -1,5 +1,5 @@
-hash: 1e99b4b7c4d142c8dd3cf58ad86240772945a4028ad66ab84a4d8a9a8e88d48e
-updated: 2019-10-31T16:32:54.129988+01:00
+hash: 4fd8b299c3bb02531a2266248e0419dd88cfc98b19612cdb7356ab53579f431f
+updated: 2019-11-01T13:10:49.807601+01:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -149,6 +149,17 @@ imports:
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - name: github.com/konsorten/go-windows-terminal-sequences
   version: 5c8c8bd35d3832f5d134ae1e1e375b69a4d25242
+- name: github.com/kubernetes-sigs/kube-storage-version-migrator
+  version: bdca3bf7d454105b7853d0d60b385877486a9dc6
+  repo: https://github.com/openshift/kubernetes-kube-storage-version-migrator.git
+  subpackages:
+  - pkg/apis/migration/v1alpha1
+  - pkg/clients/clientset
+  - pkg/clients/clientset/scheme
+  - pkg/clients/clientset/typed/migration/v1alpha1
+  - pkg/clients/informer/internalinterfaces
+  - pkg/clients/informer/migration/v1alpha1
+  - pkg/clients/lister/migration/v1alpha1
 - name: github.com/mailru/easyjson
   version: d5b7844b561a7bc640052f1b935f7b800330d7e0
   subpackages:
@@ -168,7 +179,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 11eee842dafd4698259c5de6b0746183ea6998f5
+  version: bac53ab1eb76f33fe58ad587f6894bd84cc6c5ef
   subpackages:
   - apps
   - apps/v1
@@ -241,7 +252,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: d6f3b526f0331fec5d792acc73258d6685492c38
+  version: b38318f0eb29537a1b15dec3467ca1f071882b59
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -259,6 +270,7 @@ imports:
   - pkg/operator/configobserver/proxy
   - pkg/operator/encryption
   - pkg/operator/encryption/controllers
+  - pkg/operator/encryption/controllers/migrators
   - pkg/operator/encryption/crypto
   - pkg/operator/encryption/deployer
   - pkg/operator/encryption/encryptionconfig
@@ -321,7 +333,7 @@ imports:
 - name: github.com/sirupsen/logrus
   version: 839c75faf7f98a33d445d181f3018b5c3409a45e
 - name: github.com/spf13/cobra
-  version: f2b07da1e2c38d5f12845a4f607e2e1018cbb1f5
+  version: 67fc4837d267bc9bfd6e47f77783fcc3dffc68de
 - name: github.com/spf13/pflag
   version: 298182f68c66c05229eb03ac171abe6e309ee79a
 - name: github.com/stretchr/testify
