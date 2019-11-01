@@ -177,7 +177,7 @@ func TestAvailableStatus(t *testing.T) {
 	testCases := []struct {
 		name                    string
 		expectedStatus          operatorv1.ConditionStatus
-		expectedReason          string
+		expectedReasons         []string
 		expectedMessages        []string
 		expectedFailingMessages []string
 		apiServiceReactor       kubetesting.ReactionFunc
@@ -190,7 +190,7 @@ func TestAvailableStatus(t *testing.T) {
 		{
 			name:                    "APIServiceCreateFailure",
 			expectedStatus:          operatorv1.ConditionFalse,
-			expectedReason:          "NoRegisteredAPIServices",
+			expectedReasons:         []string{"NoRegisteredAPIServices"},
 			expectedMessages:        []string{"registered apiservices could not be retrieved"},
 			expectedFailingMessages: []string{"\"apiservices\": TEST ERROR: fail to create apiservice"},
 
@@ -210,7 +210,7 @@ func TestAvailableStatus(t *testing.T) {
 		{
 			name:                    "APIServiceGetFailure",
 			expectedStatus:          operatorv1.ConditionFalse,
-			expectedReason:          "NoRegisteredAPIServices",
+			expectedReasons:         []string{"NoRegisteredAPIServices"},
 			expectedMessages:        []string{"registered apiservices could not be retrieved"},
 			expectedFailingMessages: []string{"\"apiservices\": TEST ERROR: fail to get apiservice"},
 
@@ -224,7 +224,7 @@ func TestAvailableStatus(t *testing.T) {
 		{
 			name:                    "DaemonSetGetFailure",
 			expectedStatus:          operatorv1.ConditionFalse,
-			expectedReason:          "NoDaemon",
+			expectedReasons:         []string{"NoDaemon"},
 			expectedMessages:        []string{"daemonset/apiserver.openshift-apiserver: could not be retrieved"},
 			expectedFailingMessages: []string{"\"daemonsets\": TEST ERROR: fail to get daemonset/apiserver.openshift-apiserver"},
 
@@ -238,7 +238,7 @@ func TestAvailableStatus(t *testing.T) {
 		{
 			name:             "NoDaemonSetPods",
 			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   "NoAPIServerPod",
+			expectedReasons:  []string{"NoAPIServerPod"},
 			expectedMessages: []string{"no openshift-apiserver daemon pods available on any node."},
 
 			daemonReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -254,7 +254,7 @@ func TestAvailableStatus(t *testing.T) {
 		{
 			name:             "APIServiceNotAvailable",
 			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReason:   "APIServiceNotAvailable",
+			expectedReasons:  []string{"APIServiceNotAvailable"},
 			expectedMessages: []string{"apiservice/v1.build.openshift.io: not available: TEST MESSAGE"},
 
 			apiServiceReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -279,9 +279,9 @@ func TestAvailableStatus(t *testing.T) {
 			},
 		},
 		{
-			name:           "MultipleAPIServiceNotAvailable",
-			expectedStatus: operatorv1.ConditionFalse,
-			expectedReason: "Multiple",
+			name:            "MultipleAPIServiceNotAvailable",
+			expectedStatus:  operatorv1.ConditionFalse,
+			expectedReasons: []string{"APIServiceNotAvailable", "APIServiceNotAvailable"},
 			expectedMessages: []string{
 				"apiservice/v1.build.openshift.io: not available: TEST MESSAGE",
 				"apiservice/v1.project.openshift.io: not available: TEST MESSAGE",
@@ -392,8 +392,9 @@ func TestAvailableStatus(t *testing.T) {
 			if condition.Status != tc.expectedStatus {
 				t.Error(diff.ObjectGoPrintSideBySide(condition.Status, tc.expectedStatus))
 			}
-			if tc.expectedReason != "" && condition.Reason != tc.expectedReason {
-				t.Error(diff.ObjectGoPrintSideBySide(condition.Reason, tc.expectedReason))
+			expectedReasons := strings.Join(tc.expectedReasons, "\n")
+			if len(expectedReasons) > 0 && condition.Reason != expectedReasons {
+				t.Error(diff.ObjectGoPrintSideBySide(condition.Reason, expectedReasons))
 			}
 			if len(tc.expectedMessages) > 0 {
 				actualMessages := strings.Split(condition.Message, "\n")

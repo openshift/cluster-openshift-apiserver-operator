@@ -107,25 +107,25 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	}
 
 	// manage status
-	var availableConditionReason string
+	var availableConditionReasons []string
 	var availableConditionMessages []string
 
 	switch {
 	case actualDaemonSet == nil:
-		availableConditionReason = "NoDaemon"
+		availableConditionReasons = append(availableConditionReasons, "NoDaemon")
 		availableConditionMessages = append(availableConditionMessages, "daemonset/apiserver.openshift-apiserver: could not be retrieved")
 	case actualDaemonSet.Status.NumberAvailable == 0:
-		availableConditionReason = "NoAPIServerPod"
+		availableConditionReasons = append(availableConditionReasons, "NoAPIServerPod")
 		availableConditionMessages = append(availableConditionMessages, "no openshift-apiserver daemon pods available on any node.")
 	case actualDaemonSet.Status.NumberAvailable > 0 && len(actualAPIServices) == 0:
-		availableConditionReason = "NoRegisteredAPIServices"
+		availableConditionReasons = append(availableConditionReasons, "NoRegisteredAPIServices")
 		availableConditionMessages = append(availableConditionMessages, "registered apiservices could not be retrieved")
 	}
 	for _, apiService := range actualAPIServices {
 		for _, condition := range apiService.Status.Conditions {
 			if condition.Type == apiregistrationv1.Available {
 				if condition.Status == apiregistrationv1.ConditionFalse {
-					availableConditionReason = "APIServiceNotAvailable"
+					availableConditionReasons = append(availableConditionReasons, "APIServiceNotAvailable")
 					availableConditionMessages = append(availableConditionMessages, fmt.Sprintf("apiservice/%v: not available: %v", apiService.Name, condition.Message))
 				}
 				break
@@ -139,19 +139,21 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		availableConditionMessages = append(availableConditionMessages, missingAPIMessages...)
 	}
 
+	sort.Sort(sort.StringSlice(availableConditionReasons))
+
 	switch {
 	case len(availableConditionMessages) == 1:
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeAvailable,
 			Status:  operatorv1.ConditionFalse,
-			Reason:  availableConditionReason,
+			Reason:  availableConditionReasons[0],
 			Message: availableConditionMessages[0],
 		})
 	case len(availableConditionMessages) > 1:
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
 			Type:    operatorv1.OperatorStatusTypeAvailable,
 			Status:  operatorv1.ConditionFalse,
-			Reason:  "Multiple",
+			Reason:  strings.Join(availableConditionReasons, "\n"),
 			Message: strings.Join(availableConditionMessages, "\n"),
 		})
 	default:
