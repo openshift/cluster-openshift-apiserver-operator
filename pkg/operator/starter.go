@@ -19,11 +19,14 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/loglevel"
+	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -34,8 +37,6 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
-
-	revisioncontroller "github.com/openshift/library-go/pkg/operator/revisioncontroller"
 )
 
 func RunOperator(ctx *controllercmd.ControllerContext) error {
@@ -169,18 +170,18 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	if err != nil {
 		return err
 	}
+	migrator := migrators.NewInProcessMigrator(dynamicClient, kubeClient.Discovery())
 
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
 		deployer,
+		migrator,
 		operatorClient,
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
-		kubeClient.Discovery(),
 		ctx.EventRecorder,
-		dynamicClient,
 		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
 		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
 		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
