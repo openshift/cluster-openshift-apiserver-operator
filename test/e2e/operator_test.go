@@ -9,6 +9,7 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	test "github.com/openshift/cluster-openshift-apiserver-operator/test/library"
 	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
+	library "github.com/openshift/library-go/test/library/encryption"
 )
 
 func TestOperatorNamespace(t *testing.T) {
@@ -27,5 +28,10 @@ func TestOperatorNamespace(t *testing.T) {
 }
 
 func TestEncryptionTypeAESCBC(t *testing.T) {
-	operatorencryption.TestEncryptionTypeAESCBC(t)
+	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
+		Namespace:     operatorclient.GlobalMachineSpecifiedConfigNamespace,
+		LabelSelector: "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
+		TargetGRs:     operatorencryption.DefaultTargetGRs,
+		AssertFunc:    operatorencryption.AssertRoutesAndTokens,
+	})
 }
