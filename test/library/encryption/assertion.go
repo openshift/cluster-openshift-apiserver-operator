@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -19,16 +20,18 @@ var DefaultTargetGRs = []schema.GroupResource{
 	{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
 }
 
-func AssertTokenOfLifeEncrypted(t testing.TB, clientSet library.ClientSet, tokenOfLife *oauthapiv1.OAuthAccessToken) {
+func AssertTokenOfLifeEncrypted(t testing.TB, clientSet library.ClientSet, rawTokenOfLife runtime.Object) {
 	t.Helper()
+	tokenOfLife := rawTokenOfLife.(*oauthapiv1.OAuthAccessToken)
 	rawTokenValue := GetRawTokenOfLife(t, clientSet)
 	if strings.Contains(rawTokenValue, tokenOfLife.RefreshToken) {
 		t.Errorf("access token not encrypted, token received from etcd have %q (plain text), raw content in etcd is %s", tokenOfLife.RefreshToken, rawTokenValue)
 	}
 }
 
-func AssertTokenOfLifeNotEncrypted(t testing.TB, clientSet library.ClientSet, tokenOfLife *oauthapiv1.OAuthAccessToken) {
+func AssertTokenOfLifeNotEncrypted(t testing.TB, clientSet library.ClientSet, rawTokenOfLife runtime.Object) {
 	t.Helper()
+	tokenOfLife := rawTokenOfLife.(*oauthapiv1.OAuthAccessToken)
 	rawTokenValue := GetRawTokenOfLife(t, clientSet)
 	if !strings.Contains(rawTokenValue, tokenOfLife.RefreshToken) {
 		t.Errorf("access token received from etcd doesnt have %q (plain text), raw content in etcd is %s", tokenOfLife.RefreshToken, rawTokenValue)
