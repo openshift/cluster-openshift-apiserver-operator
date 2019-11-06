@@ -379,7 +379,7 @@ func (ImageLabel) SwaggerDoc() map[string]string {
 var map_ClusterOperator = map[string]string{
 	"":       "ClusterOperator is the Custom Resource object which holds the current state of an operator. This object is used by operators to convey their state to the rest of the cluster.",
 	"spec":   "spec hold the intent of how this operator should behave.",
-	"status": "status holds the information about the state of an operator.  It is consistent with status information across the kube ecosystem.",
+	"status": "status holds the information about the state of an operator.  It is consistent with status information across the Kubernetes ecosystem.",
 }
 
 func (ClusterOperator) SwaggerDoc() map[string]string {
@@ -404,8 +404,8 @@ func (ClusterOperatorSpec) SwaggerDoc() map[string]string {
 
 var map_ClusterOperatorStatus = map[string]string{
 	"":               "ClusterOperatorStatus provides information about the status of the operator.",
-	"conditions":     "conditions describes the state of the operator's reconciliation functionality.",
-	"versions":       "versions is a slice of operand version tuples.  Operators which manage multiple operands will have multiple entries in the array.  If an operator is Available, it must have at least one entry.  You must report the version of the operator itself with the name \"operator\".",
+	"conditions":     "conditions describes the state of the operator's managed and monitored components.",
+	"versions":       "versions is a slice of operator and operand version tuples.  Operators which manage multiple operands will have multiple operand entries in the array.  Available operators must report the version of the operator itself with the name \"operator\". An operator reports a new \"operator\" version when it has rolled out the new version to all of its operands.",
 	"relatedObjects": "relatedObjects is a list of objects that are \"interesting\" or related to this operator.  Common uses are: 1. the detailed resource driving the operator 2. operator namespaces 3. operand namespaces",
 	"extension":      "extension contains any additional status information specific to the operator which owns this status object.",
 }
@@ -415,11 +415,11 @@ func (ClusterOperatorStatus) SwaggerDoc() map[string]string {
 }
 
 var map_ClusterOperatorStatusCondition = map[string]string{
-	"":                   "ClusterOperatorStatusCondition represents the state of the operator's reconciliation functionality.",
-	"type":               "type specifies the state of the operator's reconciliation functionality.",
+	"":                   "ClusterOperatorStatusCondition represents the state of the operator's managed and monitored components.",
+	"type":               "type specifies the aspect reported by this condition.",
 	"status":             "status of the condition, one of True, False, Unknown.",
-	"lastTransitionTime": "lastTransitionTime is the time of the last update to the current status object.",
-	"reason":             "reason is the reason for the condition's last transition.  Reasons are CamelCase",
+	"lastTransitionTime": "lastTransitionTime is the time of the last update to the current status property.",
+	"reason":             "reason is the CamelCase reason for the condition's current status.",
 	"message":            "message provides additional information about the current condition. This is only to be consumed by humans.",
 }
 
@@ -441,7 +441,7 @@ func (ObjectReference) SwaggerDoc() map[string]string {
 
 var map_OperandVersion = map[string]string{
 	"name":    "name is the name of the particular operand this version is for.  It usually matches container images, not operators.",
-	"version": "version indicates which version of a particular operand is currently being manage.  It must always match the Available condition.  If 1.0.0 is Available, then this must indicate 1.0.0 even if the operator is trying to rollout 1.1.0",
+	"version": "version indicates which version of a particular operand is currently being managed.  It must always match the Available operand.  If 1.0.0 is Available, then this must indicate 1.0.0 even if the operator is trying to rollout 1.1.0",
 }
 
 func (OperandVersion) SwaggerDoc() map[string]string {
