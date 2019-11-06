@@ -146,6 +146,13 @@ auditConfig:
           - "/api*" # Wildcard matching.
           - "/version"
           - "/healthz"
+      # Log the full Identity API resource object so that the audit trail
+      # allows us to match the username with the IDP identity.
+      - level: RequestResponse
+        verbs: ["create", "update", "patch"]
+        resources:
+          - group: "user.openshift.io"
+            resources: ["identities"]
       # A catch-all rule to log all other requests at the Metadata level.
       - level: Metadata
         # Long-running requests like watches that fall under this rule will not
