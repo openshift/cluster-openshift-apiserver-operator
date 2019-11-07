@@ -49,20 +49,20 @@ func AssertRoutesAndTokens(t testing.TB, clientSet library.ClientSet, expectedMo
 func assertRoutes(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
 	t.Logf("Checking if all Routes where encrypted/decrypted for %q mode", expectedMode)
 	totalRoutes, err := library.VerifyResources(t, etcdClient, "/openshift.io/routes/", expectedMode, false)
-	t.Logf("Verified %d Routes, err %v", totalRoutes, err)
+	t.Logf("Verified %d Routes", totalRoutes)
 	require.NoError(t, err)
 }
 
 func assertAccessTokens(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
 	t.Logf("Checking if all OauthAccessTokens where encrypted/decrypted for %q mode", expectedMode)
 	totalAccessTokens, err := library.VerifyResources(t, etcdClient, "/openshift.io/oauth/accesstokens/", expectedMode, true)
-	t.Logf("Verified %d OauthAccessTokens, err %v", totalAccessTokens, err)
+	t.Logf("Verified %d OauthAccessTokens", totalAccessTokens)
 	require.NoError(t, err)
 }
 
 func assertAuthTokens(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
 	t.Logf("Checking if all OAuthAuthorizeTokens where encrypted/decrypted for %q mode", expectedMode)
 	totalAuthTokens, err := library.VerifyResources(t, etcdClient, "/openshift.io/oauth/authorizetokens/", expectedMode, true)
-	t.Logf("Verified %d OAuthAuthorizeTokens, err %v", totalAuthTokens, err)
+	t.Logf("Verified %d OAuthAuthorizeTokens", totalAuthTokens)
 	require.NoError(t, err)
 }
