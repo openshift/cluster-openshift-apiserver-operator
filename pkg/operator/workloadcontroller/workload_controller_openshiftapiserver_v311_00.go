@@ -252,39 +252,110 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	return false, nil
 }
 
+// mergeImageRegistryCertificates merges two distinct ConfigMap, both containing
+// trusted CAs for Image Registries. The first one is the default CA bundle for
+// OpenShift internal registry access, the latter is a custom config map that may
+// be configured by the user on image.config.openshift.io/cluster.
+func mergeImageRegistryCertificates(cfgCli openshiftconfigclientv1.ConfigV1Interface, cli coreclientv1.CoreV1Interface) (map[string]string, error) {
+	cas := make(map[string]string)
+
+	internalRegistryCAs, err := cli.ConfigMaps("openshift-image-registry").Get(
+		"image-registry-certificates", metav1.GetOptions{},
+	)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	} else if err == nil {
+		for key, value := range internalRegistryCAs.Data {
+			cas[key] = value
+		}
+	}
+
+	imageConfig, err := cfgCli.Images().Get(
+		"cluster", metav1.GetOptions{},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// No custom config map, return.
+	if len(imageConfig.Spec.AdditionalTrustedCA.Name) == 0 {
+		return cas, nil
+	}
+
+	additionalImageRegistryCAs, err := cli.ConfigMaps(
+		operatorclient.GlobalUserSpecifiedConfigNamespace,
+	).Get(
+		imageConfig.Spec.AdditionalTrustedCA.Name,
+		metav1.GetOptions{},
+	)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	} else if err == nil {
+		for key, value := range additionalImageRegistryCAs.Data {
+			cas[key] = value
+		}
+	}
+	return cas, nil
+}
+
 // manageOpenShiftAPIServerImageImportCA_v311_00_to_latest synchronizes image import ca-bundle. Returns the modified
 // ca-bundle ConfigMap.
 func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
-	imageConfig, err := openshiftConfigClient.Images().Get("cluster", metav1.GetOptions{})
+	mergedCAs, err := mergeImageRegistryCertificates(openshiftConfigClient, client)
+	if err != nil {
+		return nil, false, err
+	}
+
+	casConfigMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Get(
+		imageImportCAName, metav1.GetOptions{},
+	)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, false, err
-	}
-	if apierrors.IsNotFound(err) {
-		return nil, false, nil
-	}
-	if len(imageConfig.Spec.AdditionalTrustedCA.Name) == 0 {
-		existingCM, err := client.ConfigMaps(operatorclient.TargetNamespace).Get(imageImportCAName, metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
+	} else if err != nil {
+		// There is no certificates to be added to the config map
+		// and the config map does not exist, nothing else to do.
+		if len(mergedCAs) == 0 {
 			return nil, false, nil
 		}
-		if err != nil {
+
+		if casConfigMap, err = client.ConfigMaps(operatorclient.TargetNamespace).Create(
+			&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: operatorclient.TargetNamespace,
+					Name:      imageImportCAName,
+				},
+				Data: mergedCAs,
+			},
+		); err != nil {
 			return nil, false, err
 		}
-		err = client.ConfigMaps(operatorclient.TargetNamespace).Delete(imageImportCAName, nil)
-		if err != nil {
-			return nil, false, err
-		}
-		return existingCM, true, nil
+
+		return casConfigMap, true, nil
 	}
-	configMap, caChanged, err := resourceapply.SyncConfigMap(client, recorder, operatorclient.GlobalUserSpecifiedConfigNamespace, imageConfig.Spec.AdditionalTrustedCA.Name, operatorclient.TargetNamespace, imageImportCAName, nil)
-	switch {
-	case err != nil:
+
+	// We have no certificates so there is no need to have a ConfigMap,
+	// we need to delete it.
+	if len(mergedCAs) == 0 {
+		if err := client.ConfigMaps(operatorclient.TargetNamespace).Delete(
+			imageImportCAName, &metav1.DeleteOptions{},
+		); err != nil {
+			return nil, false, err
+		}
+		casConfigMap.Data = mergedCAs
+		return casConfigMap, true, nil
+	}
+
+	if reflect.DeepEqual(mergedCAs, casConfigMap.Data) {
+		return casConfigMap, false, nil
+	}
+
+	casConfigMap.Data = mergedCAs
+	if casConfigMap, err = client.ConfigMaps(operatorclient.TargetNamespace).Update(
+		casConfigMap,
+	); err != nil {
 		return nil, false, err
-	case caChanged:
-		return configMap, true, nil
-	default:
-		return nil, false, nil
 	}
+	return casConfigMap, true, nil
 }
 
 func syncOpenShiftAPIServerTrustedCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
