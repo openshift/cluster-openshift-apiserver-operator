@@ -5,6 +5,8 @@ metadata:
   name: openshift-apiserver-operator
   labels:
     app: openshift-apiserver-operator
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   replicas: 1
   strategy:
