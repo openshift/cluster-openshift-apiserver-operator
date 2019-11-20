@@ -56,10 +56,6 @@ spec:
         ports:
         - containerPort: 8443
         volumeMounts:
-        - mountPath: /var/run/configmaps/aggregator-client-ca
-          name: aggregator-client-ca
-        - mountPath: /var/run/configmaps/client-ca
-          name: client-ca
         - mountPath: /var/run/configmaps/config
           name: config
         - mountPath: /var/run/secrets/etcd-client
@@ -90,12 +86,6 @@ spec:
             path: healthz
       terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
       volumes:
-      - name: aggregator-client-ca
-        configMap:
-          name: aggregator-client-ca
-      - name: client-ca
-        configMap:
-          name: client-ca
       - name: config
         configMap:
           name: config

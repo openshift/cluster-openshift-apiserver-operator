@@ -43,9 +43,6 @@ func Resources() resourcegraph.Resources {
 	cvo := resourcegraph.NewOperator("cluster-version").
 		From(payload).
 		Add(ret)
-	kasOperator := resourcegraph.NewOperator("kube-apiserver").
-		From(cvo).
-		Add(ret)
 	serviceCAOperator := resourcegraph.NewOperator("service-ca").
 		From(cvo).
 		Add(ret)
@@ -84,26 +81,6 @@ func Resources() resourcegraph.Resources {
 		From(fromEtcdClient).
 		Add(ret)
 
-	// aggregator CA
-	kasAggregatorCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "kube-apiserver-aggregator-client-ca").
-		Note("Synchronized").
-		From(kasOperator).
-		Add(ret)
-	aggregatorCA := resourcegraph.NewConfigMap(operatorclient.TargetNamespace, "aggregator-client-ca").
-		Note("Synchronized").
-		From(kasAggregatorCA).
-		Add(ret)
-
-	// client CA
-	kasClientCA := resourcegraph.NewConfigMap(operatorclient.GlobalUserSpecifiedConfigNamespace, "kube-apiserver-client-ca").
-		Note("Synchronized").
-		From(kasOperator).
-		Add(ret)
-	clientCA := resourcegraph.NewConfigMap(operatorclient.TargetNamespace, "client-ca").
-		Note("Synchronized").
-		From(kasClientCA).
-		Add(ret)
-
 	// serving cert
 	serviceCAController := resourcegraph.NewResource(resourcegraph.NewCoordinates("apps", "deployments", "openshift-service-cert-signer", "service-serving-cert-signer")).
 		From(serviceCAOperator).
@@ -123,8 +100,6 @@ func Resources() resourcegraph.Resources {
 
 	// and finally our target pod
 	_ = resourcegraph.NewResource(resourcegraph.NewCoordinates("", "pods", operatorclient.TargetNamespace, "openshift-apiserver")).
-		From(aggregatorCA).
-		From(clientCA).
 		From(etcdServingCA).
 		From(etcdClient).
 		From(servingCert).

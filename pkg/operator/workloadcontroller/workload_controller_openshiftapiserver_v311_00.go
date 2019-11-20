@@ -78,7 +78,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 
 	imageImportCAModifiedObject, imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "client-ca", err))
+		errors = append(errors, fmt.Errorf("%q: %v", "image-import-ca", err))
 	}
 	if imageImportCAModified {
 		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(imageImportCAModifiedObject))
