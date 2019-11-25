@@ -32,9 +32,14 @@ import (
 )
 
 const (
-	workloadDegradedCondition = "WorkloadDegraded"
-	imageImportCAName         = "image-import-ca"
-	workQueueKey              = "key"
+	workloadDegradedCondition                    = "WorkloadDegraded"
+	daemonSetAvailableCondition                  = "DaemonSetAvailable"
+	podAvailableCondition                        = "PodAvailable"
+	apiServicesAvailableCondition                = "APIServicesAvailable"
+	daemonSetGenerationProgressingCondition      = "DaemonSetGenerationProgressing"
+	operatorConfigGenerationProgressingCondition = "OperatorConfigGenerationProgressing"
+	imageImportCAName                            = "image-import-ca"
+	workQueueKey                                 = "key"
 )
 
 type OpenShiftAPIServerOperator struct {

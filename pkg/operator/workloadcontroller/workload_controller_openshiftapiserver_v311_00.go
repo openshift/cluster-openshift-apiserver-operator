@@ -118,86 +118,109 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		}
 	}
 
-	// manage status
-	var availableConditionReasons []string
-	var availableConditionMessages []string
-
+	if actualDaemonSet == nil {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    daemonSetAvailableCondition,
+			Status:  operatorv1.ConditionFalse,
+			Message: "daemonset/apiserver.openshift-apiserver: could not be retrieved",
+			Reason:  "NoDaemon",
+		})
+	} else {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:   daemonSetAvailableCondition,
+			Status: operatorv1.ConditionTrue,
+		})
+	}
 	switch {
 	case actualDaemonSet == nil:
-		availableConditionReasons = append(availableConditionReasons, "NoDaemon")
-		availableConditionMessages = append(availableConditionMessages, "daemonset/apiserver.openshift-apiserver: could not be retrieved")
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:   podAvailableCondition,
+			Status: operatorv1.ConditionUnknown,
+		})
 	case actualDaemonSet.Status.NumberAvailable == 0:
-		availableConditionReasons = append(availableConditionReasons, "NoAPIServerPod")
-		availableConditionMessages = append(availableConditionMessages, "no openshift-apiserver daemon pods available on any node.")
-	case actualDaemonSet.Status.NumberAvailable > 0 && len(actualAPIServices) == 0:
-		availableConditionReasons = append(availableConditionReasons, "NoRegisteredAPIServices")
-		availableConditionMessages = append(availableConditionMessages, "registered apiservices could not be retrieved")
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    podAvailableCondition,
+			Status:  operatorv1.ConditionFalse,
+			Message: "no openshift-apiserver daemon pods available on any node.",
+			Reason:  "NoAPIServerPod",
+		})
+	default:
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:   podAvailableCondition,
+			Status: operatorv1.ConditionTrue,
+		})
 	}
+
+	var apiServiceRegistrationMessages []string
+	v1helpers.RemoveOperatorCondition(&operatorConfig.Status.Conditions, apiServicesAvailableCondition)
 	for _, apiService := range actualAPIServices {
 		for _, condition := range apiService.Status.Conditions {
 			if condition.Type == apiregistrationv1.Available {
 				if condition.Status == apiregistrationv1.ConditionFalse {
-					availableConditionReasons = append(availableConditionReasons, "APIServiceNotAvailable")
-					availableConditionMessages = append(availableConditionMessages, fmt.Sprintf("apiservice/%v: not available: %v", apiService.Name, condition.Message))
+					apiServiceRegistrationMessages = append(apiServiceRegistrationMessages, fmt.Sprintf("apiservice registration/%v: not available: %v", apiService.Name, condition.Message))
 				}
-				break
 			}
 		}
 	}
 	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
 	// of something delaying them.  This isn't perfect because of round-robining, but let's see if we get an improvement
-	if len(availableConditionMessages) == 0 && c.kubeClient.Discovery().RESTClient() != nil {
-		missingAPIMessages := checkForAPIs(c.eventRecorder, c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...)
-		availableConditionMessages = append(availableConditionMessages, missingAPIMessages...)
+	var missingAPIMessages []string
+	if len(actualAPIServices) > 0 && len(apiServiceRegistrationMessages) == 0 && c.kubeClient.Discovery().RESTClient() != nil {
+		missingAPIMessages = checkForAPIs(c.eventRecorder, c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...)
 	}
 
-	sort.Sort(sort.StringSlice(availableConditionReasons))
-
 	switch {
-	case len(availableConditionMessages) == 1:
+	case actualDaemonSet == nil || actualDaemonSet.Status.NumberAvailable == 0:
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
-			Status:  operatorv1.ConditionFalse,
-			Reason:  availableConditionReasons[0],
-			Message: availableConditionMessages[0],
+			Type:   apiServicesAvailableCondition,
+			Status: operatorv1.ConditionUnknown,
 		})
-	case len(availableConditionMessages) > 1:
+	case len(actualAPIServices) == 0:
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
+			Type:    apiServicesAvailableCondition,
 			Status:  operatorv1.ConditionFalse,
-			Reason:  strings.Join(availableConditionReasons, "\n"),
-			Message: strings.Join(availableConditionMessages, "\n"),
+			Message: "registered apiservices could not be retrieved",
+			Reason:  "NoRegisteredAPIServices",
+		})
+	case len(missingAPIMessages) > 0:
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    apiServicesAvailableCondition,
+			Status:  operatorv1.ConditionFalse,
+			Message: strings.Join(missingAPIMessages, "\n"),
+			Reason:  "APIServiceNotReachable",
+		})
+	case len(apiServiceRegistrationMessages) > 0:
+		sort.Strings(apiServiceRegistrationMessages)
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    apiServicesAvailableCondition,
+			Status:  operatorv1.ConditionFalse,
+			Message: strings.Join(apiServiceRegistrationMessages, "\n"),
+			Reason:  "APIServiceRegistrationNotAvailable",
 		})
 	default:
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:   operatorv1.OperatorStatusTypeAvailable,
+			Type:   apiServicesAvailableCondition,
 			Status: operatorv1.ConditionTrue,
 		})
 	}
 
 	// If the daemonset is up to date and the operatorConfig are up to date, then we are no longer progressing
-	var progressingMessages []string
 	if actualDaemonSet != nil && actualDaemonSet.ObjectMeta.Generation != actualDaemonSet.Status.ObservedGeneration {
-		progressingMessages = append(progressingMessages, fmt.Sprintf("daemonset/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDaemonSet.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation))
-	}
-	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
-		progressingMessages = append(progressingMessages, fmt.Sprintf("openshiftapiserveroperatorconfigs/instance: observed generation is %d, desired generation is %d.", operatorConfig.Status.ObservedGeneration, operatorConfig.ObjectMeta.Generation))
-	}
-
-	if len(progressingMessages) == 0 {
 		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:   operatorv1.OperatorStatusTypeProgressing,
-			Status: operatorv1.ConditionFalse,
-		})
-	} else {
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeProgressing,
+			Type:    daemonSetGenerationProgressingCondition,
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "DesiredStateNotYetAchieved",
-			Message: strings.Join(progressingMessages, "\n"),
+			Message: fmt.Sprintf("daemonset/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDaemonSet.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation),
 		})
 	}
-
+	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
+		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
+			Type:    operatorConfigGenerationProgressingCondition,
+			Status:  operatorv1.ConditionTrue,
+			Reason:  "DesiredStateNotYetAchieved",
+			Message: fmt.Sprintf("openshiftapiserveroperatorconfigs/instance: observed generation is %d, desired generation is %d.", operatorConfig.Status.ObservedGeneration, operatorConfig.ObjectMeta.Generation),
+		})
+	}
 	// TODO this is changing too early and it was before too.
 	operatorConfig.Status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
 	resourcemerge.SetDaemonSetGeneration(&operatorConfig.Status.Generations, actualDaemonSet)

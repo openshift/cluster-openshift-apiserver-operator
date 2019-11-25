@@ -39,6 +39,7 @@ func TestProgressingCondition(t *testing.T) {
 		daemonSetObservedGeneration int64
 		configGeneration            int64
 		configObservedGeneration    int64
+		conditionType               string
 		expectedStatus              operatorv1.ConditionStatus
 		expectedMessage             string
 	}{
@@ -52,6 +53,7 @@ func TestProgressingCondition(t *testing.T) {
 		},
 		{
 			name:                        "DaemonSetObservedAhead",
+			conditionType:               daemonSetGenerationProgressingCondition,
 			daemonSetGeneration:         100,
 			daemonSetObservedGeneration: 101,
 			configGeneration:            100,
@@ -61,6 +63,7 @@ func TestProgressingCondition(t *testing.T) {
 		},
 		{
 			name:                        "DaemonSetObservedBehind",
+			conditionType:               daemonSetGenerationProgressingCondition,
 			daemonSetGeneration:         101,
 			daemonSetObservedGeneration: 100,
 			configGeneration:            100,
@@ -70,6 +73,7 @@ func TestProgressingCondition(t *testing.T) {
 		},
 		{
 			name:                        "ConfigObservedAhead",
+			conditionType:               operatorConfigGenerationProgressingCondition,
 			daemonSetGeneration:         100,
 			daemonSetObservedGeneration: 100,
 			configGeneration:            100,
@@ -79,29 +83,13 @@ func TestProgressingCondition(t *testing.T) {
 		},
 		{
 			name:                        "ConfigObservedBehind",
+			conditionType:               operatorConfigGenerationProgressingCondition,
 			daemonSetGeneration:         100,
 			daemonSetObservedGeneration: 100,
 			configGeneration:            101,
 			configObservedGeneration:    100,
 			expectedStatus:              operatorv1.ConditionTrue,
 			expectedMessage:             "openshiftapiserveroperatorconfigs/instance: observed generation is 100, desired generation is 101.",
-		},
-		{
-			name:                        "MultipleObservedAhead",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 101,
-			configGeneration:            100,
-			configObservedGeneration:    101,
-			expectedStatus:              operatorv1.ConditionTrue,
-			expectedMessage:             "daemonset/apiserver.openshift-operator: observed generation is 101, desired generation is 100.\nopenshiftapiserveroperatorconfigs/instance: observed generation is 101, desired generation is 100.",
-		},
-		{
-			name:                        "ConfigAndDaemonSetGenerationMismatch",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 100,
-			configGeneration:            101,
-			configObservedGeneration:    101,
-			expectedStatus:              operatorv1.ConditionFalse,
 		},
 	}
 
@@ -156,16 +144,18 @@ func TestProgressingCondition(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if len(tc.expectedMessage) > 0 {
+				condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, tc.conditionType)
+				if condition == nil {
+					t.Fatalf("No %v condition found.", operatorv1.OperatorStatusTypeProgressing)
+				}
+				if condition.Status != tc.expectedStatus {
+					t.Errorf("expected status == %v, actual status == %v", tc.expectedStatus, condition.Status)
+				}
+				if condition.Message != tc.expectedMessage {
+					t.Errorf("expected message:\n%v\nactual message:\n%v", tc.expectedMessage, condition.Message)
+				}
 
-			condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeProgressing)
-			if condition == nil {
-				t.Fatalf("No %v condition found.", operatorv1.OperatorStatusTypeProgressing)
-			}
-			if condition.Status != tc.expectedStatus {
-				t.Errorf("expected status == %v, actual status == %v", tc.expectedStatus, condition.Status)
-			}
-			if condition.Message != tc.expectedMessage {
-				t.Errorf("expected message:\n%v\nactual message:\n%v", tc.expectedMessage, condition.Message)
 			}
 
 		})
@@ -177,8 +167,9 @@ func TestAvailableStatus(t *testing.T) {
 	servicePort := utilpointer.Int32Ptr(443)
 	testCases := []struct {
 		name                    string
+		conditionType           string
 		expectedStatus          operatorv1.ConditionStatus
-		expectedReasons         []string
+		expectedReason          string
 		expectedMessages        []string
 		expectedFailingMessages []string
 		apiServiceReactor       kubetesting.ReactionFunc
@@ -186,12 +177,14 @@ func TestAvailableStatus(t *testing.T) {
 	}{
 		{
 			name:           "Default",
+			conditionType:  "",
 			expectedStatus: operatorv1.ConditionTrue,
 		},
 		{
 			name:                    "APIServiceCreateFailure",
+			conditionType:           apiServicesAvailableCondition,
 			expectedStatus:          operatorv1.ConditionFalse,
-			expectedReasons:         []string{"NoRegisteredAPIServices"},
+			expectedReason:          "NoRegisteredAPIServices",
 			expectedMessages:        []string{"registered apiservices could not be retrieved"},
 			expectedFailingMessages: []string{"\"apiservices\": TEST ERROR: fail to create apiservice"},
 
@@ -210,8 +203,9 @@ func TestAvailableStatus(t *testing.T) {
 		},
 		{
 			name:                    "APIServiceGetFailure",
+			conditionType:           apiServicesAvailableCondition,
 			expectedStatus:          operatorv1.ConditionFalse,
-			expectedReasons:         []string{"NoRegisteredAPIServices"},
+			expectedReason:          "NoRegisteredAPIServices",
 			expectedMessages:        []string{"registered apiservices could not be retrieved"},
 			expectedFailingMessages: []string{"\"apiservices\": TEST ERROR: fail to get apiservice"},
 
@@ -224,8 +218,9 @@ func TestAvailableStatus(t *testing.T) {
 		},
 		{
 			name:                    "DaemonSetGetFailure",
+			conditionType:           daemonSetAvailableCondition,
 			expectedStatus:          operatorv1.ConditionFalse,
-			expectedReasons:         []string{"NoDaemon"},
+			expectedReason:          "NoDaemon",
 			expectedMessages:        []string{"daemonset/apiserver.openshift-apiserver: could not be retrieved"},
 			expectedFailingMessages: []string{"\"daemonsets\": TEST ERROR: fail to get daemonset/apiserver.openshift-apiserver"},
 
@@ -238,8 +233,9 @@ func TestAvailableStatus(t *testing.T) {
 		},
 		{
 			name:             "NoDaemonSetPods",
+			conditionType:    podAvailableCondition,
 			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReasons:  []string{"NoAPIServerPod"},
+			expectedReason:   "NoAPIServerPod",
 			expectedMessages: []string{"no openshift-apiserver daemon pods available on any node."},
 
 			daemonReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -253,10 +249,11 @@ func TestAvailableStatus(t *testing.T) {
 			},
 		},
 		{
-			name:             "APIServiceNotAvailable",
+			name:             "APIServiceRegistrationNotAvailable",
+			conditionType:    apiServicesAvailableCondition,
 			expectedStatus:   operatorv1.ConditionFalse,
-			expectedReasons:  []string{"APIServiceNotAvailable"},
-			expectedMessages: []string{"apiservice/v1.build.openshift.io: not available: TEST MESSAGE"},
+			expectedReason:   "APIServiceRegistrationNotAvailable",
+			expectedMessages: []string{"apiservice registration/v1.build.openshift.io: not available: TEST MESSAGE"},
 
 			apiServiceReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
 				if action.GetVerb() == "get" && action.(kubetesting.GetAction).GetName() == "v1.build.openshift.io" {
@@ -280,14 +277,14 @@ func TestAvailableStatus(t *testing.T) {
 			},
 		},
 		{
-			name:            "MultipleAPIServiceNotAvailable",
-			expectedStatus:  operatorv1.ConditionFalse,
-			expectedReasons: []string{"APIServiceNotAvailable", "APIServiceNotAvailable"},
+			name:           "MultipleAPIServiceRegistrationNotAvailable",
+			conditionType:  apiServicesAvailableCondition,
+			expectedStatus: operatorv1.ConditionFalse,
+			expectedReason: "APIServiceRegistrationNotAvailable",
 			expectedMessages: []string{
-				"apiservice/v1.build.openshift.io: not available: TEST MESSAGE",
-				"apiservice/v1.project.openshift.io: not available: TEST MESSAGE",
+				"apiservice registration/v1.build.openshift.io: not available: TEST MESSAGE",
+				"apiservice registration/v1.project.openshift.io: not available: TEST MESSAGE",
 			},
-
 			apiServiceReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
 				if action.GetVerb() != "get" {
 					return false, nil, nil
@@ -385,19 +382,18 @@ func TestAvailableStatus(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeAvailable)
-			if condition == nil {
-				t.Fatal("Available condition not found")
-			}
-			if condition.Status != tc.expectedStatus {
-				t.Error(diff.ObjectGoPrintSideBySide(condition.Status, tc.expectedStatus))
-			}
-			expectedReasons := strings.Join(tc.expectedReasons, "\n")
-			if len(expectedReasons) > 0 && condition.Reason != expectedReasons {
-				t.Error(diff.ObjectGoPrintSideBySide(condition.Reason, expectedReasons))
-			}
 			if len(tc.expectedMessages) > 0 {
+				condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, tc.conditionType)
+				if condition == nil {
+					t.Fatal("Available condition not found")
+				}
+				if condition.Status != tc.expectedStatus {
+					t.Error(diff.ObjectGoPrintSideBySide(condition.Status, tc.expectedStatus))
+				}
+				if tc.expectedReason != "" && condition.Reason != tc.expectedReason {
+					t.Error(diff.ObjectGoPrintSideBySide(condition.Reason, tc.expectedReason))
+				}
+
 				actualMessages := strings.Split(condition.Message, "\n")
 				a := make([]string, len(tc.expectedMessages))
 				b := make([]string, len(actualMessages))
@@ -408,7 +404,9 @@ func TestAvailableStatus(t *testing.T) {
 				if !equality.Semantic.DeepEqual(a, b) {
 					t.Error("\n" + diff.ObjectDiff(a, b))
 				}
+
 			}
+
 			if len(tc.expectedFailingMessages) > 0 {
 				failingCondition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, workloadDegradedCondition)
 				for _, expected := range tc.expectedFailingMessages {
