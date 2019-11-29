@@ -3,6 +3,7 @@ package encryption
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/rest"
 	"testing"
 	"time"
 
@@ -30,6 +31,12 @@ func GetClients(t testing.TB) ClientSet {
 
 	kubeConfig, err := operatorlibrary.NewClientConfigForTest()
 	require.NoError(t, err)
+
+	return GetClientsFor(t, kubeConfig)
+}
+
+func GetClientsFor(t testing.TB, kubeConfig *rest.Config) ClientSet {
+	t.Helper()
 
 	operatorClient, err := operatorv1client.NewForConfig(kubeConfig)
 	require.NoError(t, err)
