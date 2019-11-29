@@ -39,27 +39,27 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 )
 
-func RunOperator(ctx *controllercmd.ControllerContext) error {
-	kubeClient, err := kubernetes.NewForConfig(ctx.ProtoKubeConfig)
+func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
+	kubeClient, err := kubernetes.NewForConfig(controllerConfig.ProtoKubeConfig)
 	if err != nil {
 		return err
 	}
-	migrationClientConfig := dynamic.ConfigFor(ctx.KubeConfig)
+	migrationClientConfig := dynamic.ConfigFor(controllerConfig.KubeConfig)
 	migrationClientConfig.Burst = 40
 	migrationClientConfig.QPS = 30
 	dynamicClientForMigration, err := dynamic.NewForConfig(migrationClientConfig)
 	if err != nil {
 		return err
 	}
-	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(ctx.ProtoKubeConfig)
+	apiregistrationv1Client, err := apiregistrationclient.NewForConfig(controllerConfig.ProtoKubeConfig)
 	if err != nil {
 		return err
 	}
-	operatorConfigClient, err := operatorv1client.NewForConfig(ctx.KubeConfig)
+	operatorConfigClient, err := operatorv1client.NewForConfig(controllerConfig.KubeConfig)
 	if err != nil {
 		return err
 	}
-	configClient, err := configv1client.NewForConfig(ctx.KubeConfig)
+	configClient, err := configv1client.NewForConfig(controllerConfig.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
-	operatorClient, dynamicInformers, err := genericoperatorclient.NewClusterScopedOperatorClient(ctx.KubeConfig, operatorv1.GroupVersion.WithResource("openshiftapiservers"))
+	operatorClient, dynamicInformers, err := genericoperatorclient.NewClusterScopedOperatorClient(controllerConfig.KubeConfig, operatorv1.GroupVersion.WithResource("openshiftapiservers"))
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeInformersForNamespaces,
 		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 	)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
 		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 	)
 
 	// don't change any versions until we sync
@@ -129,12 +129,12 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		configClient.ConfigV1(),
 		kubeClient,
 		apiregistrationv1Client.ApiregistrationV1(),
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 	)
 	finalizerController := NewFinalizerController(
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeClient.CoreV1(),
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 	)
 
 	configObserver := configobservercontroller.NewConfigObserver(
@@ -143,7 +143,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		resourceSyncController,
 		operatorConfigInformers,
 		configInformers,
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 	)
 
 	clusterOperatorStatus := status.NewClusterOperatorStatusController(
@@ -162,7 +162,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		configInformers.Config().V1().ClusterOperators(),
 		operatorClient,
 		versionRecorder,
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 	)
 
 	nodeProvider := DaemonSetNodeProvider{
@@ -184,7 +184,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		kubeClient.CoreV1(),
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
 		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
 		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
@@ -199,33 +199,33 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		kubeInformersForNamespaces,
-		ctx.EventRecorder,
+		controllerConfig.EventRecorder,
 	)
 
-	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, ctx.EventRecorder)
-	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorClient, ctx.EventRecorder)
+	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, controllerConfig.EventRecorder)
+	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorClient, controllerConfig.EventRecorder)
 
-	if ctx.Server != nil {
-		ctx.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
+	if controllerConfig.Server != nil {
+		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
-	operatorConfigInformers.Start(ctx.Done())
-	kubeInformersForNamespaces.Start(ctx.Done())
-	apiregistrationInformers.Start(ctx.Done())
-	configInformers.Start(ctx.Done())
-	dynamicInformers.Start(ctx.Done())
+	operatorConfigInformers.Start(controllerConfig.Ctx.Done())
+	kubeInformersForNamespaces.Start(controllerConfig.Ctx.Done())
+	apiregistrationInformers.Start(controllerConfig.Ctx.Done())
+	configInformers.Start(controllerConfig.Ctx.Done())
+	dynamicInformers.Start(controllerConfig.Ctx.Done())
 
-	go workloadController.Run(1, ctx.Done())
-	go configObserver.Run(1, ctx.Done())
-	go clusterOperatorStatus.Run(1, ctx.Done())
-	go finalizerController.Run(1, ctx.Done())
-	go resourceSyncController.Run(1, ctx.Done())
-	go revisionController.Run(1, ctx.Done())
-	go encryptionControllers.Run(ctx.Done())
-	go pruneController.Run(1, ctx.Done())
-	go configUpgradeableController.Run(1, ctx.Done())
-	go logLevelController.Run(1, ctx.Done())
+	go workloadController.Run(1, controllerConfig.Ctx.Done())
+	go configObserver.Run(1, controllerConfig.Ctx.Done())
+	go clusterOperatorStatus.Run(1, controllerConfig.Ctx.Done())
+	go finalizerController.Run(1, controllerConfig.Ctx.Done())
+	go resourceSyncController.Run(1, controllerConfig.Ctx.Done())
+	go revisionController.Run(controllerConfig.Ctx, 1)
+	go encryptionControllers.Run(controllerConfig.Ctx.Done())
+	go pruneController.Run(1, controllerConfig.Ctx.Done())
+	go configUpgradeableController.Run(controllerConfig.Ctx, 1)
+	go logLevelController.Run(controllerConfig.Ctx, 1)
 
-	<-ctx.Done()
+	<-controllerConfig.Ctx.Done()
 	return fmt.Errorf("stopped")
 }
