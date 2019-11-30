@@ -18,11 +18,11 @@ import:
   repo: https://github.com/openshift/kubernetes-kube-storage-version-migrator.git
   version: master
 - package: github.com/openshift/api
-  version: master
+  version: release-4.3
 - package: github.com/openshift/client-go
-  version: master
+  version: release-4.3
 - package: github.com/openshift/library-go
-  version: master
+  version: release-4.3
 - package: github.com/jteeuwen/go-bindata
   version: a0ff2567cfb70903282db057e799fd826784d41d
 - package: k8s.io/gengo/args
