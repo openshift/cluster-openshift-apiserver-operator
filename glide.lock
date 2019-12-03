@@ -1,5 +1,5 @@
 hash: 0b6fdc8f5551b8e25af8817c56f5b1ac9b3c551676bab325ed6b2a35bd8828da
-updated: 2019-11-30T13:36:29.150708+01:00
+updated: 2019-12-03T19:01:43.772162+01:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -179,7 +179,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 63a261ad3171fad9dd29618e9f630765f446a2f8
+  version: e7263773f60ccdb052b09a6b3ad438256116714b
   subpackages:
   - apps
   - apps/v1
@@ -256,7 +256,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: a12222ecd59eae5b5d5864b7f89ec1f323a0d38d
+  version: be1ece1ff6c5422039b19a6cdf09f9333c75ba7b
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -337,9 +337,9 @@ imports:
 - name: github.com/sirupsen/logrus
   version: 839c75faf7f98a33d445d181f3018b5c3409a45e
 - name: github.com/spf13/cobra
-  version: f2b07da1e2c38d5f12845a4f607e2e1018cbb1f5
+  version: c439c4fa093711d42e1b01acb1235b52004753c1
 - name: github.com/spf13/pflag
-  version: 298182f68c66c05229eb03ac171abe6e309ee79a
+  version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - name: github.com/stretchr/testify
   version: ffdc059bfe9ce6a4e144ba849dbedead332c6053
   subpackages:
