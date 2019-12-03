@@ -216,10 +216,10 @@ func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
 	dynamicInformers.Start(controllerConfig.Ctx.Done())
 
 	go workloadController.Run(1, controllerConfig.Ctx.Done())
-	go configObserver.Run(1, controllerConfig.Ctx.Done())
-	go clusterOperatorStatus.Run(1, controllerConfig.Ctx.Done())
+	go configObserver.Run(controllerConfig.Ctx, 1)
+	go clusterOperatorStatus.Run(controllerConfig.Ctx, 1)
 	go finalizerController.Run(1, controllerConfig.Ctx.Done())
-	go resourceSyncController.Run(1, controllerConfig.Ctx.Done())
+	go resourceSyncController.Run(controllerConfig.Ctx, 1)
 	go revisionController.Run(controllerConfig.Ctx, 1)
 	go encryptionControllers.Run(controllerConfig.Ctx.Done())
 	go pruneController.Run(1, controllerConfig.Ctx.Done())
