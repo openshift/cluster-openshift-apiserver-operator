@@ -1,5 +1,5 @@
 hash: 4fd8b299c3bb02531a2266248e0419dd88cfc98b19612cdb7356ab53579f431f
-updated: 2019-11-29T11:13:36.200861+01:00
+updated: 2019-12-03T17:50:56.071348+01:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -81,13 +81,13 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/gonum/blas
-  version: f22b278b28ac9805aadd613a754a60c35b24ae69
+  version: 37e82626499e1df7c54aeaba0959fd6e7e8dc1e4
   subpackages:
   - blas64
   - native
   - native/internal/math32
 - name: github.com/gonum/floats
-  version: c233463c7e827fd71a8cdb62dfda0e98f7c39ad5
+  version: f74b330d45c56584a6ea7a27f5c64ea2900631e9
 - name: github.com/gonum/graph
   version: 50b27dea7ebbfb052dfaf91681afc6fde28d8796
   subpackages:
@@ -102,17 +102,17 @@ imports:
   - internal/ordered
   - simple
 - name: github.com/gonum/internal
-  version: f884aa71402950fb2796dbea0d5aa9ef9cfad8ca
+  version: e57e4534cf9b3b00ef6c0175f59d8d2d34f60914
   subpackages:
   - asm/f32
   - asm/f64
 - name: github.com/gonum/lapack
-  version: e4cdc5a0bff924bb10be88482e635bd40429f65e
+  version: 5ed4b826becd1807e09377508f51756586d1a98c
   subpackages:
   - lapack64
   - native
 - name: github.com/gonum/matrix
-  version: c518dec07be9a636c38a4650e217be059b5952ec
+  version: dd6034299e4242c9f0ea36735e6d4264dfcb3f9f
   subpackages:
   - mat64
 - name: github.com/google/go-cmp
@@ -179,7 +179,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 0272a9e155e3b16a8d15bbda60a61f70f61ab687
+  version: 9f834e33746603079c1052d1435d139742af9bf8
   subpackages:
   - apps
   - apps/v1
@@ -256,7 +256,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: d5944b42541262e669dbe53cead859551bc37223
+  version: 7cbbcc8aab8bac915457f3d9bb0e780451b1d899
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -303,7 +303,7 @@ imports:
 - name: github.com/pborman/uuid
   version: 8b1b92947f46224e3b97bb1a3a5b0382be00d31e
 - name: github.com/pkg/profile
-  version: acd64d450fd45fb2afa41f833f3788c8a7797219
+  version: f6fe06335df110bcf1ed6d4e852b760bfc15beee
 - name: github.com/pmezard/go-difflib
   version: 792786c7400a136282c1664665ae0a8db921c6c2
   subpackages:
@@ -337,9 +337,9 @@ imports:
 - name: github.com/sirupsen/logrus
   version: 839c75faf7f98a33d445d181f3018b5c3409a45e
 - name: github.com/spf13/cobra
-  version: f2b07da1e2c38d5f12845a4f607e2e1018cbb1f5
+  version: c439c4fa093711d42e1b01acb1235b52004753c1
 - name: github.com/spf13/pflag
-  version: 298182f68c66c05229eb03ac171abe6e309ee79a
+  version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - name: github.com/stretchr/testify
   version: ffdc059bfe9ce6a4e144ba849dbedead332c6053
   subpackages:
