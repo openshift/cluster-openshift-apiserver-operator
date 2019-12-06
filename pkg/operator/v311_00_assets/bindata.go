@@ -151,7 +151,7 @@ storageConfig:
   urls:
     - https://etcd.openshift-etcd.svc:2379
 apiServerArguments:
-  minimal-shutdown-duration:
+  shutdown-delay-duration:
   - 3s # give SDN some time to converge
 `)
 
