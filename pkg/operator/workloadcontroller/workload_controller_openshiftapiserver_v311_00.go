@@ -24,8 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 
 	openshiftapi "github.com/openshift/api"
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
@@ -108,20 +106,9 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
 
-	// only manage the apiservices if we have ready pods for the daemonset.  This makes sure that if we're taking over for
-	// something else, we don't stomp their apiservices until ours have a reasonable chance at working.
-	var actualAPIServices []*apiregistrationv1.APIService
-	if actualDaemonSet != nil && actualDaemonSet.Status.NumberAvailable > 0 {
-		actualAPIServices, err = manageAPIServices_v311_00_to_latest(c.apiregistrationv1Client, c.eventRecorder)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("%q: %v", "apiservices", err))
-		}
-	}
-
 	// manage status
-	var availableConditionReasons []string
-	var availableConditionMessages []string
-
+	availableConditionReasons := []string{}
+	availableConditionMessages := []string{}
 	switch {
 	case actualDaemonSet == nil:
 		availableConditionReasons = append(availableConditionReasons, "NoDaemon")
@@ -129,29 +116,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	case actualDaemonSet.Status.NumberAvailable == 0:
 		availableConditionReasons = append(availableConditionReasons, "NoAPIServerPod")
 		availableConditionMessages = append(availableConditionMessages, "no openshift-apiserver daemon pods available on any node.")
-	case actualDaemonSet.Status.NumberAvailable > 0 && len(actualAPIServices) == 0:
-		availableConditionReasons = append(availableConditionReasons, "NoRegisteredAPIServices")
-		availableConditionMessages = append(availableConditionMessages, "registered apiservices could not be retrieved")
 	}
-	for _, apiService := range actualAPIServices {
-		for _, condition := range apiService.Status.Conditions {
-			if condition.Type == apiregistrationv1.Available {
-				if condition.Status == apiregistrationv1.ConditionFalse {
-					availableConditionReasons = append(availableConditionReasons, "APIServiceNotAvailable")
-					availableConditionMessages = append(availableConditionMessages, fmt.Sprintf("apiservice/%v: not available: %v", apiService.Name, condition.Message))
-				}
-				break
-			}
-		}
-	}
-	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
-	// of something delaying them.  This isn't perfect because of round-robining, but let's see if we get an improvement
-	if len(availableConditionMessages) == 0 && c.kubeClient.Discovery().RESTClient() != nil {
-		missingAPIMessages := checkForAPIs(c.eventRecorder, c.kubeClient.Discovery().RESTClient(), apiServiceGroupVersions...)
-		availableConditionReasons = append(availableConditionReasons, "OpenShiftAPICheckFailed")
-		availableConditionMessages = append(availableConditionMessages, missingAPIMessages...)
-	}
-
 	sort.Sort(sort.StringSlice(availableConditionReasons))
 
 	switch {
@@ -506,39 +471,6 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 	}
 
 	return resourceapply.ApplyDaemonSet(client, recorder, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), forceRollingUpdate)
-}
-
-func manageAPIServices_v311_00_to_latest(client apiregistrationv1client.APIServicesGetter, recorder events.Recorder) ([]*apiregistrationv1.APIService, error) {
-	var apiServices []*apiregistrationv1.APIService
-	for _, apiServiceGroupVersion := range apiServiceGroupVersions {
-		obj := &apiregistrationv1.APIService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: apiServiceGroupVersion.Version + "." + apiServiceGroupVersion.Group,
-				Annotations: map[string]string{
-					"service.alpha.openshift.io/inject-cabundle": "true",
-				},
-			},
-			Spec: apiregistrationv1.APIServiceSpec{
-				Group:   apiServiceGroupVersion.Group,
-				Version: apiServiceGroupVersion.Version,
-				Service: &apiregistrationv1.ServiceReference{
-					Namespace: operatorclient.TargetNamespace,
-					Name:      "api",
-				},
-				GroupPriorityMinimum: 9900,
-				VersionPriority:      15,
-			},
-		}
-		apiregistrationv1.SetDefaults_ServiceReference(obj.Spec.Service)
-
-		apiService, _, err := resourceapply.ApplyAPIService(client, recorder, obj)
-		if err != nil {
-			return nil, err
-		}
-		apiServices = append(apiServices, apiService)
-	}
-
-	return apiServices, nil
 }
 
 var openshiftScheme = runtime.NewScheme()

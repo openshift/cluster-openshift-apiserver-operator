@@ -11,6 +11,7 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/nsfinalizercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
@@ -33,8 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
+	utilpointer "k8s.io/utils/pointer"
 )
 
 func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
@@ -126,7 +129,16 @@ func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
 		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
 		kubeClient,
+		controllerConfig.EventRecorder,
+	)
+	apiServiceController := apiservicecontroller.NewAPIServiceController(
+		"openshift-apiserver",
+		apiServices(),
+		operatorClient,
+		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeClient,
 		controllerConfig.EventRecorder,
 	)
 	finalizerController := nsfinalizercontroller.NewFinalizerController(
@@ -155,7 +167,7 @@ func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
 				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 				{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 			},
-			workloadcontroller.APIServiceReferences()...,
+			apiServicesReferences()...,
 		),
 		configClient.ConfigV1(),
 		configInformers.Config().V1().ClusterOperators(),
@@ -215,6 +227,7 @@ func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
 	dynamicInformers.Start(controllerConfig.Ctx.Done())
 
 	go workloadController.Run(1, controllerConfig.Ctx.Done())
+	go apiServiceController.Run(1, controllerConfig.Ctx.Done())
 	go configObserver.Run(controllerConfig.Ctx, 1)
 	go clusterOperatorStatus.Run(controllerConfig.Ctx, 1)
 	go finalizerController.Run(1, controllerConfig.Ctx.Done())
@@ -227,4 +240,55 @@ func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
 
 	<-controllerConfig.Ctx.Done()
 	return fmt.Errorf("stopped")
+}
+
+func apiServices() []*apiregistrationv1.APIService {
+	var apiServiceGroupVersions = []schema.GroupVersion{
+		// these are all the apigroups we manage
+		{Group: "apps.openshift.io", Version: "v1"},
+		{Group: "authorization.openshift.io", Version: "v1"},
+		{Group: "build.openshift.io", Version: "v1"},
+		{Group: "image.openshift.io", Version: "v1"},
+		{Group: "oauth.openshift.io", Version: "v1"},
+		{Group: "project.openshift.io", Version: "v1"},
+		{Group: "quota.openshift.io", Version: "v1"},
+		{Group: "route.openshift.io", Version: "v1"},
+		{Group: "security.openshift.io", Version: "v1"},
+		{Group: "template.openshift.io", Version: "v1"},
+		{Group: "user.openshift.io", Version: "v1"},
+	}
+
+	ret := []*apiregistrationv1.APIService{}
+	for _, apiServiceGroupVersion := range apiServiceGroupVersions {
+		obj := &apiregistrationv1.APIService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: apiServiceGroupVersion.Version + "." + apiServiceGroupVersion.Group,
+				Annotations: map[string]string{
+					"service.alpha.openshift.io/inject-cabundle": "true",
+				},
+			},
+			Spec: apiregistrationv1.APIServiceSpec{
+				Group:   apiServiceGroupVersion.Group,
+				Version: apiServiceGroupVersion.Version,
+				Service: &apiregistrationv1.ServiceReference{
+					Namespace: operatorclient.TargetNamespace,
+					Name:      "api",
+					Port:      utilpointer.Int32Ptr(443),
+				},
+				GroupPriorityMinimum: 9900,
+				VersionPriority:      15,
+			},
+		}
+		ret = append(ret, obj)
+	}
+
+	return ret
+}
+
+func apiServicesReferences() []configv1.ObjectReference {
+	ret := []configv1.ObjectReference{}
+	for _, apiService := range apiServices() {
+		ret = append(ret, configv1.ObjectReference{Group: "apiregistration.k8s.io", Resource: "apiservices", Name: apiService.Spec.Version + "." + apiService.Spec.Group})
+	}
+	return ret
 }

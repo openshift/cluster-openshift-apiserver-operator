@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/coreos/etcd v3.3.15+incompatible
+	github.com/davecgh/go-spew v1.1.1
 	github.com/getsentry/raven-go v0.2.1-0.20190513200303-c977f96e1095 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
