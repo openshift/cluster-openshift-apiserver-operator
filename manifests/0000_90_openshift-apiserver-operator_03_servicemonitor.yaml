@@ -3,6 +3,8 @@ kind: ServiceMonitor
 metadata:
   name: openshift-apiserver-operator
   namespace: openshift-apiserver-operator
+  annotations:
+    exclude.release.openshift.io/internal-openshift-hosted: "true"
 spec:
   endpoints:
   - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
