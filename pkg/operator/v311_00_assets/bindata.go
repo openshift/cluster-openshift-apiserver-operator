@@ -240,6 +240,9 @@ spec:
         ports:
         - containerPort: 8443
         volumeMounts:
+        - mountPath: /var/lib/kubelet/config.json
+          name: node-pullsecrets
+          readOnly: true
         - mountPath: /var/run/configmaps/config
           name: config
         - mountPath: /var/run/secrets/etcd-client
@@ -270,6 +273,10 @@ spec:
             path: healthz
       terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
       volumes:
+      - name: node-pullsecrets
+        hostPath:
+          path: /var/lib/kubelet/config.json
+          type: File
       - name: config
         configMap:
           name: config
