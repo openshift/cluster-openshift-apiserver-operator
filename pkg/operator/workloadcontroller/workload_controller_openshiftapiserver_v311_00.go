@@ -433,6 +433,21 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
+func loglevelToKlog(logLevel operatorv1.LogLevel) string {
+	switch logLevel {
+	case operatorv1.Normal:
+		return "2"
+	case operatorv1.Debug:
+		return "4"
+	case operatorv1.Trace:
+		return "6"
+	case operatorv1.TraceAll:
+		return "8"
+	default:
+		return "2"
+	}
+}
+
 func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 	client appsclientv1.DaemonSetsGetter,
 	recorder events.Recorder,
@@ -447,6 +462,7 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 		"${IMAGE}", imagePullSpec,
 		"${OPERATOR_IMAGE}", operatorImagePullSpec,
 		"${REVISION}", strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision)),
+		"${VERBOSITY}", loglevelToKlog(operatorConfig.Spec.LogLevel),
 	)
 	tmpl = []byte(r.Replace(string(tmpl)))
 
@@ -468,28 +484,6 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 
 	required.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
 	required.Spec.Template.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
-
-	containerArgsWithLoglevel := required.Spec.Template.Spec.Containers[0].Args
-	if argsCount := len(containerArgsWithLoglevel); argsCount > 1 {
-		return nil, false, fmt.Errorf("expected only one container argument, got %d", argsCount)
-	}
-	if !strings.Contains(containerArgsWithLoglevel[0], "exec openshift-apiserver") {
-		return nil, false, fmt.Errorf("exec openshift-apiserver not found in first argument %q", containerArgsWithLoglevel[0])
-	}
-	containerArgsWithLoglevel[0] = strings.TrimSpace(containerArgsWithLoglevel[0])
-	switch operatorConfig.Spec.LogLevel {
-	case operatorv1.Normal:
-		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 2)
-	case operatorv1.Debug:
-		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 4)
-	case operatorv1.Trace:
-		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 6)
-	case operatorv1.TraceAll:
-		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 8)
-	default:
-		containerArgsWithLoglevel[0] += fmt.Sprintf(" -v=%d", 2)
-	}
-	required.Spec.Template.Spec.Containers[0].Args = containerArgsWithLoglevel
 
 	var observedConfig map[string]interface{}
 	if err := yaml.Unmarshal(operatorConfig.Spec.ObservedConfig.Raw, &observedConfig); err != nil {
