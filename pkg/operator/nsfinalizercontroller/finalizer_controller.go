@@ -1,14 +1,11 @@
-package operator
+package nsfinalizercontroller
 
 import (
 	"fmt"
 	"reflect"
 	"time"
 
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	"k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/klog"
-
+	"github.com/openshift/library-go/pkg/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,15 +13,18 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes/typed/core/v1"
 	appsv1lister "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	"github.com/openshift/library-go/pkg/operator/events"
+	"k8s.io/klog"
 )
 
 type finalizerController struct {
+	name          string
+	namespaceName string
+
 	namespaceGetter v1.NamespacesGetter
 	podLister       corev1listers.PodLister
 	dsLister        appsv1lister.DaemonSetLister
@@ -44,11 +44,16 @@ type finalizerController struct {
 // aggregated API, only the server plus config if we remove the apiservices to unstick it, GC will start cleaning
 // everything. For now, we can unbork 4.0, but clearing the finalizer after the pod and daemonset we created are gone.
 func NewFinalizerController(
+	namespaceName string,
 	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
 	namespaceGetter v1.NamespacesGetter,
 	eventRecorder events.Recorder,
 ) *finalizerController {
+	fullname := "NamespaceFinalizerController_" + namespaceName
 	c := &finalizerController{
+		name:          fullname,
+		namespaceName: namespaceName,
+
 		namespaceGetter: namespaceGetter,
 		podLister:       kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
 		dsLister:        kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
@@ -58,7 +63,7 @@ func NewFinalizerController(
 			kubeInformersForTargetNamespace.Core().V1().Pods().Informer().HasSynced,
 			kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer().HasSynced,
 		},
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "FinalizerController"),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), fullname),
 	}
 
 	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
@@ -68,7 +73,7 @@ func NewFinalizerController(
 }
 
 func (c finalizerController) sync() error {
-	ns, err := c.namespaceGetter.Namespaces().Get(operatorclient.TargetNamespace, metav1.GetOptions{})
+	ns, err := c.namespaceGetter.Namespaces().Get(c.namespaceName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
 		return nil
 	}
@@ -79,14 +84,22 @@ func (c finalizerController) sync() error {
 		return nil
 	}
 
-	pods, err := c.podLister.Pods(operatorclient.TargetNamespace).List(labels.Everything())
+	// allow one minute of grace for most things to terminate.
+	// TODO now that we have conditions, we may be able to check specific conditions
+	deletedMoreThanAMinute := ns.DeletionTimestamp.Time.Add(1 * time.Minute).Before(time.Now())
+	if !deletedMoreThanAMinute {
+		c.queue.AddAfter(c.namespaceName, 1*time.Minute)
+		return nil
+	}
+
+	pods, err := c.podLister.Pods(c.namespaceName).List(labels.Everything())
 	if err != nil {
 		return err
 	}
 	if len(pods) > 0 {
 		return nil
 	}
-	dses, err := c.dsLister.DaemonSets(operatorclient.TargetNamespace).List(labels.Everything())
+	dses, err := c.dsLister.DaemonSets(c.namespaceName).List(labels.Everything())
 	if err != nil {
 		return err
 	}
@@ -106,7 +119,7 @@ func (c finalizerController) sync() error {
 	}
 	ns.Spec.Finalizers = newFinalizers
 
-	c.eventRecorder.Event("NamespaceFinalization", fmt.Sprintf("clearing namespace finalizer on %q", operatorclient.TargetNamespace))
+	c.eventRecorder.Event("NamespaceFinalization", fmt.Sprintf("clearing namespace finalizer on %q", c.namespaceName))
 	_, err = c.namespaceGetter.Namespaces().Finalize(ns)
 	return err
 }
@@ -116,8 +129,8 @@ func (c *finalizerController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	klog.Infof("Starting FinalizerController")
-	defer klog.Infof("Shutting down FinalizerController")
+	klog.Infof("Starting %v", c.name)
+	defer klog.Infof("Shutting down %v", c.name)
 
 	if !cache.WaitForCacheSync(stopCh, c.preRunHasSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
@@ -125,7 +138,7 @@ func (c *finalizerController) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	// always kick at least once in case we started after the namespace was cleared
-	c.queue.Add(operatorclient.TargetNamespace)
+	c.queue.Add(c.namespaceName)
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, stopCh)
@@ -160,8 +173,8 @@ func (c *finalizerController) processNextWorkItem() bool {
 // eventHandler queues the operator to check spec and status
 func (c *finalizerController) eventHandler() cache.ResourceEventHandler {
 	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(operatorclient.TargetNamespace) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(operatorclient.TargetNamespace) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(operatorclient.TargetNamespace) },
+		AddFunc:    func(obj interface{}) { c.queue.Add(c.namespaceName) },
+		UpdateFunc: func(old, new interface{}) { c.queue.Add(c.namespaceName) },
+		DeleteFunc: func(obj interface{}) { c.queue.Add(c.namespaceName) },
 	}
 }
