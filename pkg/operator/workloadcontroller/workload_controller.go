@@ -19,7 +19,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	operatorsv1 "github.com/openshift/api/operator/v1"
@@ -40,12 +39,11 @@ const (
 type OpenShiftAPIServerOperator struct {
 	targetImagePullSpec, operatorImagePullSpec string
 
-	versionRecorder         status.VersionGetter
-	operatorConfigClient    operatorv1client.OpenShiftAPIServersGetter
-	openshiftConfigClient   openshiftconfigclientv1.ConfigV1Interface
-	kubeClient              kubernetes.Interface
-	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface
-	eventRecorder           events.Recorder
+	versionRecorder       status.VersionGetter
+	operatorConfigClient  operatorv1client.OpenShiftAPIServersGetter
+	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface
+	kubeClient            kubernetes.Interface
+	eventRecorder         events.Recorder
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -63,19 +61,17 @@ func NewWorkloadController(
 	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
 	kubeClient kubernetes.Interface,
-	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
 	eventRecorder events.Recorder,
 ) *OpenShiftAPIServerOperator {
 	c := &OpenShiftAPIServerOperator{
 		targetImagePullSpec:   targetImagePullSpec,
 		operatorImagePullSpec: operatorImagePullSpec,
 
-		versionRecorder:         versionRecorder,
-		operatorConfigClient:    operatorConfigClient,
-		openshiftConfigClient:   openshiftConfigClient,
-		kubeClient:              kubeClient,
-		apiregistrationv1Client: apiregistrationv1Client,
-		eventRecorder:           eventRecorder.WithComponentSuffix("workload-controller"),
+		versionRecorder:       versionRecorder,
+		operatorConfigClient:  operatorConfigClient,
+		openshiftConfigClient: openshiftConfigClient,
+		kubeClient:            kubeClient,
+		eventRecorder:         eventRecorder.WithComponentSuffix("workload-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "OpenShiftAPIServerOperator"),
 	}
