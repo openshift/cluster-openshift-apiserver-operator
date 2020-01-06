@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -52,34 +51,21 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		"v3.11.0/openshift-apiserver/svc.yaml",
 		"v3.11.0/openshift-apiserver/sa.yaml",
 	)
-	resourcesThatForceRedeployment := sets.NewString("v3.11.0/openshift-apiserver/sa.yaml")
-	var reasonsForForcedRollingUpdate []string
-
 	for _, currResult := range directResourceResults {
 		if currResult.Error != nil {
 			errors = append(errors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
 			continue
 		}
-
-		if currResult.Changed && resourcesThatForceRedeployment.Has(currResult.File) {
-			reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(currResult.Result))
-		}
 	}
 
-	configMapModifiedObject, configMapModified, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
+	_, _, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
-	if configMapModified {
-		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(configMapModifiedObject))
-	}
 
-	imageImportCAModifiedObject, imageImportCAModified, err := manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
+	_, _, err = manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "image-import-ca", err))
-	}
-	if imageImportCAModified {
-		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, "modified: "+resourceSelectorForCLI(imageImportCAModifiedObject))
 	}
 
 	err = syncOpenShiftAPIServerTrustedCA_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
@@ -87,21 +73,9 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "trusted-ca-bundle", err))
 	}
 
-	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
-		reasonsForForcedRollingUpdate = append(reasonsForForcedRollingUpdate, fmt.Sprintf("operator config spec generation %d does not match status generation %d", operatorConfig.ObjectMeta.Generation,
-			operatorConfig.Status.ObservedGeneration))
-	}
-
-	forceRollingUpdate := len(reasonsForForcedRollingUpdate) > 0
-
-	if forceRollingUpdate {
-		sort.Sort(sort.StringSlice(reasonsForForcedRollingUpdate))
-		c.eventRecorder.Eventf("RollingUpdateForced", "Rolling update forced because:\n* %s", strings.Join(reasonsForForcedRollingUpdate, "\n"))
-	}
-
 	// our configmaps and secrets are in order, now it is time to create the DS
 	// TODO check basic preconditions here
-	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations, forceRollingUpdate)
+	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient, c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
@@ -374,13 +348,14 @@ func loglevelToKlog(logLevel operatorv1.LogLevel) string {
 }
 
 func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
+	kubeClient kubernetes.Interface,
 	client appsclientv1.DaemonSetsGetter,
 	recorder events.Recorder,
 	imagePullSpec string,
 	operatorImagePullSpec string,
 	operatorConfig *operatorv1.OpenShiftAPIServer,
 	generationStatus []operatorv1.GenerationStatus,
-	forceRollingUpdate bool) (*appsv1.DaemonSet, bool, error) {
+) (*appsv1.DaemonSet, bool, error) {
 	tmpl := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml")
 
 	r := strings.NewReplacer(
@@ -424,7 +399,26 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 		required.Spec.Template.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	return resourceapply.ApplyDaemonSet(client, recorder, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), forceRollingUpdate)
+	// we watch some resources so that our daemonset will redeploy without explicitly and carefully ordered resource creation
+	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
+		kubeClient,
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("config"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("image-import-ca"),
+	)
+	if err != nil {
+		return nil, false, fmt.Errorf("invalid dependency reference: %q", err)
+	}
+	inputHashes["desired.generation"] = fmt.Sprintf("%d", operatorConfig.ObjectMeta.Generation)
+	for k, v := range inputHashes {
+		annotationKey := fmt.Sprintf("operator.openshift.io/dep-%s", k)
+		required.Annotations[annotationKey] = v
+		if required.Spec.Template.Annotations == nil {
+			required.Spec.Template.Annotations = map[string]string{}
+		}
+		required.Spec.Template.Annotations[annotationKey] = v
+	}
+
+	return resourceapply.ApplyDaemonSet(client, recorder, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), false)
 }
 
 var openshiftScheme = runtime.NewScheme()
