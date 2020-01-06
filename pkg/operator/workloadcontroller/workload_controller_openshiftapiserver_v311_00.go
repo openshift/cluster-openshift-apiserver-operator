@@ -315,20 +315,6 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.I
 		return nil, false, err
 	}
 
-	// we can embed input hashes on our main configmap to drive rollouts when they change.
-	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
-		kubeClient,
-		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespace).Named("etcd-client"),
-		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("etcd-serving-ca"),
-		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("trusted-ca-bundle"),
-	)
-	if err != nil {
-		return nil, false, err
-	}
-	for k, v := range inputHashes {
-		requiredConfigMap.Data[k] = v
-	}
-
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
@@ -403,7 +389,10 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
 		kubeClient,
 		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("config"),
+		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespace).Named("etcd-client"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("etcd-serving-ca"),
 		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("image-import-ca"),
+		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("trusted-ca-bundle"),
 	)
 	if err != nil {
 		return nil, false, fmt.Errorf("invalid dependency reference: %q", err)
