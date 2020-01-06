@@ -271,57 +271,17 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 	if err != nil {
 		return nil, false, err
 	}
-
-	casConfigMap, err := client.ConfigMaps(operatorclient.TargetNamespace).Get(
-		imageImportCAName, metav1.GetOptions{},
-	)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return nil, false, err
-	} else if err != nil {
-		// There is no certificates to be added to the config map
-		// and the config map does not exist, nothing else to do.
-		if len(mergedCAs) == 0 {
-			return nil, false, nil
-		}
-
-		if casConfigMap, err = client.ConfigMaps(operatorclient.TargetNamespace).Create(
-			&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: operatorclient.TargetNamespace,
-					Name:      imageImportCAName,
-				},
-				Data: mergedCAs,
-			},
-		); err != nil {
-			return nil, false, err
-		}
-
-		return casConfigMap, true, nil
+	requiredConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: operatorclient.TargetNamespace,
+			Name:      imageImportCAName,
+		},
+		Data: mergedCAs,
 	}
 
-	// We have no certificates so there is no need to have a ConfigMap,
-	// we need to delete it.
-	if len(mergedCAs) == 0 {
-		if err := client.ConfigMaps(operatorclient.TargetNamespace).Delete(
-			imageImportCAName, &metav1.DeleteOptions{},
-		); err != nil {
-			return nil, false, err
-		}
-		casConfigMap.Data = mergedCAs
-		return casConfigMap, true, nil
-	}
-
-	if reflect.DeepEqual(mergedCAs, casConfigMap.Data) {
-		return casConfigMap, false, nil
-	}
-
-	casConfigMap.Data = mergedCAs
-	if casConfigMap, err = client.ConfigMaps(operatorclient.TargetNamespace).Update(
-		casConfigMap,
-	); err != nil {
-		return nil, false, err
-	}
-	return casConfigMap, true, nil
+	// this can leave configmaps mounted without any content, but that should not have an impact on functionality since empty and missing
+	// should logically be treated the same in the case of trust.
+	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
 func syncOpenShiftAPIServerTrustedCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
