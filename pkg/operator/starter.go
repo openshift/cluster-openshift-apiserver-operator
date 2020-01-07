@@ -22,25 +22,21 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservercontrollerset"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-	"github.com/openshift/library-go/pkg/operator/loglevel"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
-	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/nsfinalizercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
@@ -134,33 +130,22 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeClient,
 		controllerConfig.EventRecorder,
 	)
-	apiServiceController := apiservicecontroller.NewAPIServiceController(
+
+	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
+		operatorClient,
+		controllerConfig.EventRecorder,
+	).WithAPIServiceController(
 		"openshift-apiserver",
 		apiServices(),
-		operatorClient,
 		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeClient,
-		controllerConfig.EventRecorder,
-	)
-	finalizerController := nsfinalizercontroller.NewFinalizerController(
+	).WithFinalizerController(
 		operatorclient.TargetNamespace,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeClient.CoreV1(),
-		controllerConfig.EventRecorder,
-	)
-
-	configObserver := configobservercontroller.NewConfigObserver(
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		operatorClient,
-		resourceSyncController,
-		operatorConfigInformers,
-		configInformers,
-		controllerConfig.EventRecorder,
-	)
-
-	clusterOperatorStatus := status.NewClusterOperatorStatusController(
+	).WithClusterOperatorStatusController(
 		"openshift-apiserver",
 		append(
 			[]configv1.ObjectReference{
@@ -174,8 +159,21 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		),
 		configClient.ConfigV1(),
 		configInformers.Config().V1().ClusterOperators(),
-		operatorClient,
 		versionRecorder,
+	).WithConfigUpgradableController().
+		WithLogLevelController()
+
+	runnableAPIServerControllers, err := apiServerControllers.PrepareRun()
+	if err != nil {
+		return err
+	}
+
+	configObserver := configobservercontroller.NewConfigObserver(
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		operatorClient,
+		resourceSyncController,
+		operatorConfigInformers,
+		configInformers,
 		controllerConfig.EventRecorder,
 	)
 
@@ -183,6 +181,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		TargetNamespaceDaemonSetInformer: kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Apps().V1().DaemonSets(),
 		NodeInformer:                     kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes(),
 	}
+
 	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), nodeProvider)
 	if err != nil {
 		return err
@@ -216,9 +215,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	)
 
-	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, controllerConfig.EventRecorder)
-	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorClient, controllerConfig.EventRecorder)
-
 	if controllerConfig.Server != nil {
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
@@ -230,16 +226,12 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	dynamicInformers.Start(ctx.Done())
 
 	go workloadController.Run(ctx, 1)
-	go apiServiceController.Run(ctx)
 	go configObserver.Run(ctx, 1)
-	go clusterOperatorStatus.Run(ctx, 1)
-	go finalizerController.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
 	go revisionController.Run(ctx, 1)
 	go encryptionControllers.Run(ctx.Done())
 	go pruneController.Run(ctx)
-	go configUpgradeableController.Run(ctx, 1)
-	go logLevelController.Run(ctx, 1)
+	go runnableAPIServerControllers.Run(ctx)
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
