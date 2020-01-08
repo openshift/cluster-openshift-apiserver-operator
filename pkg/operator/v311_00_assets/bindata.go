@@ -153,6 +153,8 @@ storageConfig:
 apiServerArguments:
   shutdown-delay-duration:
   - 3s # give SDN some time to converge
+servingInfo:
+  bindNetwork: "tcp"
 `)
 
 func v3110OpenshiftApiserverDefaultconfigYamlBytes() ([]byte, error) {
