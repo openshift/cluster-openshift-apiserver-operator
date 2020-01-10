@@ -13,6 +13,7 @@ require (
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9 // indirect
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
+	github.com/jteeuwen/go-bindata v0.0.0-00010101000000-000000000000
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.2 // indirect
 	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go v0.0.0-20191022152013-2823239d2298
