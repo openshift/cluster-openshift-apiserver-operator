@@ -1,6 +1,7 @@
 package nsfinalizercontroller
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -13,7 +14,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes/typed/core/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	appsv1lister "k8s.io/client-go/listers/apps/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -125,14 +126,14 @@ func (c finalizerController) sync() error {
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
-func (c *finalizerController) Run(workers int, stopCh <-chan struct{}) {
+func (c *finalizerController) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	klog.Infof("Starting %v", c.name)
 	defer klog.Infof("Shutting down %v", c.name)
 
-	if !cache.WaitForCacheSync(stopCh, c.preRunHasSynced...) {
+	if !cache.WaitForCacheSync(ctx.Done(), c.preRunHasSynced...) {
 		utilruntime.HandleError(fmt.Errorf("caches did not sync"))
 		return
 	}
@@ -141,9 +142,9 @@ func (c *finalizerController) Run(workers int, stopCh <-chan struct{}) {
 	c.queue.Add(c.namespaceName)
 
 	// doesn't matter what workers say, only start one.
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 func (c *finalizerController) runWorker() {

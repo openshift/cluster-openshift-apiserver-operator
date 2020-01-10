@@ -1,9 +1,20 @@
 package operator
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
+	utilpointer "k8s.io/utils/pointer"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -11,13 +22,6 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/nsfinalizercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
@@ -29,18 +33,17 @@ import (
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
-	utilpointer "k8s.io/utils/pointer"
+
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/nsfinalizercontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 )
 
-func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
+func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
 	kubeClient, err := kubernetes.NewForConfig(controllerConfig.ProtoKubeConfig)
 	if err != nil {
 		return err
@@ -220,25 +223,25 @@ func RunOperator(controllerConfig *controllercmd.ControllerContext) error {
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
-	operatorConfigInformers.Start(controllerConfig.Ctx.Done())
-	kubeInformersForNamespaces.Start(controllerConfig.Ctx.Done())
-	apiregistrationInformers.Start(controllerConfig.Ctx.Done())
-	configInformers.Start(controllerConfig.Ctx.Done())
-	dynamicInformers.Start(controllerConfig.Ctx.Done())
+	operatorConfigInformers.Start(ctx.Done())
+	kubeInformersForNamespaces.Start(ctx.Done())
+	apiregistrationInformers.Start(ctx.Done())
+	configInformers.Start(ctx.Done())
+	dynamicInformers.Start(ctx.Done())
 
-	go workloadController.Run(1, controllerConfig.Ctx.Done())
-	go apiServiceController.Run(1, controllerConfig.Ctx.Done())
-	go configObserver.Run(controllerConfig.Ctx, 1)
-	go clusterOperatorStatus.Run(controllerConfig.Ctx, 1)
-	go finalizerController.Run(1, controllerConfig.Ctx.Done())
-	go resourceSyncController.Run(controllerConfig.Ctx, 1)
-	go revisionController.Run(controllerConfig.Ctx, 1)
-	go encryptionControllers.Run(controllerConfig.Ctx.Done())
-	go pruneController.Run(1, controllerConfig.Ctx.Done())
-	go configUpgradeableController.Run(controllerConfig.Ctx, 1)
-	go logLevelController.Run(controllerConfig.Ctx, 1)
+	go workloadController.Run(ctx, 1)
+	go apiServiceController.Run(ctx)
+	go configObserver.Run(ctx, 1)
+	go clusterOperatorStatus.Run(ctx, 1)
+	go finalizerController.Run(ctx, 1)
+	go resourceSyncController.Run(ctx, 1)
+	go revisionController.Run(ctx, 1)
+	go encryptionControllers.Run(ctx.Done())
+	go pruneController.Run(ctx)
+	go configUpgradeableController.Run(ctx, 1)
+	go logLevelController.Run(ctx, 1)
 
-	<-controllerConfig.Ctx.Done()
+	<-ctx.Done()
 	return fmt.Errorf("stopped")
 }
 
