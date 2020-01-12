@@ -1,6 +1,7 @@
 package workloadcontroller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -147,7 +148,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
-func (c *OpenShiftAPIServerOperator) Run(workers int, stopCh <-chan struct{}) {
+func (c *OpenShiftAPIServerOperator) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -155,9 +156,9 @@ func (c *OpenShiftAPIServerOperator) Run(workers int, stopCh <-chan struct{}) {
 	defer klog.Infof("Shutting down OpenShiftAPIServerOperator")
 
 	// doesn't matter what workers say, only start one.
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 func (c *OpenShiftAPIServerOperator) runWorker() {

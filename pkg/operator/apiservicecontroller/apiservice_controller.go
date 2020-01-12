@@ -1,6 +1,7 @@
 package apiservicecontroller
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -185,7 +186,7 @@ func (c *APIServiceController) syncAPIServices() error {
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
-func (c *APIServiceController) Run(workers int, stopCh <-chan struct{}) {
+func (c *APIServiceController) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -193,9 +194,9 @@ func (c *APIServiceController) Run(workers int, stopCh <-chan struct{}) {
 	defer klog.Infof("Shutting down %v", c.name)
 
 	// doesn't matter what workers say, only start one.
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	go wait.Until(c.runWorker, time.Second, ctx.Done())
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 func (c *APIServiceController) runWorker() {
