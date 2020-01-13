@@ -1,80 +1,85 @@
-// Copyright 2018 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
 package lsp
 
 import (
-	"context"
-	"sort"
+	"go/token"
+	"strconv"
+	"strings"
 
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/internal/lsp/protocol"
-	"golang.org/x/tools/internal/lsp/source"
 )
 
-func (s *server) cacheAndDiagnose(ctx context.Context, uri string, content string) {
-	sourceURI, err := fromProtocolURI(uri)
+func (v *view) diagnostics(uri protocol.DocumentURI) (map[string][]protocol.Diagnostic, error) {
+	pkg, err := v.typeCheck(uri)
 	if err != nil {
-		return // handle error?
+		return nil, err
 	}
-	if err := s.setContent(ctx, sourceURI, []byte(content)); err != nil {
-		return // handle error?
+	reports := make(map[string][]protocol.Diagnostic)
+	for _, filename := range pkg.GoFiles {
+		reports[filename] = []protocol.Diagnostic{}
 	}
-	go func() {
-		ctx := s.view.BackgroundContext()
-		if ctx.Err() != nil {
-			return
+	var parseErrors, typeErrors []packages.Error
+	for _, err := range pkg.Errors {
+		switch err.Kind {
+		case packages.ParseError:
+			parseErrors = append(parseErrors, err)
+		case packages.TypeError:
+			typeErrors = append(typeErrors, err)
+		default:
+			// ignore other types of errors
+			continue
 		}
-		reports, err := source.Diagnostics(ctx, s.view, sourceURI)
+	}
+	// Don't report type errors if there are parse errors.
+	errors := typeErrors
+	if len(parseErrors) > 0 {
+		errors = parseErrors
+	}
+	for _, err := range errors {
+		pos := parseErrorPos(err)
+		line := float64(pos.Line) - 1
+		col := float64(pos.Column) - 1
+		diagnostic := protocol.Diagnostic{
+			// TODO(rstambler): Add support for diagnostic ranges.
+			Range: protocol.Range{
+				Start: protocol.Position{
+					Line:      line,
+					Character: col,
+				},
+				End: protocol.Position{
+					Line:      line,
+					Character: col,
+				},
+			},
+			Severity: protocol.SeverityError,
+			Source:   "LSP: Go compiler",
+			Message:  err.Msg,
+		}
+		if _, ok := reports[pos.Filename]; ok {
+			reports[pos.Filename] = append(reports[pos.Filename], diagnostic)
+		}
+	}
+	return reports, nil
+}
+
+func parseErrorPos(pkgErr packages.Error) (pos token.Position) {
+	split := strings.Split(pkgErr.Pos, ":")
+	if len(split) <= 1 {
+		return pos
+	}
+	pos.Filename = split[0]
+	line, err := strconv.ParseInt(split[1], 10, 64)
+	if err != nil {
+		return pos
+	}
+	pos.Line = int(line)
+	if len(split) == 3 {
+		col, err := strconv.ParseInt(split[2], 10, 64)
 		if err != nil {
-			return // handle error?
+			return pos
 		}
-		for filename, diagnostics := range reports {
-			s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI:         string(source.ToURI(filename)),
-				Diagnostics: toProtocolDiagnostics(ctx, s.view, diagnostics),
-			})
-		}
-	}()
-}
-
-func (s *server) setContent(ctx context.Context, uri source.URI, content []byte) error {
-	return s.view.SetContent(ctx, uri, content)
-}
-
-func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []source.Diagnostic) []protocol.Diagnostic {
-	reports := []protocol.Diagnostic{}
-	for _, diag := range diagnostics {
-		tok := v.FileSet().File(diag.Start)
-		src := diag.Source
-		if src == "" {
-			src = "LSP"
-		}
-		var severity protocol.DiagnosticSeverity
-		switch diag.Severity {
-		case source.SeverityError:
-			severity = protocol.SeverityError
-		case source.SeverityWarning:
-			severity = protocol.SeverityWarning
-		}
-		reports = append(reports, protocol.Diagnostic{
-			Message:  diag.Message,
-			Range:    toProtocolRange(tok, diag.Range),
-			Severity: severity,
-			Source:   src,
-		})
+		pos.Column = int(col)
 	}
-	return reports
-}
+	return pos
 
-func sorted(d []protocol.Diagnostic) {
-	sort.Slice(d, func(i int, j int) bool {
-		if d[i].Range.Start.Line == d[j].Range.Start.Line {
-			if d[i].Range.Start.Character == d[j].Range.Start.Character {
-				return d[i].Message < d[j].Message
-			}
-			return d[i].Range.Start.Character < d[j].Range.Start.Character
-		}
-		return d[i].Range.Start.Line < d[j].Range.Start.Line
-	})
 }

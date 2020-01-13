@@ -1,5 +1,5 @@
 hash: 0b6fdc8f5551b8e25af8817c56f5b1ac9b3c551676bab325ed6b2a35bd8828da
-updated: 2019-12-12T07:42:18.570374+01:00
+updated: 2020-01-13T12:11:00.742262+01:00
 imports:
 - name: github.com/beorn7/perks
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
@@ -150,7 +150,7 @@ imports:
 - name: github.com/konsorten/go-windows-terminal-sequences
   version: 5c8c8bd35d3832f5d134ae1e1e375b69a4d25242
 - name: github.com/kubernetes-sigs/kube-storage-version-migrator
-  version: bdca3bf7d454105b7853d0d60b385877486a9dc6
+  version: 47b20046cd571a3b63bec3dd735bae0e07776495
   repo: https://github.com/openshift/kubernetes-kube-storage-version-migrator.git
   subpackages:
   - pkg/apis/migration/v1alpha1
@@ -179,7 +179,7 @@ imports:
 - name: github.com/NYTimes/gziphandler
   version: 56545f4a5d46df9a6648819d1664c3a03a13ffdb
 - name: github.com/openshift/api
-  version: 1537aa86567a5d75725bdba96c2439f0d16469d2
+  version: 2987a591a72cee08898c93dcc09816783d39a5bc
   subpackages:
   - apps
   - apps/v1
@@ -256,7 +256,7 @@ imports:
   - operator/listers/operator/v1
   - operator/listers/operator/v1alpha1
 - name: github.com/openshift/library-go
-  version: 37b9180d4790343c9f169c4ccc60bbb40ed90c3a
+  version: 82896fb3f3d4f725fbe073e3474859d3a5131db0
   subpackages:
   - pkg/assets
   - pkg/config/client
@@ -315,7 +315,7 @@ imports:
   - prometheus/internal
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
+  version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
   subpackages:
   - go
 - name: github.com/prometheus/common
@@ -328,7 +328,6 @@ imports:
   version: 1dc9a6cbc91aacc3e8b2d63db4d2e957a5394ac4
   subpackages:
   - internal/util
-  - nfs
   - xfs
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
@@ -409,7 +408,7 @@ imports:
   subpackages:
   - rate
 - name: golang.org/x/tools
-  version: e65039ee4138194d75ebaa2da35887260d5e15b2
+  version: 6c7e314b6563ee0a4dc169c7ee9960e0b709c035
   subpackages:
   - container/intsets
 - name: google.golang.org/appengine
@@ -423,12 +422,12 @@ imports:
   - internal/urlfetch
   - urlfetch
 - name: google.golang.org/genproto
-  version: e7d98fc518a78c9f8b5ee77be7b0b317475d89e1
+  version: 54afdca5d873f7b529e2ce3def1a99df16feda90
   subpackages:
   - googleapis/api/annotations
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: 2fdaae294f38ed9a121193c51ec99fecd3b13eb7
+  version: 6eaf6f47437a6b4e2153a190160ef39a92c7eceb
   subpackages:
   - balancer
   - balancer/base
@@ -443,6 +442,7 @@ imports:
   - grpclog
   - internal
   - internal/backoff
+  - internal/balancerload
   - internal/binarylog
   - internal/channelz
   - internal/envconfig
@@ -457,6 +457,7 @@ imports:
   - resolver
   - resolver/dns
   - resolver/passthrough
+  - serviceconfig
   - stats
   - status
   - tap
