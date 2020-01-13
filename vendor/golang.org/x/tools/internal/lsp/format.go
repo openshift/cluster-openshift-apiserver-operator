@@ -1,60 +1,83 @@
 package lsp
 
 import (
-	"context"
+	"bytes"
+	"fmt"
+	"go/format"
 
 	"golang.org/x/tools/internal/lsp/protocol"
-	"golang.org/x/tools/internal/lsp/source"
 )
 
-// formatRange formats a document with a given range.
-func formatRange(ctx context.Context, v source.View, uri string, rng *protocol.Range) ([]protocol.TextEdit, error) {
-	sourceURI, err := fromProtocolURI(uri)
+// format formats a document with a given range.
+func (s *server) format(uri protocol.DocumentURI, rng *protocol.Range) ([]protocol.TextEdit, error) {
+	data, err := s.readActiveFile(uri)
 	if err != nil {
 		return nil, err
 	}
-	f, err := v.GetFile(ctx, sourceURI)
+	if rng != nil {
+		start, err := positionToOffset(data, int(rng.Start.Line), int(rng.Start.Character))
+		if err != nil {
+			return nil, err
+		}
+		end, err := positionToOffset(data, int(rng.End.Line), int(rng.End.Character))
+		if err != nil {
+			return nil, err
+		}
+		data = data[start:end]
+		// format.Source will fail if the substring is not a balanced expression tree.
+		// TODO(rstambler): parse the file and use astutil.PathEnclosingInterval to
+		// find the largest ast.Node n contained within start:end, and format the
+		// region n.Pos-n.End instead.
+	}
+	// format.Source changes slightly from one release to another, so the version
+	// of Go used to build the LSP server will determine how it formats code.
+	// This should be acceptable for all users, who likely be prompted to rebuild
+	// the LSP server on each Go release.
+	fmted, err := format.Source([]byte(data))
 	if err != nil {
 		return nil, err
 	}
-	tok := f.GetToken(ctx)
-	var r source.Range
 	if rng == nil {
-		r.Start = tok.Pos(0)
-		r.End = tok.Pos(tok.Size())
-	} else {
-		r = fromProtocolRange(tok, *rng)
+		// Get the ending line and column numbers for the original file.
+		line := bytes.Count(data, []byte("\n"))
+		col := len(data) - bytes.LastIndex(data, []byte("\n")) - 1
+		if col < 0 {
+			col = 0
+		}
+		rng = &protocol.Range{
+			Start: protocol.Position{
+				Line:      0,
+				Character: 0,
+			},
+			End: protocol.Position{
+				Line:      float64(line),
+				Character: float64(col),
+			},
+		}
 	}
-	edits, err := source.Format(ctx, f, r)
-	if err != nil {
-		return nil, err
-	}
-	return toProtocolEdits(ctx, f, edits), nil
+	// TODO(rstambler): Compute text edits instead of replacing whole file.
+	return []protocol.TextEdit{
+		{
+			Range:   *rng,
+			NewText: string(fmted),
+		},
+	}, nil
 }
 
-func toProtocolEdits(ctx context.Context, f source.File, edits []source.TextEdit) []protocol.TextEdit {
-	if edits == nil {
-		return nil
-	}
-	tok := f.GetToken(ctx)
-	content := f.GetContent(ctx)
-	// When a file ends with an empty line, the newline character is counted
-	// as part of the previous line. This causes the formatter to insert
-	// another unnecessary newline on each formatting. We handle this case by
-	// checking if the file already ends with a newline character.
-	hasExtraNewline := content[len(content)-1] == '\n'
-	result := make([]protocol.TextEdit, len(edits))
-	for i, edit := range edits {
-		rng := toProtocolRange(tok, edit.Range)
-		// If the edit ends at the end of the file, add the extra line.
-		if hasExtraNewline && tok.Offset(edit.Range.End) == len(content) {
-			rng.End.Line++
-			rng.End.Character = 0
+// positionToOffset converts a 0-based line and column number in a file
+// to a byte offset value.
+func positionToOffset(contents []byte, line, col int) (int, error) {
+	start := 0
+	for i := 0; i < int(line); i++ {
+		if start >= len(contents) {
+			return 0, fmt.Errorf("file contains %v lines, not %v lines", i, line)
 		}
-		result[i] = protocol.TextEdit{
-			Range:   rng,
-			NewText: edit.NewText,
+		index := bytes.IndexByte(contents[start:], '\n')
+		if index == -1 {
+			return 0, fmt.Errorf("file contains %v lines, not %v lines", i, line)
 		}
+		start += index + 1
 	}
-	return result
+	offset := start + int(col)
+	return offset, nil
 }

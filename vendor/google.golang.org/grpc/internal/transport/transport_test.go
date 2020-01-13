@@ -19,7 +19,6 @@
 package transport
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -28,8 +27,6 @@ import (
 	"io"
 	"math"
 	"net"
-	"net/http"
-	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -42,6 +39,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/internal/leakcheck"
 	"google.golang.org/grpc/internal/syscall"
+	"google.golang.org/grpc/internal/testutils"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
@@ -1132,9 +1130,7 @@ func TestGracefulClose(t *testing.T) {
 	if _, err := s.Read(recvMsg); err != nil {
 		t.Fatalf("Error while reading: %v", err)
 	}
-	if err = ct.GracefulClose(); err != nil {
-		t.Fatalf("GracefulClose() = %v, want <nil>", err)
-	}
+	ct.GracefulClose()
 	var wg sync.WaitGroup
 	// Expect the failure for all the follow-up streams because ct has been closed gracefully.
 	for i := 0; i < 200; i++ {
@@ -1694,7 +1690,7 @@ func TestEncodingRequiredStatus(t *testing.T) {
 	if _, err := s.trReader.(*transportReader).Read(p); err != io.EOF {
 		t.Fatalf("Read got error %v, want %v", err, io.EOF)
 	}
-	if !reflect.DeepEqual(s.Status(), encodingTestStatus) {
+	if !testutils.StatusErrEqual(s.Status().Err(), encodingTestStatus.Err()) {
 		t.Fatalf("stream with status %v, want %v", s.Status(), encodingTestStatus)
 	}
 	ct.Close()
@@ -1719,6 +1715,24 @@ func TestInvalidHeaderField(t *testing.T) {
 	}
 	ct.Close()
 	server.stop()
+}
+
+func TestHeaderChanClosedAfterReceivingAnInvalidHeader(t *testing.T) {
+	server, ct, cancel := setUp(t, 0, math.MaxUint32, invalidHeaderField)
+	defer cancel()
+	defer server.stop()
+	defer ct.Close()
+	s, err := ct.NewStream(context.Background(), &CallHdr{Host: "localhost", Method: "foo"})
+	if err != nil {
+		t.Fatalf("failed to create the stream")
+	}
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+	select {
+	case <-s.headerChan:
+	case <-timer.C:
+		t.Errorf("s.headerChan: got open, want closed")
+	}
 }
 
 func TestIsReservedHeader(t *testing.T) {
@@ -1943,167 +1957,6 @@ func waitWhileTrue(t *testing.T, condition func() (bool, error)) {
 	}
 }
 
-// A function of type writeHeaders writes out
-// http status with the given stream ID using the given framer.
-type writeHeaders func(*http2.Framer, uint32, int) error
-
-func writeOneHeader(framer *http2.Framer, sid uint32, httpStatus int) error {
-	var buf bytes.Buffer
-	henc := hpack.NewEncoder(&buf)
-	henc.WriteField(hpack.HeaderField{Name: ":status", Value: fmt.Sprint(httpStatus)})
-	return framer.WriteHeaders(http2.HeadersFrameParam{
-		StreamID:      sid,
-		BlockFragment: buf.Bytes(),
-		EndStream:     true,
-		EndHeaders:    true,
-	})
-}
-
-func writeTwoHeaders(framer *http2.Framer, sid uint32, httpStatus int) error {
-	var buf bytes.Buffer
-	henc := hpack.NewEncoder(&buf)
-	henc.WriteField(hpack.HeaderField{
-		Name:  ":status",
-		Value: fmt.Sprint(http.StatusOK),
-	})
-	if err := framer.WriteHeaders(http2.HeadersFrameParam{
-		StreamID:      sid,
-		BlockFragment: buf.Bytes(),
-		EndHeaders:    true,
-	}); err != nil {
-		return err
-	}
-	buf.Reset()
-	henc.WriteField(hpack.HeaderField{
-		Name:  ":status",
-		Value: fmt.Sprint(httpStatus),
-	})
-	return framer.WriteHeaders(http2.HeadersFrameParam{
-		StreamID:      sid,
-		BlockFragment: buf.Bytes(),
-		EndStream:     true,
-		EndHeaders:    true,
-	})
-}
-
-type httpServer struct {
-	httpStatus int
-	wh         writeHeaders
-}
-
-func (s *httpServer) start(t *testing.T, lis net.Listener) {
-	// Launch an HTTP server to send back header with httpStatus.
-	go func() {
-		conn, err := lis.Accept()
-		if err != nil {
-			t.Errorf("Error accepting connection: %v", err)
-			return
-		}
-		defer conn.Close()
-		// Read preface sent by client.
-		if _, err = io.ReadFull(conn, make([]byte, len(http2.ClientPreface))); err != nil {
-			t.Errorf("Error at server-side while reading preface from client. Err: %v", err)
-			return
-		}
-		reader := bufio.NewReaderSize(conn, defaultWriteBufSize)
-		writer := bufio.NewWriterSize(conn, defaultReadBufSize)
-		framer := http2.NewFramer(writer, reader)
-		if err = framer.WriteSettingsAck(); err != nil {
-			t.Errorf("Error at server-side while sending Settings ack. Err: %v", err)
-			return
-		}
-		var sid uint32
-		// Read frames until a header is received.
-		for {
-			frame, err := framer.ReadFrame()
-			if err != nil {
-				t.Errorf("Error at server-side while reading frame. Err: %v", err)
-				return
-			}
-			if hframe, ok := frame.(*http2.HeadersFrame); ok {
-				sid = hframe.Header().StreamID
-				break
-			}
-		}
-		if err = s.wh(framer, sid, s.httpStatus); err != nil {
-			t.Errorf("Error at server-side while writing headers. Err: %v", err)
-			return
-		}
-		writer.Flush()
-	}()
-}
-
-func setUpHTTPStatusTest(t *testing.T, httpStatus int, wh writeHeaders) (*Stream, func()) {
-	lis, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("Failed to listen. Err: %v", err)
-	}
-	server := &httpServer{
-		httpStatus: httpStatus,
-		wh:         wh,
-	}
-	server.start(t, lis)
-	connectCtx, cancel := context.WithDeadline(context.Background(), time.Now().Add(2*time.Second))
-	defer cancel()
-	client, err := newHTTP2Client(connectCtx, context.Background(), TargetInfo{Addr: lis.Addr().String()}, ConnectOptions{}, func() {}, func(GoAwayReason) {}, func() {})
-	if err != nil {
-		lis.Close()
-		t.Fatalf("Error creating client. Err: %v", err)
-	}
-	stream, err := client.NewStream(context.Background(), &CallHdr{Method: "bogus/method"})
-	if err != nil {
-		client.Close()
-		lis.Close()
-		t.Fatalf("Error creating stream at client-side. Err: %v", err)
-	}
-	return stream, func() {
-		client.Close()
-		lis.Close()
-	}
-}
-
-func TestHTTPToGRPCStatusMapping(t *testing.T) {
-	for k := range httpStatusConvTab {
-		testHTTPToGRPCStatusMapping(t, k, writeOneHeader)
-	}
-}
-
-func testHTTPToGRPCStatusMapping(t *testing.T, httpStatus int, wh writeHeaders) {
-	stream, cleanUp := setUpHTTPStatusTest(t, httpStatus, wh)
-	defer cleanUp()
-	want := httpStatusConvTab[httpStatus]
-	buf := make([]byte, 8)
-	_, err := stream.Read(buf)
-	if err == nil {
-		t.Fatalf("Stream.Read(_) unexpectedly returned no error. Expected stream error with code %v", want)
-	}
-	serr, ok := status.FromError(err)
-	if !ok {
-		t.Fatalf("err.(Type) = %T, want status error", err)
-	}
-	if want != serr.Code() {
-		t.Fatalf("Want error code: %v, got: %v", want, serr.Code())
-	}
-}
-
-func TestHTTPStatusOKAndMissingGRPCStatus(t *testing.T) {
-	stream, cleanUp := setUpHTTPStatusTest(t, http.StatusOK, writeOneHeader)
-	defer cleanUp()
-	buf := make([]byte, 8)
-	_, err := stream.Read(buf)
-	if err != io.EOF {
-		t.Fatalf("stream.Read(_) = _, %v, want _, io.EOF", err)
-	}
-	want := codes.Unknown
-	if stream.status.Code() != want {
-		t.Fatalf("Status code of stream: %v, want: %v", stream.status.Code(), want)
-	}
-}
-
-func TestHTTPStatusNottOKAndMissingGRPCStatusInSecondHeader(t *testing.T) {
-	testHTTPToGRPCStatusMapping(t, http.StatusUnauthorized, writeTwoHeaders)
-}
-
 // If any error occurs on a call to Stream.Read, future calls
 // should continue to return that same error.
 func TestReadGivesSameErrorAfterAnyErrorOccurs(t *testing.T) {
@@ -2115,16 +1968,18 @@ func TestReadGivesSameErrorAfterAnyErrorOccurs(t *testing.T) {
 	}
 	s.trReader = &transportReader{
 		reader: &recvBufferReader{
-			ctx:     s.ctx,
-			ctxDone: s.ctx.Done(),
-			recv:    s.buf,
+			ctx:        s.ctx,
+			ctxDone:    s.ctx.Done(),
+			recv:       s.buf,
+			freeBuffer: func(*bytes.Buffer) {},
 		},
 		windowHandler: func(int) {},
 	}
 	testData := make([]byte, 1)
 	testData[0] = 5
+	testBuffer := bytes.NewBuffer(testData)
 	testErr := errors.New("test error")
-	s.write(recvMsg{data: testData, err: testErr})
+	s.write(recvMsg{buffer: testBuffer, err: testErr})
 
 	inBuf := make([]byte, 1)
 	actualCount, actualErr := s.Read(inBuf)
@@ -2135,8 +1990,8 @@ func TestReadGivesSameErrorAfterAnyErrorOccurs(t *testing.T) {
 		t.Errorf("_ , actualErr := s.Read(_) differs; want actualErr.Error() to be %v; got %v", testErr.Error(), actualErr.Error())
 	}
 
-	s.write(recvMsg{data: testData, err: nil})
-	s.write(recvMsg{data: testData, err: errors.New("different error from first")})
+	s.write(recvMsg{buffer: testBuffer, err: nil})
+	s.write(recvMsg{buffer: testBuffer, err: errors.New("different error from first")})
 
 	for i := 0; i < 2; i++ {
 		inBuf := make([]byte, 1)

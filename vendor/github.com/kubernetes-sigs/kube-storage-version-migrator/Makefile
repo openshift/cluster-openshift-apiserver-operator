@@ -9,6 +9,6 @@ include $(addprefix ./vendor/github.com/openshift/library-go/alpha-build-machine
 	targets/openshift/images.mk \
 )
 
+# generate image targets
 IMAGE_REGISTRY :=registry.svc.ci.openshift.org
-$(call build-image,migrator,$(IMAGE_REGISTRY)/ocp/4.3:migrator,./images/ci/Dockerfile,.)
-
+$(call build-image,kube-storage-version-migrator,$(IMAGE_REGISTRY)/ocp/4.3:kube-storage-version-migrator,./images/ci/Dockerfile,.)
