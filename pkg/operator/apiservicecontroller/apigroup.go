@@ -5,13 +5,12 @@ import (
 	"net/http"
 
 	"github.com/openshift/library-go/pkg/operator/events"
-	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 )
 
-func NewEndpointPrecondition(kubeInformers kubeinformers.SharedInformerFactory, apiServices []*apiregistrationv1.APIService) wait.ConditionFunc {
+func newEndpointPrecondition(kubeInformers kubeinformers.SharedInformerFactory) func(apiServices []*apiregistrationv1.APIService) (bool, error) {
 	// this is outside the func so it always registers before the informers start
 	endpointsLister := kubeInformers.Core().V1().Endpoints().Lister()
 
@@ -19,22 +18,24 @@ func NewEndpointPrecondition(kubeInformers kubeinformers.SharedInformerFactory, 
 		namespace string
 		name      string
 	}
-	coordinates := []coordinate{}
-	for _, apiService := range apiServices {
-		curr := coordinate{namespace: apiService.Spec.Service.Namespace, name: apiService.Spec.Service.Name}
-		exists := false
-		for _, j := range coordinates {
-			if j == curr {
-				exists = true
-				break
+
+	return func(apiServices []*apiregistrationv1.APIService) (bool, error) {
+
+		coordinates := []coordinate{}
+		for _, apiService := range apiServices {
+			curr := coordinate{namespace: apiService.Spec.Service.Namespace, name: apiService.Spec.Service.Name}
+			exists := false
+			for _, j := range coordinates {
+				if j == curr {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				coordinates = append(coordinates, curr)
 			}
 		}
-		if !exists {
-			coordinates = append(coordinates, curr)
-		}
-	}
 
-	return func() (bool, error) {
 		for _, curr := range coordinates {
 			endpoints, err := endpointsLister.Endpoints(curr.namespace).Get(curr.name)
 			if err != nil {

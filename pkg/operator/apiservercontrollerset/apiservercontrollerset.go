@@ -3,7 +3,6 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
-
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
@@ -18,7 +17,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 )
@@ -123,7 +121,7 @@ func (cs *APIServerControllerSet) WithoutClusterOperatorStatusController() *APIS
 
 func (cs *APIServerControllerSet) WithAPIServiceController(
 	controllerName string,
-	apiServices []*apiregistrationv1.APIService,
+	getAPIServicesToManageFn apiservicecontroller.GetAPIServicesToMangeFunc,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
 	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
@@ -131,7 +129,7 @@ func (cs *APIServerControllerSet) WithAPIServiceController(
 ) *APIServerControllerSet {
 	cs.apiServiceController.controller = apiservicecontroller.NewAPIServiceController(
 		controllerName,
-		apiServices,
+		getAPIServicesToManageFn,
 		cs.operatorClient,
 		apiregistrationInformers,
 		apiregistrationv1Client,
