@@ -39,12 +39,6 @@ func init() {
 	channelz.TurnOn()
 }
 
-func cleanupWrapper(cleanup func() error, t *testing.T) {
-	if err := cleanup(); err != nil {
-		t.Error(err)
-	}
-}
-
 type protoToSocketOptFunc func([]*channelzpb.SocketOption) *channelz.SocketOptionData
 
 // protoToSocketOpt is used in function socketProtoToStruct to extract socket option
@@ -311,11 +305,9 @@ func TestGetTopChannels(t *testing.T) {
 		},
 		{},
 	}
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	for _, c := range tcs {
-		id := channelz.RegisterChannel(c, 0, "")
-		defer channelz.RemoveEntry(id)
+		channelz.RegisterChannel(c, 0, "")
 	}
 	s := newCZServer()
 	resp, _ := s.GetTopChannels(context.Background(), &channelzpb.GetTopChannelsRequest{StartChannelId: 0})
@@ -328,8 +320,7 @@ func TestGetTopChannels(t *testing.T) {
 		}
 	}
 	for i := 0; i < 50; i++ {
-		id := channelz.RegisterChannel(tcs[0], 0, "")
-		defer channelz.RemoveEntry(id)
+		channelz.RegisterChannel(tcs[0], 0, "")
 	}
 	resp, _ = s.GetTopChannels(context.Background(), &channelzpb.GetTopChannelsRequest{StartChannelId: 0})
 	if resp.GetEnd() {
@@ -358,11 +349,9 @@ func TestGetServers(t *testing.T) {
 			lastCallStartedTimestamp: time.Now().UTC(),
 		},
 	}
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	for _, s := range ss {
-		id := channelz.RegisterServer(s, "")
-		defer channelz.RemoveEntry(id)
+		channelz.RegisterServer(s, "")
 	}
 	svr := newCZServer()
 	resp, _ := svr.GetServers(context.Background(), &channelzpb.GetServersRequest{StartServerId: 0})
@@ -375,8 +364,7 @@ func TestGetServers(t *testing.T) {
 		}
 	}
 	for i := 0; i < 50; i++ {
-		id := channelz.RegisterServer(ss[0], "")
-		defer channelz.RemoveEntry(id)
+		channelz.RegisterServer(ss[0], "")
 	}
 	resp, _ = svr.GetServers(context.Background(), &channelzpb.GetServersRequest{StartServerId: 0})
 	if resp.GetEnd() {
@@ -385,18 +373,13 @@ func TestGetServers(t *testing.T) {
 }
 
 func TestGetServerSockets(t *testing.T) {
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	svrID := channelz.RegisterServer(&dummyServer{}, "")
-	defer channelz.RemoveEntry(svrID)
 	refNames := []string{"listen socket 1", "normal socket 1", "normal socket 2"}
 	ids := make([]int64, 3)
 	ids[0] = channelz.RegisterListenSocket(&dummySocket{}, svrID, refNames[0])
 	ids[1] = channelz.RegisterNormalSocket(&dummySocket{}, svrID, refNames[1])
 	ids[2] = channelz.RegisterNormalSocket(&dummySocket{}, svrID, refNames[2])
-	for _, id := range ids {
-		defer channelz.RemoveEntry(id)
-	}
 	svr := newCZServer()
 	resp, _ := svr.GetServerSockets(context.Background(), &channelzpb.GetServerSocketsRequest{ServerId: svrID, StartSocketId: 0})
 	if !resp.GetEnd() {
@@ -412,8 +395,7 @@ func TestGetServerSockets(t *testing.T) {
 	}
 
 	for i := 0; i < 50; i++ {
-		id := channelz.RegisterNormalSocket(&dummySocket{}, svrID, "")
-		defer channelz.RemoveEntry(id)
+		channelz.RegisterNormalSocket(&dummySocket{}, svrID, "")
 	}
 	resp, _ = svr.GetServerSockets(context.Background(), &channelzpb.GetServerSocketsRequest{ServerId: svrID, StartSocketId: 0})
 	if resp.GetEnd() {
@@ -424,18 +406,13 @@ func TestGetServerSockets(t *testing.T) {
 // This test makes a GetServerSockets with a non-zero start ID, and expect only
 // sockets with ID >= the given start ID.
 func TestGetServerSocketsNonZeroStartID(t *testing.T) {
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	svrID := channelz.RegisterServer(&dummyServer{}, "")
-	defer channelz.RemoveEntry(svrID)
 	refNames := []string{"listen socket 1", "normal socket 1", "normal socket 2"}
 	ids := make([]int64, 3)
 	ids[0] = channelz.RegisterListenSocket(&dummySocket{}, svrID, refNames[0])
 	ids[1] = channelz.RegisterNormalSocket(&dummySocket{}, svrID, refNames[1])
 	ids[2] = channelz.RegisterNormalSocket(&dummySocket{}, svrID, refNames[2])
-	for _, id := range ids {
-		defer channelz.RemoveEntry(id)
-	}
 	svr := newCZServer()
 	// Make GetServerSockets with startID = ids[1]+1, so socket-1 won't be
 	// included in the response.
@@ -454,8 +431,7 @@ func TestGetServerSocketsNonZeroStartID(t *testing.T) {
 }
 
 func TestGetChannel(t *testing.T) {
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	refNames := []string{"top channel 1", "nested channel 1", "sub channel 2", "nested channel 3"}
 	ids := make([]int64, 4)
 	ids[0] = channelz.RegisterChannel(&dummyChannel{}, 0, refNames[0])
@@ -499,9 +475,6 @@ func TestGetChannel(t *testing.T) {
 		Desc:     "Resolver returns an empty address list",
 		Severity: channelz.CtWarning,
 	})
-	for _, id := range ids {
-		defer channelz.RemoveEntry(id)
-	}
 	svr := newCZServer()
 	resp, _ := svr.GetChannel(context.Background(), &channelzpb.GetChannelRequest{ChannelId: ids[0]})
 	metrics := resp.GetChannel()
@@ -557,8 +530,7 @@ func TestGetSubChannel(t *testing.T) {
 		subchanConnectivityChange = fmt.Sprintf("Subchannel Connectivity change to %v", connectivity.Ready)
 		subChanPickNewAddress     = fmt.Sprintf("Subchannel picks a new address %q to connect", "0.0.0.0")
 	)
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	refNames := []string{"top channel 1", "sub channel 1", "socket 1", "socket 2"}
 	ids := make([]int64, 4)
 	ids[0] = channelz.RegisterChannel(&dummyChannel{}, 0, refNames[0])
@@ -585,9 +557,6 @@ func TestGetSubChannel(t *testing.T) {
 		Desc:     subChanPickNewAddress,
 		Severity: channelz.CtINFO,
 	})
-	for _, id := range ids {
-		defer channelz.RemoveEntry(id)
-	}
 	svr := newCZServer()
 	resp, _ := svr.GetSubchannel(context.Background(), &channelzpb.GetSubchannelRequest{SubchannelId: ids[1]})
 	metrics := resp.GetSubchannel()
@@ -629,8 +598,7 @@ func TestGetSubChannel(t *testing.T) {
 }
 
 func TestGetSocket(t *testing.T) {
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	ss := []*dummySocket{
 		{
 			streamsStarted:                   10,
@@ -705,10 +673,8 @@ func TestGetSocket(t *testing.T) {
 	svr := newCZServer()
 	ids := make([]int64, len(ss))
 	svrID := channelz.RegisterServer(&dummyServer{}, "")
-	defer channelz.RemoveEntry(svrID)
 	for i, s := range ss {
 		ids[i] = channelz.RegisterNormalSocket(s, svrID, strconv.Itoa(i))
-		defer channelz.RemoveEntry(ids[i])
 	}
 	for i, s := range ss {
 		resp, _ := svr.GetSocket(context.Background(), &channelzpb.GetSocketRequest{SocketId: ids[i]})

@@ -32,7 +32,6 @@ import (
 	"google.golang.org/grpc/internal"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
-	"google.golang.org/grpc/serviceconfig"
 )
 
 var _ balancer.Builder = &magicalLB{}
@@ -142,19 +141,18 @@ func (s) TestSwitchBalancer(t *testing.T) {
 		t.Fatalf("failed to dial: %v", err)
 	}
 	defer cc.Close()
-	addrs := []resolver.Address{{Addr: servers[0].addr}, {Addr: servers[1].addr}}
-	r.UpdateState(resolver.State{Addresses: addrs})
+	r.NewAddress([]resolver.Address{{Addr: servers[0].addr}, {Addr: servers[1].addr}})
 	// The default balancer is pickfirst.
 	if err := checkPickFirst(cc, servers); err != nil {
 		t.Fatalf("check pickfirst returned non-nil error: %v", err)
 	}
 	// Switch to roundrobin.
-	cc.updateResolverState(resolver.State{ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`), Addresses: addrs})
+	cc.handleServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
 	if err := checkRoundRobin(cc, servers); err != nil {
 		t.Fatalf("check roundrobin returned non-nil error: %v", err)
 	}
 	// Switch to pickfirst.
-	cc.updateResolverState(resolver.State{ServiceConfig: parseCfg(`{"loadBalancingPolicy": "pick_first"}`), Addresses: addrs})
+	cc.handleServiceConfig(`{"loadBalancingPolicy": "pick_first"}`)
 	if err := checkPickFirst(cc, servers); err != nil {
 		t.Fatalf("check pickfirst returned non-nil error: %v", err)
 	}
@@ -174,14 +172,13 @@ func (s) TestBalancerDialOption(t *testing.T) {
 		t.Fatalf("failed to dial: %v", err)
 	}
 	defer cc.Close()
-	addrs := []resolver.Address{{Addr: servers[0].addr}, {Addr: servers[1].addr}}
-	r.UpdateState(resolver.State{Addresses: addrs})
+	r.NewAddress([]resolver.Address{{Addr: servers[0].addr}, {Addr: servers[1].addr}})
 	// The init balancer is roundrobin.
 	if err := checkRoundRobin(cc, servers); err != nil {
 		t.Fatalf("check roundrobin returned non-nil error: %v", err)
 	}
 	// Switch to pickfirst.
-	cc.updateResolverState(resolver.State{ServiceConfig: parseCfg(`{"loadBalancingPolicy": "pick_first"}`), Addresses: addrs})
+	cc.handleServiceConfig(`{"loadBalancingPolicy": "pick_first"}`)
 	// Balancer is still roundrobin.
 	if err := checkRoundRobin(cc, servers); err != nil {
 		t.Fatalf("check roundrobin returned non-nil error: %v", err)
@@ -201,7 +198,7 @@ func (s) TestSwitchBalancerGRPCLBFirst(t *testing.T) {
 
 	// ClientConn will switch balancer to grpclb when receives an address of
 	// type GRPCLB.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}, {Addr: "grpclb", Type: resolver.GRPCLB}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}, {Addr: "grpclb", Type: resolver.GRPCLB}})
 	var isGRPCLB bool
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
@@ -218,7 +215,7 @@ func (s) TestSwitchBalancerGRPCLBFirst(t *testing.T) {
 
 	// New update containing new backend and new grpclb. Should not switch
 	// balancer.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend2"}, {Addr: "grpclb2", Type: resolver.GRPCLB}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend2"}, {Addr: "grpclb2", Type: resolver.GRPCLB}})
 	for i := 0; i < 200; i++ {
 		cc.mu.Lock()
 		isGRPCLB = cc.curBalancerName == "grpclb"
@@ -234,7 +231,7 @@ func (s) TestSwitchBalancerGRPCLBFirst(t *testing.T) {
 
 	var isPickFirst bool
 	// Switch balancer to pickfirst.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}})
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
 		isPickFirst = cc.curBalancerName == PickFirstBalancerName
@@ -260,7 +257,7 @@ func (s) TestSwitchBalancerGRPCLBSecond(t *testing.T) {
 	}
 	defer cc.Close()
 
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}})
 	var isPickFirst bool
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
@@ -277,7 +274,7 @@ func (s) TestSwitchBalancerGRPCLBSecond(t *testing.T) {
 
 	// ClientConn will switch balancer to grpclb when receives an address of
 	// type GRPCLB.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}, {Addr: "grpclb", Type: resolver.GRPCLB}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}, {Addr: "grpclb", Type: resolver.GRPCLB}})
 	var isGRPCLB bool
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
@@ -294,7 +291,7 @@ func (s) TestSwitchBalancerGRPCLBSecond(t *testing.T) {
 
 	// New update containing new backend and new grpclb. Should not switch
 	// balancer.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend2"}, {Addr: "grpclb2", Type: resolver.GRPCLB}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend2"}, {Addr: "grpclb2", Type: resolver.GRPCLB}})
 	for i := 0; i < 200; i++ {
 		cc.mu.Lock()
 		isGRPCLB = cc.curBalancerName == "grpclb"
@@ -309,7 +306,7 @@ func (s) TestSwitchBalancerGRPCLBSecond(t *testing.T) {
 	}
 
 	// Switch balancer back.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}})
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
 		isPickFirst = cc.curBalancerName == PickFirstBalancerName
@@ -337,9 +334,9 @@ func (s) TestSwitchBalancerGRPCLBRoundRobin(t *testing.T) {
 	}
 	defer cc.Close()
 
-	sc := parseCfg(`{"loadBalancingPolicy": "round_robin"}`)
+	r.NewServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
 
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}}, ServiceConfig: sc})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}})
 	var isRoundRobin bool
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
@@ -356,7 +353,7 @@ func (s) TestSwitchBalancerGRPCLBRoundRobin(t *testing.T) {
 
 	// ClientConn will switch balancer to grpclb when receives an address of
 	// type GRPCLB.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "grpclb", Type: resolver.GRPCLB}}, ServiceConfig: sc})
+	r.NewAddress([]resolver.Address{{Addr: "grpclb", Type: resolver.GRPCLB}})
 	var isGRPCLB bool
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
@@ -372,7 +369,7 @@ func (s) TestSwitchBalancerGRPCLBRoundRobin(t *testing.T) {
 	}
 
 	// Switch balancer back.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}}, ServiceConfig: sc})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}})
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
 		isRoundRobin = cc.curBalancerName == "round_robin"
@@ -400,7 +397,7 @@ func (s) TestSwitchBalancerGRPCLBServiceConfig(t *testing.T) {
 	}
 	defer cc.Close()
 
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}}})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}})
 	var isPickFirst bool
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
@@ -417,8 +414,7 @@ func (s) TestSwitchBalancerGRPCLBServiceConfig(t *testing.T) {
 
 	// ClientConn will switch balancer to grpclb when receives an address of
 	// type GRPCLB.
-	addrs := []resolver.Address{{Addr: "grpclb", Type: resolver.GRPCLB}}
-	r.UpdateState(resolver.State{Addresses: addrs})
+	r.NewAddress([]resolver.Address{{Addr: "grpclb", Type: resolver.GRPCLB}})
 	var isGRPCLB bool
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
@@ -433,8 +429,7 @@ func (s) TestSwitchBalancerGRPCLBServiceConfig(t *testing.T) {
 		t.Fatalf("after 5 second, cc.balancer is of type %v, not grpclb", cc.curBalancerName)
 	}
 
-	sc := parseCfg(`{"loadBalancingPolicy": "round_robin"}`)
-	r.UpdateState(resolver.State{Addresses: addrs, ServiceConfig: sc})
+	r.NewServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
 	var isRoundRobin bool
 	for i := 0; i < 200; i++ {
 		cc.mu.Lock()
@@ -452,7 +447,7 @@ func (s) TestSwitchBalancerGRPCLBServiceConfig(t *testing.T) {
 	}
 
 	// Switch balancer back.
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "backend"}}, ServiceConfig: sc})
+	r.NewAddress([]resolver.Address{{Addr: "backend"}})
 	for i := 0; i < 5000; i++ {
 		cc.mu.Lock()
 		isRoundRobin = cc.curBalancerName == "round_robin"
@@ -490,7 +485,7 @@ func (s) TestSwitchBalancerGRPCLBWithGRPCLBNotRegistered(t *testing.T) {
 		t.Fatalf("failed to dial: %v", err)
 	}
 	defer cc.Close()
-	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: servers[1].addr}, {Addr: servers[2].addr}}})
+	r.NewAddress([]resolver.Address{{Addr: servers[1].addr}, {Addr: servers[2].addr}})
 	// The default balancer is pickfirst.
 	if err := checkPickFirst(cc, servers[1:]); err != nil {
 		t.Fatalf("check pickfirst returned non-nil error: %v", err)
@@ -501,25 +496,16 @@ func (s) TestSwitchBalancerGRPCLBWithGRPCLBNotRegistered(t *testing.T) {
 	//
 	// If the filtering failed, servers[0] will be used for RPCs and the RPCs
 	// will succeed. The following checks will catch this and fail.
-	addrs := []resolver.Address{
+	r.NewAddress([]resolver.Address{
 		{Addr: servers[0].addr, Type: resolver.GRPCLB},
-		{Addr: servers[1].addr}, {Addr: servers[2].addr}}
-	r.UpdateState(resolver.State{Addresses: addrs})
+		{Addr: servers[1].addr}, {Addr: servers[2].addr}})
 	// Still check for pickfirst, but only with server[1] and server[2].
 	if err := checkPickFirst(cc, servers[1:]); err != nil {
 		t.Fatalf("check pickfirst returned non-nil error: %v", err)
 	}
-	// Switch to roundrobin, and check against server[1] and server[2].
-	cc.updateResolverState(resolver.State{ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`), Addresses: addrs})
+	// Switch to roundrobin, anc check against server[1] and server[2].
+	cc.handleServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
 	if err := checkRoundRobin(cc, servers[1:]); err != nil {
 		t.Fatalf("check roundrobin returned non-nil error: %v", err)
 	}
-}
-
-func parseCfg(s string) serviceconfig.Config {
-	c, err := serviceconfig.Parse(s)
-	if err != nil {
-		panic(fmt.Sprintf("Error parsing config %q: %v", s, err))
-	}
-	return c
 }

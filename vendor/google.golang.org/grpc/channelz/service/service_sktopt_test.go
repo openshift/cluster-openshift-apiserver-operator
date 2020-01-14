@@ -125,8 +125,7 @@ func protoToSocketOption(skopts []*channelzpb.SocketOption) *channelz.SocketOpti
 }
 
 func TestGetSocketOptions(t *testing.T) {
-	czCleanup := channelz.NewChannelzStorage()
-	defer cleanupWrapper(czCleanup, t)
+	channelz.NewChannelzStorage()
 	ss := []*dummySocket{
 		{
 			socketOptions: &channelz.SocketOptionData{
@@ -140,10 +139,8 @@ func TestGetSocketOptions(t *testing.T) {
 	svr := newCZServer()
 	ids := make([]int64, len(ss))
 	svrID := channelz.RegisterServer(&dummyServer{}, "")
-	defer channelz.RemoveEntry(svrID)
 	for i, s := range ss {
 		ids[i] = channelz.RegisterNormalSocket(s, svrID, strconv.Itoa(i))
-		defer channelz.RemoveEntry(ids[i])
 	}
 	for i, s := range ss {
 		resp, _ := svr.GetSocket(context.Background(), &channelzpb.GetSocketRequest{SocketId: ids[i]})
