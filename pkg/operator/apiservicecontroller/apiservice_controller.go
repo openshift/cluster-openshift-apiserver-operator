@@ -186,7 +186,8 @@ func (c *APIServiceController) syncAPIServices() error {
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
-func (c *APIServiceController) Run(ctx context.Context) {
+// The number of workers is ignored
+func (c *APIServiceController) Run(ctx context.Context, _ int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
