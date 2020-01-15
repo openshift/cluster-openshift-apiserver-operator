@@ -7,6 +7,7 @@
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
+// bindata/v3.11.0/openshift-apiserver/trusted_ca_cm.yaml
 // DO NOT EDIT!
 
 package v311_00_assets
@@ -392,6 +393,30 @@ func v3110OpenshiftApiserverSvcYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverTrusted_ca_cmYaml = []byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: openshift-apiserver
+  name: trusted-ca-bundle
+  labels:
+    config.openshift.io/inject-trusted-cabundle: "true"
+`)
+
+func v3110OpenshiftApiserverTrusted_ca_cmYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverTrusted_ca_cmYaml, nil
+}
+
+func v3110OpenshiftApiserverTrusted_ca_cmYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverTrusted_ca_cmYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/trusted_ca_cm.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -451,6 +476,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
+	"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml":                v3110OpenshiftApiserverTrusted_ca_cmYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -503,6 +529,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
+			"trusted_ca_cm.yaml":                {v3110OpenshiftApiserverTrusted_ca_cmYaml, map[string]*bintree{}},
 		}},
 	}},
 }}

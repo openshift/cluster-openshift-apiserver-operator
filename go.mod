@@ -26,8 +26,3 @@ require (
 	k8s.io/kube-aggregator v0.17.0
 	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
 )
-
-replace (
-	github.com/jteeuwen/go-bindata => github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
-	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
-)

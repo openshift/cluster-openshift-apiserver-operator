@@ -2,7 +2,6 @@ package workloadcontroller
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -50,6 +49,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
 		"v3.11.0/openshift-apiserver/svc.yaml",
 		"v3.11.0/openshift-apiserver/sa.yaml",
+		"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
 	)
 	for _, currResult := range directResourceResults {
 		if currResult.Error != nil {
@@ -66,11 +66,6 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	_, _, err = manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "image-import-ca", err))
-	}
-
-	err = syncOpenShiftAPIServerTrustedCA_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "trusted-ca-bundle", err))
 	}
 
 	// our configmaps and secrets are in order, now it is time to create the DS
@@ -256,47 +251,6 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 	// this can leave configmaps mounted without any content, but that should not have an impact on functionality since empty and missing
 	// should logically be treated the same in the case of trust.
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
-}
-
-func syncOpenShiftAPIServerTrustedCA_v311_00_to_latest(client coreclientv1.CoreV1Interface, recorder events.Recorder) error {
-	// get the CM created by the CVO in the operator namespace
-	sourceCM, err := client.ConfigMaps(operatorclient.OperatorNamespace).Get("trusted-ca-bundle", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	// it's optional, don't sync it if it has no data -> prevent trust store being removed upon startup/upgrade
-	if len(sourceCM.Data) == 0 {
-		return nil
-	}
-
-	// get the copy of the sourceCM, remove the annotations and labels we set for CVO and network operator
-	requiredCM := sourceCM.DeepCopy()
-	requiredCM.UID = ""
-	requiredCM.ObjectMeta.ResourceVersion = ""
-	requiredCM.ObjectMeta.Namespace = operatorclient.TargetNamespace
-	delete(requiredCM.Annotations, "release.openshift.io/create-only")
-	delete(requiredCM.Labels, "config.openshift.io/inject-trusted-cabundle")
-
-	targetClient := client.ConfigMaps(operatorclient.TargetNamespace)
-	imageCM, err := targetClient.Get(requiredCM.Name, metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		_, err = targetClient.Create(requiredCM)
-		return err
-	}
-
-	if err != nil {
-		return err
-	}
-
-	// if the target CM Data differs, update it
-	if !reflect.DeepEqual(sourceCM.Data, imageCM.Data) {
-		requiredCM.UID = imageCM.UID
-		requiredCM.ResourceVersion = imageCM.ResourceVersion
-		_, err = targetClient.Update(requiredCM)
-	}
-
-	return err
 }
 
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
