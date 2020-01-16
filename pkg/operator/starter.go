@@ -3,6 +3,8 @@ package operator
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
 	"time"
 
@@ -136,7 +138,14 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	).WithAPIServiceController(
 		"openshift-apiserver",
-		apiServices(),
+		apiservicecontroller.NewAPIServicesToManage(
+			apiregistrationv1Client.ApiregistrationV1(),
+			operatorConfigInformers.Operator().V1().Authentications().Lister(),
+			apiServices(),
+			controllerConfig.EventRecorder,
+			sets.NewString("v1.oauth.openshift.io", "v1.user.openshift.io"),
+			"authentication.operator.openshift.io/managed",
+		).GetAPIServicesToManage,
 		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),

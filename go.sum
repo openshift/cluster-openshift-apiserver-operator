@@ -308,6 +308,8 @@ github.com/openshift/api v0.0.0-20191217141120-791af96035a5/go.mod h1:dOo9oLY4le
 github.com/openshift/api v0.0.0-20200109154256-35a64c701b10/go.mod h1:dv+J0b/HWai0QnMVb37/H0v36klkLBi2TNpPeWDxX10=
 github.com/openshift/api v0.0.0-20200109182645-c3cf38ec5571 h1:cREUBoPv0hEFnWvSg12TVjjsYcEfNqglyE12Ody4gJk=
 github.com/openshift/api v0.0.0-20200109182645-c3cf38ec5571/go.mod h1:N1jYLqdomc/eHHrU/wphMsZBzRvxv5FBc7ATIdSQelI=
+github.com/openshift/api v0.0.0-20200115130134-f472aa214b03 h1:FH/0yrv+sii6Z9fU9x4G/eClVMs7yN9jtYOArzuIFzs=
+github.com/openshift/api v0.0.0-20200115130134-f472aa214b03/go.mod h1:WKvUfsZJ454fpKTZ2V+R+4/DI0pT4g9aDIizmZMkRto=
 github.com/openshift/client-go v0.0.0-20191216194936-57f413491e9e/go.mod h1:nLJaHFCQ5Mavh98g2ejEnWYFWBMGVdphrKNjLErOn/w=
 github.com/openshift/client-go v0.0.0-20200109173103-2763c6378941 h1:r9oaIRvM0JRem87eHGTCIJCWqRjRhZHcA0uc3cdc+mY=
 github.com/openshift/client-go v0.0.0-20200109173103-2763c6378941/go.mod h1:zMqD3jZrS8UB+n7ZBz/PtyFvkbKExD8i/Dfye5wgFqE=
@@ -502,6 +504,8 @@ golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72 h1:bw9doJza/SFBEweII/rHQh3
 golang.org/x/tools v0.0.0-20190920225731-5eefd052ad72/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20200108203644-89082a384178 h1:f5gMxb6FbpY48csegk9UPd7IAHVrBD013CU7N4pWzoE=
 golang.org/x/tools v0.0.0-20200108203644-89082a384178/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
+golang.org/x/tools v0.0.0-20200115044656-831fdb1e1868 h1:6VZw2h4iwEB4GwgQU3Jvcsm8l9+yReTrErAEK1k6AC4=
+golang.org/x/tools v0.0.0-20200115044656-831fdb1e1868/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
