@@ -3,10 +3,11 @@ package operator
 import (
 	"context"
 	"fmt"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
 	"time"
+
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,7 @@ import (
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
+	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -120,6 +122,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	workloadController := workloadcontroller.NewWorkloadController(
 		os.Getenv("IMAGE"), os.Getenv("OPERATOR_IMAGE"),
+		operatorClient,
 		versionRecorder,
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
@@ -224,6 +227,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	)
 
+	staleConditions := staleconditions.NewRemoveStaleConditions(
+		[]string{
+			// in 4.1.0-4.3.0 this was used for indicating the apiserver daemonset was progressing
+			"Progressing",
+			// in 4.1.0-4.3.0 this was used for indicating the apiserver daemonset was available
+			"Available",
+		},
+		operatorClient,
+		controllerConfig.EventRecorder,
+	)
+
 	if controllerConfig.Server != nil {
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
@@ -241,6 +255,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go encryptionControllers.Run(ctx.Done())
 	go pruneController.Run(ctx)
 	go runnableAPIServerControllers.Run(ctx)
+	go staleConditions.Run(1, ctx.Done())
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")

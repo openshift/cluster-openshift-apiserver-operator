@@ -26,14 +26,11 @@ import (
 	kubetesting "k8s.io/client-go/testing"
 )
 
-func TestProgressingCondition(t *testing.T) {
-
+func TestAPIServerDaemonSetProgressingCondition(t *testing.T) {
 	testCases := []struct {
 		name                        string
 		daemonSetGeneration         int64
 		daemonSetObservedGeneration int64
-		configGeneration            int64
-		configObservedGeneration    int64
 		expectedStatus              operatorv1.ConditionStatus
 		expectedMessage             string
 	}{
@@ -41,16 +38,12 @@ func TestProgressingCondition(t *testing.T) {
 			name:                        "HappyPath",
 			daemonSetGeneration:         100,
 			daemonSetObservedGeneration: 100,
-			configGeneration:            100,
-			configObservedGeneration:    100,
 			expectedStatus:              operatorv1.ConditionFalse,
 		},
 		{
 			name:                        "DaemonSetObservedAhead",
 			daemonSetGeneration:         100,
 			daemonSetObservedGeneration: 101,
-			configGeneration:            100,
-			configObservedGeneration:    100,
 			expectedStatus:              operatorv1.ConditionTrue,
 			expectedMessage:             "daemonset/apiserver.openshift-operator: observed generation is 101, desired generation is 100.",
 		},
@@ -58,44 +51,13 @@ func TestProgressingCondition(t *testing.T) {
 			name:                        "DaemonSetObservedBehind",
 			daemonSetGeneration:         101,
 			daemonSetObservedGeneration: 100,
-			configGeneration:            100,
-			configObservedGeneration:    100,
 			expectedStatus:              operatorv1.ConditionTrue,
 			expectedMessage:             "daemonset/apiserver.openshift-operator: observed generation is 100, desired generation is 101.",
-		},
-		{
-			name:                        "ConfigObservedAhead",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 100,
-			configGeneration:            100,
-			configObservedGeneration:    101,
-			expectedStatus:              operatorv1.ConditionTrue,
-			expectedMessage:             "openshiftapiserveroperatorconfigs/instance: observed generation is 101, desired generation is 100.",
-		},
-		{
-			name:                        "ConfigObservedBehind",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 100,
-			configGeneration:            101,
-			configObservedGeneration:    100,
-			expectedStatus:              operatorv1.ConditionTrue,
-			expectedMessage:             "openshiftapiserveroperatorconfigs/instance: observed generation is 100, desired generation is 101.",
-		},
-		{
-			name:                        "MultipleObservedAhead",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 101,
-			configGeneration:            100,
-			configObservedGeneration:    101,
-			expectedStatus:              operatorv1.ConditionTrue,
-			expectedMessage:             "daemonset/apiserver.openshift-operator: observed generation is 101, desired generation is 100.\nopenshiftapiserveroperatorconfigs/instance: observed generation is 101, desired generation is 100.",
 		},
 		{
 			name:                        "ConfigAndDaemonSetGenerationMismatch",
 			daemonSetGeneration:         100,
 			daemonSetObservedGeneration: 100,
-			configGeneration:            101,
-			configObservedGeneration:    101,
 			expectedStatus:              operatorv1.ConditionFalse,
 		},
 	}
@@ -120,37 +82,36 @@ func TestProgressingCondition(t *testing.T) {
 
 			operatorConfig := &operatorv1.OpenShiftAPIServer{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       "cluster",
-					Generation: tc.configGeneration,
+					Name: "cluster",
 				},
 				Spec: operatorv1.OpenShiftAPIServerSpec{
 					OperatorSpec: operatorv1.OperatorSpec{},
 				},
 				Status: operatorv1.OpenShiftAPIServerStatus{
-					OperatorStatus: operatorv1.OperatorStatus{
-						ObservedGeneration: tc.configObservedGeneration,
-					},
+					OperatorStatus: operatorv1.OperatorStatus{},
 				},
 			}
 			apiServiceOperatorClient := operatorfake.NewSimpleClientset(operatorConfig)
 			openshiftConfigClient := configfake.NewSimpleClientset()
+			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
 
 			operator := OpenShiftAPIServerOperator{
 				kubeClient:            kubeClient,
 				eventRecorder:         events.NewInMemoryRecorder(""),
+				operatorClient:        fakeOperatorClient,
 				operatorConfigClient:  apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient: openshiftConfigClient.ConfigV1(),
 				versionRecorder:       status.NewVersionGetter(),
 			}
 
-			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+			_, resultStatus, _, err := fakeOperatorClient.GetOperatorState()
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeProgressing)
+			condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServerDaemonSetProgressing")
 			if condition == nil {
 				t.Fatalf("No %v condition found.", operatorv1.OperatorStatusTypeProgressing)
 			}
@@ -166,6 +127,101 @@ func TestProgressingCondition(t *testing.T) {
 
 }
 
+func TestOperatorConfigProgressingCondition(t *testing.T) {
+	testCases := []struct {
+		name                     string
+		configGeneration         int64
+		configObservedGeneration int64
+		expectedStatus           operatorv1.ConditionStatus
+		expectedMessage          string
+	}{
+		{
+			name:                     "HappyPath",
+			configGeneration:         100,
+			configObservedGeneration: 100,
+			expectedStatus:           operatorv1.ConditionFalse,
+		},
+		{
+			name:                     "ConfigObservedAhead",
+			configGeneration:         100,
+			configObservedGeneration: 101,
+			expectedStatus:           operatorv1.ConditionTrue,
+			expectedMessage:          "openshiftapiserveroperatorconfigs/instance: observed generation is 101, desired generation is 100.",
+		},
+		{
+			name:                     "ConfigObservedBehind",
+			configGeneration:         101,
+			configObservedGeneration: 100,
+			expectedStatus:           operatorv1.ConditionTrue,
+			expectedMessage:          "openshiftapiserveroperatorconfigs/instance: observed generation is 100, desired generation is 101.",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			kubeClient := fake.NewSimpleClientset(
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "serving-cert", Namespace: "openshift-apiserver"}},
+				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "etcd-client", Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace}},
+				&appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "apiserver",
+						Namespace: "openshift-apiserver",
+					},
+					Status: appsv1.DaemonSetStatus{
+						NumberAvailable: 100,
+					},
+				})
+
+			operatorConfig := &operatorv1.OpenShiftAPIServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "cluster",
+					Generation: tc.configGeneration,
+				},
+				Spec: operatorv1.OpenShiftAPIServerSpec{
+					OperatorSpec: operatorv1.OperatorSpec{},
+				},
+				Status: operatorv1.OpenShiftAPIServerStatus{
+					OperatorStatus: operatorv1.OperatorStatus{
+						ObservedGeneration: tc.configObservedGeneration,
+					},
+				},
+			}
+			apiServiceOperatorClient := operatorfake.NewSimpleClientset(operatorConfig)
+			openshiftConfigClient := configfake.NewSimpleClientset()
+			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
+
+			operator := OpenShiftAPIServerOperator{
+				kubeClient:            kubeClient,
+				eventRecorder:         events.NewInMemoryRecorder(""),
+				operatorClient:        fakeOperatorClient,
+				operatorConfigClient:  apiServiceOperatorClient.OperatorV1(),
+				openshiftConfigClient: openshiftConfigClient.ConfigV1(),
+				versionRecorder:       status.NewVersionGetter(),
+			}
+
+			_ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+
+			_, resultStatus, _, err := fakeOperatorClient.GetOperatorState()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "OperatorConfigProgressing")
+			if condition == nil {
+				t.Fatalf("No %v condition found.", operatorv1.OperatorStatusTypeProgressing)
+			}
+			if condition.Status != tc.expectedStatus {
+				t.Errorf("expected status == %v, actual status == %v", tc.expectedStatus, condition.Status)
+			}
+			if condition.Message != tc.expectedMessage {
+				t.Errorf("expected message:\n%v\nactual message:\n%v", tc.expectedMessage, condition.Message)
+			}
+
+		})
+	}
+
+}
 func TestAvailableStatus(t *testing.T) {
 	testCases := []struct {
 		name                    string
@@ -245,6 +301,7 @@ func TestAvailableStatus(t *testing.T) {
 			}
 			apiServiceOperatorClient := operatorfake.NewSimpleClientset(operatorConfig)
 			openshiftConfigClient := configfake.NewSimpleClientset()
+			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
 
 			if tc.daemonReactor != nil {
 				kubeClient.PrependReactor("*", "daemonsets", tc.daemonReactor)
@@ -252,20 +309,21 @@ func TestAvailableStatus(t *testing.T) {
 
 			operator := OpenShiftAPIServerOperator{
 				kubeClient:            kubeClient,
+				operatorClient:        fakeOperatorClient,
 				eventRecorder:         events.NewInMemoryRecorder(""),
 				operatorConfigClient:  apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient: openshiftConfigClient.ConfigV1(),
 				versionRecorder:       status.NewVersionGetter(),
 			}
 
-			_, _ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
+			_ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
 
-			result, err := apiServiceOperatorClient.OperatorV1().OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+			_, resultStatus, _, err := fakeOperatorClient.GetOperatorState()
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			condition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, operatorv1.OperatorStatusTypeAvailable)
+			condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServerDaemonSetAvailable")
 			if condition == nil {
 				t.Fatal("Available condition not found")
 			}
@@ -289,7 +347,7 @@ func TestAvailableStatus(t *testing.T) {
 				}
 			}
 			if len(tc.expectedFailingMessages) > 0 {
-				failingCondition := operatorv1helpers.FindOperatorCondition(result.Status.Conditions, workloadDegradedCondition)
+				failingCondition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "WorkloadDegraded")
 				for _, expected := range tc.expectedFailingMessages {
 					if failingCondition == nil {
 						t.Errorf("expected failing message not found: %q", expected)

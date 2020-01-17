@@ -7,11 +7,14 @@ import (
 	"strconv"
 	"strings"
 
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+
+	"github.com/openshift/library-go/pkg/operator/status"
+
 	"github.com/ghodss/yaml"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,13 +37,12 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
 // syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *operatorv1.OpenShiftAPIServer) (bool, error) {
+func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *operatorv1.OpenShiftAPIServer) error {
 	errors := []error{}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
@@ -75,87 +77,156 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
 	}
 
-	// manage status
-	availableConditionReasons := []string{}
-	availableConditionMessages := []string{}
-	switch {
-	case actualDaemonSet == nil:
-		availableConditionReasons = append(availableConditionReasons, "NoDaemon")
-		availableConditionMessages = append(availableConditionMessages, "daemonset/apiserver.openshift-apiserver: could not be retrieved")
-	case actualDaemonSet.Status.NumberAvailable == 0:
-		availableConditionReasons = append(availableConditionReasons, "NoAPIServerPod")
-		availableConditionMessages = append(availableConditionMessages, "no openshift-apiserver daemon pods available on any node.")
-	}
-	sort.Sort(sort.StringSlice(availableConditionReasons))
-
-	switch {
-	case len(availableConditionMessages) == 1:
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
-			Status:  operatorv1.ConditionFalse,
-			Reason:  availableConditionReasons[0],
-			Message: availableConditionMessages[0],
-		})
-	case len(availableConditionMessages) > 1:
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeAvailable,
-			Status:  operatorv1.ConditionFalse,
-			Reason:  strings.Join(availableConditionReasons, "\n"),
-			Message: strings.Join(availableConditionMessages, "\n"),
-		})
-	default:
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:   operatorv1.OperatorStatusTypeAvailable,
-			Status: operatorv1.ConditionTrue,
-		})
-	}
-
-	// If the daemonset is up to date and the operatorConfig are up to date, then we are no longer progressing
-	var progressingMessages []string
-	if actualDaemonSet != nil && actualDaemonSet.ObjectMeta.Generation != actualDaemonSet.Status.ObservedGeneration {
-		progressingMessages = append(progressingMessages, fmt.Sprintf("daemonset/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDaemonSet.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation))
-	}
-	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
-		progressingMessages = append(progressingMessages, fmt.Sprintf("openshiftapiserveroperatorconfigs/instance: observed generation is %d, desired generation is %d.", operatorConfig.Status.ObservedGeneration, operatorConfig.ObjectMeta.Generation))
-	}
-
-	if len(progressingMessages) == 0 {
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:   operatorv1.OperatorStatusTypeProgressing,
-			Status: operatorv1.ConditionFalse,
-		})
-	} else {
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    operatorv1.OperatorStatusTypeProgressing,
-			Status:  operatorv1.ConditionTrue,
-			Reason:  "DesiredStateNotYetAchieved",
-			Message: strings.Join(progressingMessages, "\n"),
-		})
-	}
-
-	// TODO this is changing too early and it was before too.
-	operatorConfig.Status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
-	resourcemerge.SetDaemonSetGeneration(&operatorConfig.Status.Generations, actualDaemonSet)
 	if len(errors) > 0 {
 		message := ""
 		for _, err := range errors {
 			message = message + err.Error() + "\n"
 		}
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:    workloadDegradedCondition,
-			Status:  operatorv1.ConditionTrue,
-			Message: message,
-			Reason:  "SyncError",
-		})
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "WorkloadDegraded",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "SyncError",
+				Message: message,
+			})))...,
+		)
 	} else {
-		v1helpers.SetOperatorCondition(&operatorConfig.Status.Conditions, operatorv1.OperatorCondition{
-			Type:   workloadDegradedCondition,
-			Status: operatorv1.ConditionFalse,
-		})
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:   "WorkloadDegraded",
+				Status: operatorv1.ConditionFalse,
+			})))...,
+		)
+	}
+	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "OperatorConfigProgressing",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "NewGeneration",
+				Message: fmt.Sprintf("openshiftapiserveroperatorconfigs/instance: observed generation is %d, desired generation is %d.", operatorConfig.Status.ObservedGeneration, operatorConfig.ObjectMeta.Generation),
+			})))...,
+		)
+	} else {
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:   "OperatorConfigProgressing",
+				Status: operatorv1.ConditionFalse,
+				Reason: "AsExpected",
+			})))...,
+		)
 	}
 
-	// if we are available, we need to try to set our versions correctly.
-	if v1helpers.IsOperatorConditionTrue(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeAvailable) {
+	if actualDaemonSet == nil {
+		message := "daemonset/apiserver.openshift-apiserver: could not be retrieved"
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "APIServerDaemonSetAvailable",
+				Status:  operatorv1.ConditionFalse,
+				Reason:  "NoDaemon",
+				Message: message,
+			})))...,
+		)
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "APIServerDaemonSetProgressing",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "NoDaemon",
+				Message: message,
+			})))...,
+		)
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "APIServerDaemonSetDegraded",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "NoDaemon",
+				Message: message,
+			})))...,
+		)
+
+		return utilerrors.NewAggregate(errors)
+	}
+
+	// manage status
+	if actualDaemonSet.Status.NumberAvailable == 0 {
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "APIServerDaemonSetAvailable",
+				Status:  operatorv1.ConditionFalse,
+				Reason:  "NoAPIServerPod",
+				Message: "no openshift-apiserver daemon pods available on any node.",
+			})))...,
+		)
+	} else {
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:   "APIServerDaemonSetAvailable",
+				Status: operatorv1.ConditionTrue,
+				Reason: "AsExpected",
+			})))...,
+		)
+	}
+
+	// If the daemonset is up to date and the operatorConfig are up to date, then we are no longer progressing
+	daemonSetAtHighestGeneration := actualDaemonSet.ObjectMeta.Generation == actualDaemonSet.Status.ObservedGeneration
+	if !daemonSetAtHighestGeneration {
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "APIServerDaemonSetProgressing",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "NewGeneration",
+				Message: fmt.Sprintf("daemonset/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDaemonSet.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation),
+			})))...,
+		)
+	} else {
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:   "APIServerDaemonSetProgressing",
+				Status: operatorv1.ConditionFalse,
+				Reason: "AsExpected",
+			})))...,
+		)
+	}
+
+	// TODO this is changing too early and it was before too.
+	errors = append(errors,
+		appendErrors(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
+			status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
+			return nil
+		}))...,
+	)
+	errors = append(errors,
+		appendErrors(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
+			resourcemerge.SetDaemonSetGeneration(&status.Generations, actualDaemonSet)
+			return nil
+		}))...,
+	)
+
+	daemonSetHasAllPodsAvailable := actualDaemonSet.Status.NumberAvailable == actualDaemonSet.Status.DesiredNumberScheduled
+	if !daemonSetHasAllPodsAvailable {
+		numNonAvailablePods := actualDaemonSet.Status.DesiredNumberScheduled - actualDaemonSet.Status.NumberAvailable
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:    "APIServerDaemonSetDegraded",
+				Status:  operatorv1.ConditionTrue,
+				Reason:  "UnavailablePod",
+				Message: fmt.Sprintf("%v of %v requested instances are unavailable", numNonAvailablePods, actualDaemonSet.Status.DesiredNumberScheduled),
+			})))...,
+		)
+	} else {
+		errors = append(errors,
+			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+				Type:   "APIServerDaemonSetDegraded",
+				Status: operatorv1.ConditionFalse,
+				Reason: "AsExpected",
+			})))...,
+		)
+	}
+
+	// if the daemonset is all available and at the expected generation, then update the version to the latest
+	daemonSetHasAllPodsUpdated := actualDaemonSet.Status.UpdatedNumberScheduled == actualDaemonSet.Status.DesiredNumberScheduled
+	operatorConfigAtHighestGeneration := operatorConfig.Status.ObservedGeneration == operatorConfig.ObjectMeta.Generation
+	if operatorConfigAtHighestGeneration && daemonSetAtHighestGeneration && daemonSetHasAllPodsAvailable && daemonSetHasAllPodsUpdated {
 		// we have the actual daemonset and we need the pull spec
 		operandVersion := status.VersionForOperand(
 			operatorclient.OperatorNamespace,
@@ -163,28 +234,16 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 			c.kubeClient.CoreV1(),
 			c.eventRecorder)
 		c.versionRecorder.SetVersion("openshift-apiserver", operandVersion)
-
-	}
-	if !equality.Semantic.DeepEqual(operatorConfig.Status, originalOperatorConfig.Status) {
-		if _, err := c.operatorConfigClient.OpenShiftAPIServers().UpdateStatus(operatorConfig); err != nil {
-			return false, err
-		}
 	}
 
-	if len(errors) > 0 {
-		return true, nil
-	}
-	if !v1helpers.IsOperatorConditionFalse(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeDegraded) {
-		return true, nil
-	}
-	if !v1helpers.IsOperatorConditionFalse(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeProgressing) {
-		return true, nil
-	}
-	if !v1helpers.IsOperatorConditionTrue(operatorConfig.Status.Conditions, operatorv1.OperatorStatusTypeAvailable) {
-		return true, nil
-	}
+	return utilerrors.NewAggregate(errors)
+}
 
-	return false, nil
+func appendErrors(_ *operatorv1.OperatorStatus, _ bool, err error) []error {
+	if err != nil {
+		return []error{err}
+	}
+	return []error{}
 }
 
 // mergeImageRegistryCertificates merges two distinct ConfigMap, both containing
