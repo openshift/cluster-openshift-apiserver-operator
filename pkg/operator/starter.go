@@ -3,10 +3,14 @@ package operator
 import (
 	"context"
 	"fmt"
+
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
-	"k8s.io/apimachinery/pkg/util/sets"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/etcdservicecontroller"
+
 	"os"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,6 +77,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
+		"openshift-etcd",
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -224,6 +229,15 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	)
 
+	etcdServiceController := etcdservicecontroller.NewEtcdServiceController(
+		"openshift-etcd",
+		kubeInformersForNamespaces.InformersFor("openshift-etcd"),
+		operatorClient,
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		controllerConfig.EventRecorder,
+	)
+
 	if controllerConfig.Server != nil {
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
@@ -241,6 +255,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go encryptionControllers.Run(ctx.Done())
 	go pruneController.Run(ctx)
 	go runnableAPIServerControllers.Run(ctx)
+	go etcdServiceController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
