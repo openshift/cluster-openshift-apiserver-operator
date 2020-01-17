@@ -9,8 +9,6 @@ import (
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
-	"github.com/openshift/library-go/pkg/operator/status"
-
 	"github.com/ghodss/yaml"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -224,16 +222,12 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	}
 
 	// if the daemonset is all available and at the expected generation, then update the version to the latest
+	// when we update, the image pull spec should immediately be different, which should immediately cause a daemonset rollout
+	// which should immediately result in a daemonset generation diff, which should cause this block to be skipped until it is ready.
 	daemonSetHasAllPodsUpdated := actualDaemonSet.Status.UpdatedNumberScheduled == actualDaemonSet.Status.DesiredNumberScheduled
 	operatorConfigAtHighestGeneration := operatorConfig.Status.ObservedGeneration == operatorConfig.ObjectMeta.Generation
 	if operatorConfigAtHighestGeneration && daemonSetAtHighestGeneration && daemonSetHasAllPodsAvailable && daemonSetHasAllPodsUpdated {
-		// we have the actual daemonset and we need the pull spec
-		operandVersion := status.VersionForOperand(
-			operatorclient.OperatorNamespace,
-			actualDaemonSet.Spec.Template.Spec.Containers[0].Image,
-			c.kubeClient.CoreV1(),
-			c.eventRecorder)
-		c.versionRecorder.SetVersion("openshift-apiserver", operandVersion)
+		c.versionRecorder.SetVersion("openshift-apiserver", c.targetOperandVersion)
 	}
 
 	return utilerrors.NewAggregate(errors)

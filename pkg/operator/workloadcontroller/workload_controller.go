@@ -39,7 +39,7 @@ const (
 )
 
 type OpenShiftAPIServerOperator struct {
-	targetImagePullSpec, operatorImagePullSpec string
+	targetImagePullSpec, targetOperandVersion, operatorImagePullSpec string
 
 	operatorClient        v1helpers.OperatorClient
 	versionRecorder       status.VersionGetter
@@ -53,7 +53,7 @@ type OpenShiftAPIServerOperator struct {
 }
 
 func NewWorkloadController(
-	targetImagePullSpec, operatorImagePullSpec string,
+	targetImagePullSpec, targetOperandVersion, operatorImagePullSpec string,
 	operatorClient v1helpers.OperatorClient,
 	versionRecorder status.VersionGetter,
 	operatorConfigInformer operatorv1informers.OpenShiftAPIServerInformer,
@@ -69,6 +69,7 @@ func NewWorkloadController(
 ) *OpenShiftAPIServerOperator {
 	c := &OpenShiftAPIServerOperator{
 		targetImagePullSpec:   targetImagePullSpec,
+		targetOperandVersion:  targetOperandVersion,
 		operatorImagePullSpec: operatorImagePullSpec,
 
 		operatorClient:        operatorClient,

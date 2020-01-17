@@ -121,7 +121,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
 	workloadController := workloadcontroller.NewWorkloadController(
-		os.Getenv("IMAGE"), os.Getenv("OPERATOR_IMAGE"),
+		os.Getenv("IMAGE"), os.Getenv("OPERATOR_IMAGE_VERSION"), os.Getenv("OPERATOR_IMAGE"),
 		operatorClient,
 		versionRecorder,
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
