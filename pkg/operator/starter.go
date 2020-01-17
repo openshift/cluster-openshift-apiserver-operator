@@ -32,6 +32,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/daemonsetstatuscontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -202,6 +203,13 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.EventRecorder,
 	)
 
+	daemonsetStatusController := daemonsetstatuscontroller.NewDaemonSetStatusController(
+		operatorclient.TargetNamespace, "apiserver",
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		operatorClient,
+		ctx.EventRecorder,
+	)
+
 	configUpgradeableController := unsupportedconfigoverridescontroller.NewUnsupportedConfigOverridesController(operatorClient, ctx.EventRecorder)
 	logLevelController := loglevel.NewClusterOperatorLoggingController(operatorClient, ctx.EventRecorder)
 
@@ -223,6 +231,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	go revisionController.Run(1, ctx.Done())
 	go encryptionControllers.Run(ctx.Done())
 	go pruneController.Run(1, ctx.Done())
+	go daemonsetStatusController.Run(1, ctx.Done())
 	go configUpgradeableController.Run(1, ctx.Done())
 	go logLevelController.Run(1, ctx.Done())
 
