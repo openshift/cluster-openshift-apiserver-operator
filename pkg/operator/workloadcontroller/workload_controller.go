@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+
 	"github.com/openshift/library-go/pkg/operator/status"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
@@ -32,14 +34,14 @@ import (
 )
 
 const (
-	workloadDegradedCondition = "WorkloadDegraded"
-	imageImportCAName         = "image-import-ca"
-	workQueueKey              = "key"
+	imageImportCAName = "image-import-ca"
+	workQueueKey      = "key"
 )
 
 type OpenShiftAPIServerOperator struct {
-	targetImagePullSpec, operatorImagePullSpec string
+	targetImagePullSpec, targetOperandVersion, operatorImagePullSpec string
 
+	operatorClient        v1helpers.OperatorClient
 	versionRecorder       status.VersionGetter
 	operatorConfigClient  operatorv1client.OpenShiftAPIServersGetter
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface
@@ -51,7 +53,8 @@ type OpenShiftAPIServerOperator struct {
 }
 
 func NewWorkloadController(
-	targetImagePullSpec, operatorImagePullSpec string,
+	targetImagePullSpec, targetOperandVersion, operatorImagePullSpec string,
+	operatorClient v1helpers.OperatorClient,
 	versionRecorder status.VersionGetter,
 	operatorConfigInformer operatorv1informers.OpenShiftAPIServerInformer,
 	kubeInformersForOpenShiftAPIServerNamespace kubeinformers.SharedInformerFactory,
@@ -66,8 +69,10 @@ func NewWorkloadController(
 ) *OpenShiftAPIServerOperator {
 	c := &OpenShiftAPIServerOperator{
 		targetImagePullSpec:   targetImagePullSpec,
+		targetOperandVersion:  targetOperandVersion,
 		operatorImagePullSpec: operatorImagePullSpec,
 
+		operatorClient:        operatorClient,
 		versionRecorder:       versionRecorder,
 		operatorConfigClient:  operatorConfigClient,
 		openshiftConfigClient: openshiftConfigClient,
@@ -139,12 +144,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return nil
 	}
 
-	forceRequeue, err := syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
-	if forceRequeue && err != nil {
-		c.queue.AddRateLimited(workQueueKey)
-	}
-
-	return err
+	return syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
@@ -157,6 +157,8 @@ func (c *OpenShiftAPIServerOperator) Run(ctx context.Context, workers int) {
 
 	// doesn't matter what workers say, only start one.
 	go wait.Until(c.runWorker, time.Second, ctx.Done())
+
+	go wait.Until(func() { c.queue.Add(workQueueKey) }, time.Minute, ctx.Done())
 
 	<-ctx.Done()
 }
