@@ -44,20 +44,6 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	errors := []error{}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
-	directResourceResults := resourceapply.ApplyDirectly(c.kubeClient, c.eventRecorder, v311_00_assets.Asset,
-		"v3.11.0/openshift-apiserver/ns.yaml",
-		"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
-		"v3.11.0/openshift-apiserver/svc.yaml",
-		"v3.11.0/openshift-apiserver/sa.yaml",
-		"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
-	)
-	for _, currResult := range directResourceResults {
-		if currResult.Error != nil {
-			errors = append(errors, fmt.Errorf("%q (%T): %v", currResult.File, currResult.Type, currResult.Error))
-			continue
-		}
-	}
-
 	_, _, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
