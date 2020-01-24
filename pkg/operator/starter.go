@@ -9,10 +9,11 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
+	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
@@ -45,13 +46,6 @@ import (
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
 	kubeClient, err := kubernetes.NewForConfig(controllerConfig.ProtoKubeConfig)
-	if err != nil {
-		return err
-	}
-	migrationClientConfig := dynamic.ConfigFor(controllerConfig.KubeConfig)
-	migrationClientConfig.Burst = 40
-	migrationClientConfig.QPS = 30
-	dynamicClientForMigration, err := dynamic.NewForConfig(migrationClientConfig)
 	if err != nil {
 		return err
 	}
@@ -198,7 +192,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
-	migrator := migrators.NewInProcessMigrator(dynamicClientForMigration, kubeClient.Discovery())
+
+	migrationClient := kubemigratorclient.NewForConfigOrDie(controllerConfig.KubeConfig)
+	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
+	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
 	encryptionControllers, err := encryption.NewControllers(
 		operatorclient.TargetNamespace,
@@ -247,6 +244,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	apiregistrationInformers.Start(ctx.Done())
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
+	migrationInformer.Start(ctx.Done())
 
 	go workloadController.Run(ctx, 1)
 	go configObserver.Run(ctx, 1)

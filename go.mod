@@ -9,6 +9,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
+	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/openshift/api v0.0.0-20200116145750-0e2ff1e215dd
 	github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240
 	github.com/openshift/library-go v0.0.0-20200120084036-bb27e57e2f2b
