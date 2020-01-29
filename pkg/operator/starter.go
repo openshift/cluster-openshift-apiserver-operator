@@ -6,20 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
-	utilpointer "k8s.io/utils/pointer"
-
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -27,21 +15,34 @@ import (
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservercontrollerset"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
+	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
+	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
+	utilpointer "k8s.io/utils/pointer"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
@@ -77,6 +78,21 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
+
+	staticResourceController := staticresourcecontroller.NewStaticResourceController(
+		"OpenshiftAPIServerStaticResources",
+		v311_00_assets.Asset,
+		[]string{
+			"v3.11.0/openshift-apiserver/ns.yaml",
+			"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
+			"v3.11.0/openshift-apiserver/svc.yaml",
+			"v3.11.0/openshift-apiserver/sa.yaml",
+			"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
+		},
+		resourceapply.NewKubeClientHolder(kubeClient),
+		operatorClient,
+		controllerConfig.EventRecorder,
+	).AddKubeInformers(kubeInformersForNamespaces)
 
 	resourceSyncController, debugHandler, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
@@ -246,6 +262,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
 
+	go staticResourceController.Run(ctx, 1)
 	go workloadController.Run(ctx, 1)
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
@@ -253,7 +270,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go encryptionControllers.Run(ctx.Done())
 	go pruneController.Run(ctx)
 	go runnableAPIServerControllers.Run(ctx)
-	go staleConditions.Run(1, ctx.Done())
+	go staleConditions.Run(ctx, 1)
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
