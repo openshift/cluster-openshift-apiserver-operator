@@ -51,6 +51,10 @@ spec:
       regex: apiserver_admission_step_admission_latencies_seconds_.*
       sourceLabels:
       - __name__
+    relabelings:
+    - action: replace
+      targetLabel: apiserver
+      replacement: openshift-apiserver
     port: https
     scheme: https
     tlsConfig:
