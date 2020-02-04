@@ -294,7 +294,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
-	defaultConfig := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/defaultconfig.yaml")
+	defaultConfig := v311_00_assets.MustAsset("v3.11.0/config/defaultconfig.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&openshiftcontrolplanev1.OpenShiftAPIServerConfig{},
 		configMap,

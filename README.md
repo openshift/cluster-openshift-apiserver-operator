@@ -29,11 +29,11 @@ Currently changes in following external components are being observed:
   - The observed CR resource is used to configure the Project request defaults
 * `cluster` *ingress.config.openshift.io* custom resource
   - The observed CR resource is used to set `routingConfig.subdomain` in the OpenShift API server configuration.
-   
+
 
 The configuration for the OpenShift API server is the result of merging:
 
-* a [default config](https://github.com/openshift/cluster-openshift-apiserver-operator/blob/master/bindata/v3.11.0/openshift-apiserver/defaultconfig.yaml)
+* a [default config](https://github.com/openshift/cluster-openshift-apiserver-operator/blob/master/bindata/v3.11.0/config/defaultconfig.yaml)
 * observed config (compare observed values above) `spec.spec.unsupportedConfigOverrides` from the `openshiftapiserveroperatorconfig`.
 
 All of these are sparse configurations, i.e. unvalidated json snippets which are merged in order to form a valid configuration at the end.
