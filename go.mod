@@ -11,6 +11,7 @@ require (
 	github.com/jteeuwen/go-bindata v3.0.8-0.20151023091102-a0ff2567cfb7+incompatible
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
 	github.com/openshift/api v0.0.0-20200127192224-ffde1bfabb9f
+	github.com/openshift/build-machinery-go v0.0.0-20200206103427-bda5bbfa8747
 	github.com/openshift/client-go v0.0.0-20200116152001-92a2713fa240
 	github.com/openshift/library-go v0.0.0-20200129101610-e135d80abcea
 	github.com/pkg/errors v0.8.1
