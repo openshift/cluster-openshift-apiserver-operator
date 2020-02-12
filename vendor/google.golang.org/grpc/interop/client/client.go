@@ -38,7 +38,6 @@ import (
 
 const (
 	googleDefaultCredsName = "google_default_credentials"
-	computeEngineCredsName = "compute_engine_channel_creds"
 )
 
 var (
@@ -69,15 +68,13 @@ var (
         per_rpc_creds: large_unary with per rpc token;
         oauth2_auth_token: large_unary with oauth2 token auth;
         google_default_credentials: large_unary with google default credentials
-        compute_engine_channel_credentials: large_unary with compute engine creds
         cancel_after_begin: cancellation after metadata has been sent but before payloads are sent;
         cancel_after_first_response: cancellation after receiving 1st message from the server;
         status_code_and_message: status code propagated back to client;
         special_status_message: Unicode and whitespace is correctly processed in status message;
         custom_metadata: server will echo custom metadata;
         unimplemented_method: client attempts to call unimplemented method;
-        unimplemented_service: client attempts to call unimplemented service;
-        pick_first_unary: all requests are sent to one server despite multiple servers are resolved.`)
+        unimplemented_service: client attempts to call unimplemented service.`)
 )
 
 type credsMode uint8
@@ -87,26 +84,19 @@ const (
 	credsTLS
 	credsALTS
 	credsGoogleDefaultCreds
-	credsComputeEngineCreds
 )
 
 func main() {
 	flag.Parse()
 	var useGDC bool // use google default creds
-	var useCEC bool // use compute engine creds
 	if *customCredentialsType != "" {
-		switch *customCredentialsType {
-		case googleDefaultCredsName:
-			useGDC = true
-		case computeEngineCredsName:
-			useCEC = true
-		default:
-			grpclog.Fatalf("If set, custom_credentials_type can only be set to one of %v or %v",
-				googleDefaultCredsName, computeEngineCredsName)
+		if *customCredentialsType != googleDefaultCredsName {
+			grpclog.Fatalf("custom_credentials_type can only be set to %v or not set", googleDefaultCredsName)
 		}
+		useGDC = true
 	}
-	if (*useTLS && *useALTS) || (*useTLS && useGDC) || (*useALTS && useGDC) || (*useTLS && useCEC) || (*useALTS && useCEC) {
-		grpclog.Fatalf("only one of TLS, ALTS, google default creds, or compute engine creds can be used")
+	if (*useTLS && *useALTS) || (*useTLS && useGDC) || (*useALTS && useGDC) {
+		grpclog.Fatalf("only one of TLS, ALTS and google default creds can be used")
 	}
 
 	var credsChosen credsMode
@@ -117,8 +107,6 @@ func main() {
 		credsChosen = credsALTS
 	case useGDC:
 		credsChosen = credsGoogleDefaultCreds
-	case useCEC:
-		credsChosen = credsComputeEngineCreds
 	}
 
 	resolver.SetDefaultScheme("dns")
@@ -153,8 +141,6 @@ func main() {
 		opts = append(opts, grpc.WithTransportCredentials(altsTC))
 	case credsGoogleDefaultCreds:
 		opts = append(opts, grpc.WithCredentialsBundle(google.NewDefaultCredentials()))
-	case credsComputeEngineCreds:
-		opts = append(opts, grpc.WithCredentialsBundle(google.NewComputeEngineCredentials()))
 	case credsNone:
 		opts = append(opts, grpc.WithInsecure())
 	default:
@@ -244,12 +230,6 @@ func main() {
 		}
 		interop.DoGoogleDefaultCredentials(tc, *defaultServiceAccount)
 		grpclog.Infoln("GoogleDefaultCredentials done")
-	case "compute_engine_channel_credentials":
-		if credsChosen != credsComputeEngineCreds {
-			grpclog.Fatalf("ComputeEngineCreds need to be set for compute_engine_channel_credentials test case.")
-		}
-		interop.DoComputeEngineChannelCredentials(tc, *defaultServiceAccount)
-		grpclog.Infoln("ComputeEngineChannelCredentials done")
 	case "cancel_after_begin":
 		interop.DoCancelAfterBegin(tc)
 		grpclog.Infoln("CancelAfterBegin done")
@@ -271,9 +251,6 @@ func main() {
 	case "unimplemented_service":
 		interop.DoUnimplementedService(testpb.NewUnimplementedServiceClient(conn))
 		grpclog.Infoln("UnimplementedService done")
-	case "pick_first_unary":
-		interop.DoPickFirstUnary(tc)
-		grpclog.Infoln("PickFirstUnary done")
 	default:
 		grpclog.Fatal("Unsupported test case: ", *testCase)
 	}
