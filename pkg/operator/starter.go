@@ -70,6 +70,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
+		operatorclient.EtcdEndpointNamespace,
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -176,6 +177,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 				{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 				{Resource: "namespaces", Name: operatorclient.TargetNamespace},
+				{Resource: "endpoints", Name: operatorclient.EtcdEndpointName, Namespace: operatorclient.EtcdEndpointNamespace},
 			},
 			apiServicesReferences()...,
 		),
@@ -192,6 +194,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	configObserver := configobservercontroller.NewConfigObserver(
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeInformersForNamespaces.InformersFor(operatorclient.EtcdEndpointNamespace),
 		operatorClient,
 		resourceSyncController,
 		operatorConfigInformers,
