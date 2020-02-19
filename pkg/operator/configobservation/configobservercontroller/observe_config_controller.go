@@ -15,6 +15,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdobserver"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/ingresses"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/project"
@@ -28,6 +29,7 @@ type ConfigObserver struct {
 // NewConfigObserver initializes a new configuration observer.
 func NewConfigObserver(
 	kubeInformers kubeinformers.SharedInformerFactory,
+	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	operatorClient v1helpers.OperatorClient,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	operatorConfigInformers operatorv1informers.SharedInformerFactory,
@@ -45,6 +47,7 @@ func NewConfigObserver(
 				ProjectConfigLister: configInformers.Config().V1().Projects().Lister(),
 				ProxyLister_:        configInformers.Config().V1().Proxies().Lister(),
 				IngressConfigLister: configInformers.Config().V1().Ingresses().Lister(),
+				EndpointsLister:     kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
 				SecretLister_:       kubeInformers.Core().V1().Secrets().Lister(),
 				PreRunCachesSynced: []cache.InformerSynced{
 					operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
@@ -58,6 +61,7 @@ func NewConfigObserver(
 			images.ObserveExternalRegistryHostnames,
 			images.ObserveAllowedRegistriesForImport,
 			ingresses.ObserveIngressDomain,
+			etcdobserver.ObserveStorageURLs,
 			libgoapiserver.ObserveTLSSecurityProfile,
 			project.ObserveProjectRequestMessage,
 			project.ObserveProjectRequestTemplateName,
@@ -70,5 +74,6 @@ func NewConfigObserver(
 	configInformers.Config().V1().Ingresses().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Projects().Informer().AddEventHandler(c.EventHandler())
 	configInformers.Config().V1().Proxies().Informer().AddEventHandler(c.EventHandler())
+	kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
 	return c
 }
