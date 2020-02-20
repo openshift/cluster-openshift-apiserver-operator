@@ -26,39 +26,39 @@ import (
 	kubetesting "k8s.io/client-go/testing"
 )
 
-func TestAPIServerDaemonSetProgressingCondition(t *testing.T) {
+func TestAPIServerDeploymentProgressingCondition(t *testing.T) {
 	testCases := []struct {
-		name                        string
-		daemonSetGeneration         int64
-		daemonSetObservedGeneration int64
-		expectedStatus              operatorv1.ConditionStatus
-		expectedMessage             string
+		name                         string
+		deploymentGeneration         int64
+		deploymentObservedGeneration int64
+		expectedStatus               operatorv1.ConditionStatus
+		expectedMessage              string
 	}{
 		{
-			name:                        "HappyPath",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 100,
-			expectedStatus:              operatorv1.ConditionFalse,
+			name:                         "HappyPath",
+			deploymentGeneration:         100,
+			deploymentObservedGeneration: 100,
+			expectedStatus:               operatorv1.ConditionFalse,
 		},
 		{
-			name:                        "DaemonSetObservedAhead",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 101,
-			expectedStatus:              operatorv1.ConditionTrue,
-			expectedMessage:             "daemonset/apiserver.openshift-operator: observed generation is 101, desired generation is 100.",
+			name:                         "DeploymentObservedAhead",
+			deploymentGeneration:         100,
+			deploymentObservedGeneration: 101,
+			expectedStatus:               operatorv1.ConditionTrue,
+			expectedMessage:              "deployment/apiserver.openshift-operator: observed generation is 101, desired generation is 100.",
 		},
 		{
-			name:                        "DaemonSetObservedBehind",
-			daemonSetGeneration:         101,
-			daemonSetObservedGeneration: 100,
-			expectedStatus:              operatorv1.ConditionTrue,
-			expectedMessage:             "daemonset/apiserver.openshift-operator: observed generation is 100, desired generation is 101.",
+			name:                         "DeploymentObservedBehind",
+			deploymentGeneration:         101,
+			deploymentObservedGeneration: 100,
+			expectedStatus:               operatorv1.ConditionTrue,
+			expectedMessage:              "deployment/apiserver.openshift-operator: observed generation is 100, desired generation is 101.",
 		},
 		{
-			name:                        "ConfigAndDaemonSetGenerationMismatch",
-			daemonSetGeneration:         100,
-			daemonSetObservedGeneration: 100,
-			expectedStatus:              operatorv1.ConditionFalse,
+			name:                         "ConfigAndDeploymentGenerationMismatch",
+			deploymentGeneration:         100,
+			deploymentObservedGeneration: 100,
+			expectedStatus:               operatorv1.ConditionFalse,
 		},
 	}
 
@@ -68,15 +68,15 @@ func TestAPIServerDaemonSetProgressingCondition(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "serving-cert", Namespace: "openshift-apiserver"}},
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "etcd-client", Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace}},
-				&appsv1.DaemonSet{
+				&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "apiserver",
 						Namespace:  "openshift-apiserver",
-						Generation: tc.daemonSetGeneration,
+						Generation: tc.deploymentGeneration,
 					},
-					Status: appsv1.DaemonSetStatus{
-						NumberAvailable:    100,
-						ObservedGeneration: tc.daemonSetObservedGeneration,
+					Status: appsv1.DeploymentStatus{
+						AvailableReplicas:  100,
+						ObservedGeneration: tc.deploymentObservedGeneration,
 					},
 				})
 
@@ -111,7 +111,7 @@ func TestAPIServerDaemonSetProgressingCondition(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServerDaemonSetProgressing")
+			condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServerDeploymentProgressing")
 			if condition == nil {
 				t.Fatalf("No %v condition found.", operatorv1.OperatorStatusTypeProgressing)
 			}
@@ -163,13 +163,13 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "serving-cert", Namespace: "openshift-apiserver"}},
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "etcd-client", Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace}},
-				&appsv1.DaemonSet{
+				&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "apiserver",
 						Namespace: "openshift-apiserver",
 					},
-					Status: appsv1.DaemonSetStatus{
-						NumberAvailable: 100,
+					Status: appsv1.DeploymentStatus{
+						AvailableReplicas: 100,
 					},
 				})
 
@@ -229,37 +229,37 @@ func TestAvailableStatus(t *testing.T) {
 		expectedReasons         []string
 		expectedMessages        []string
 		expectedFailingMessages []string
-		daemonReactor           kubetesting.ReactionFunc
+		deploymentReactor       kubetesting.ReactionFunc
 	}{
 		{
 			name:           "Default",
 			expectedStatus: operatorv1.ConditionTrue,
 		},
 		{
-			name:                    "DaemonSetGetFailure",
+			name:                    "DeploymentGetFailure",
 			expectedStatus:          operatorv1.ConditionFalse,
-			expectedReasons:         []string{"NoDaemon"},
-			expectedMessages:        []string{"daemonset/apiserver.openshift-apiserver: could not be retrieved"},
-			expectedFailingMessages: []string{"\"daemonsets\": TEST ERROR: fail to get daemonset/apiserver.openshift-apiserver"},
+			expectedReasons:         []string{"NoDeployment"},
+			expectedMessages:        []string{"deployment/apiserver.openshift-apiserver: could not be retrieved"},
+			expectedFailingMessages: []string{"\"deployments\": TEST ERROR: fail to get deployment/apiserver.openshift-apiserver"},
 
-			daemonReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+			deploymentReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
 				if action.GetVerb() == "get" && action.GetNamespace() == "openshift-apiserver" && action.(kubetesting.GetAction).GetName() == "apiserver" {
-					return true, nil, errors.New("TEST ERROR: fail to get daemonset/apiserver.openshift-apiserver")
+					return true, nil, errors.New("TEST ERROR: fail to get deployment/apiserver.openshift-apiserver")
 				}
 				return false, nil, nil
 			},
 		},
 		{
-			name:             "NoDaemonSetPods",
+			name:             "NoDeploymentPods",
 			expectedStatus:   operatorv1.ConditionFalse,
 			expectedReasons:  []string{"NoAPIServerPod"},
-			expectedMessages: []string{"no openshift-apiserver daemon pods available on any node."},
+			expectedMessages: []string{"no openshift-apiserver pods available."},
 
-			daemonReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
+			deploymentReactor: func(action kubetesting.Action) (handled bool, ret runtime.Object, err error) {
 				if action.GetVerb() == "get" && action.GetNamespace() == "openshift-apiserver" && action.(kubetesting.GetAction).GetName() == "apiserver" {
-					return true, &appsv1.DaemonSet{
+					return true, &appsv1.Deployment{
 						ObjectMeta: metav1.ObjectMeta{Name: "apiserver", Namespace: "openshift-apiserver"},
-						Status:     appsv1.DaemonSetStatus{NumberAvailable: 0},
+						Status:     appsv1.DeploymentStatus{AvailableReplicas: 0},
 					}, nil
 				}
 				return false, nil, nil
@@ -273,14 +273,14 @@ func TestAvailableStatus(t *testing.T) {
 			kubeClient := fake.NewSimpleClientset(
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "serving-cert", Namespace: "openshift-apiserver"}},
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "etcd-client", Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace}},
-				&appsv1.DaemonSet{
+				&appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "apiserver",
 						Namespace:  "openshift-apiserver",
 						Generation: 99,
 					},
-					Status: appsv1.DaemonSetStatus{
-						NumberAvailable:    100,
+					Status: appsv1.DeploymentStatus{
+						AvailableReplicas:  100,
 						ObservedGeneration: 99,
 					},
 				})
@@ -303,8 +303,8 @@ func TestAvailableStatus(t *testing.T) {
 			openshiftConfigClient := configfake.NewSimpleClientset()
 			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
 
-			if tc.daemonReactor != nil {
-				kubeClient.PrependReactor("*", "daemonsets", tc.daemonReactor)
+			if tc.deploymentReactor != nil {
+				kubeClient.PrependReactor("*", "deployments", tc.deploymentReactor)
 			}
 
 			operator := OpenShiftAPIServerOperator{
@@ -323,7 +323,7 @@ func TestAvailableStatus(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServerDaemonSetAvailable")
+			condition := operatorv1helpers.FindOperatorCondition(resultStatus.Conditions, "APIServerDeploymentAvailable")
 			if condition == nil {
 				t.Fatal("Available condition not found")
 			}
