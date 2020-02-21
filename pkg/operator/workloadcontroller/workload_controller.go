@@ -50,6 +50,9 @@ type OpenShiftAPIServerOperator struct {
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
+
+	// haveObservedExtensionConfigMap preserves the state so that we don't ask the server on every sync
+	haveObservedExtensionConfigMap bool
 }
 
 func NewWorkloadController(
@@ -142,6 +145,21 @@ func (c OpenShiftAPIServerOperator) sync() error {
 	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
 		klog.Info("Waiting for observed configuration to be available")
 		return nil
+	}
+
+	// block until extension-apiserver-authentication configmap is available
+	// see https://bugzilla.redhat.com/show_bug.cgi?id=1795163#c19 to check why we have to wait for it
+	// in the future we need to change upstream code to be more dynamic
+	if !c.haveObservedExtensionConfigMap {
+		_, err = c.kubeClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			klog.Infof("Waiting for %q configmap in %q namespace to be available", "extension-apiserver-authentication", metav1.NamespaceSystem)
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		c.haveObservedExtensionConfigMap = true
 	}
 
 	return syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
