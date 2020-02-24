@@ -13,12 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 )
 
 const (
-	etcdEndpointNamespace = operatorclient.EtcdEndpointNamespace
-	etcdEndpointName      = operatorclient.EtcdEndpointName
+	EtcdEndpointNamespace = "openshift-etcd"
+	EtcdEndpointName      = "host-etcd-2"
 )
 
 // ObserveStorageURLs observes the storage URL config.
@@ -38,15 +37,16 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		}
 	}
 
+	observedConfig := map[string]interface{}{}
+
 	var etcdURLs sort.StringSlice
-	etcdEndpoints, err := listers.EndpointsLister.Endpoints(etcdEndpointNamespace).Get(etcdEndpointName)
+	etcdEndpoints, err := listers.EndpointsLister.Endpoints(EtcdEndpointNamespace).Get(EtcdEndpointName)
 	if errors.IsNotFound(err) {
-		recorder.Warningf("ObserveStorageFailed", "Required endpoints/%s in the %s namespace not found", etcdEndpointName, etcdEndpointNamespace)
-		errs = append(errs, fmt.Errorf("endpoints/%s in the %s namespace: not found", etcdEndpointName, etcdEndpointNamespace))
-		return previouslyObservedConfig, errs
+		recorder.Warningf("ObserveStorageFailed", "Required endpoints/%s in the %s namespace not found, falling back to default etcd service", EtcdEndpointName, EtcdEndpointNamespace)
+		return observedConfig, errs
 	}
 	if err != nil {
-		recorder.Warningf("ObserveStorageFailed", "Error getting endpoints/%s in the %s namespace: %v", etcdEndpointName, etcdEndpointNamespace, err)
+		recorder.Warningf("ObserveStorageFailed", "Error getting endpoints/%s in the %s namespace: %v", EtcdEndpointName, EtcdEndpointNamespace, err)
 		errs = append(errs, err)
 		return previouslyObservedConfig, errs
 	}
@@ -55,7 +55,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		for addressIndex, address := range subset.Addresses {
 			ip := net.ParseIP(address.IP)
 			if ip == nil {
-				ipErr := fmt.Errorf("endpoints/%s in the %s namespace: subsets[%v]addresses[%v].IP is not a valid IP address", etcdEndpointName, etcdEndpointNamespace, subsetIndex, addressIndex)
+				ipErr := fmt.Errorf("endpoints/%s in the %s namespace: subsets[%v]addresses[%v].IP is not a valid IP address", EtcdEndpointName, EtcdEndpointNamespace, subsetIndex, addressIndex)
 				errs = append(errs, ipErr)
 				continue
 			}
@@ -73,8 +73,6 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		}
 	}
 
-	observedConfig := map[string]interface{}{}
-
 	// do not add empty storage urls slice to observed config, we don't want override defaults with an empty slice
 	if len(etcdURLs) > 0 {
 		etcdURLs.Sort()
@@ -83,7 +81,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 			return previouslyObservedConfig, errs
 		}
 	} else {
-		err := fmt.Errorf("endpoints/%s in the %s namespace: no etcd endpoint addresses found, falling back to default etcd service", etcdEndpointName, etcdEndpointNamespace)
+		err := fmt.Errorf("endpoints/%s in the %s namespace: no etcd endpoint addresses found, falling back to default etcd service", EtcdEndpointName, EtcdEndpointNamespace)
 		recorder.Warningf("ObserveStorageFallback", err.Error())
 		errs = append(errs, err)
 	}
