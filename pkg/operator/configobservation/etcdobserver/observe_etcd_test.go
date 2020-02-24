@@ -28,7 +28,8 @@ func TestObserveStorageURLs(t *testing.T) {
 		{
 			name:          "NoEtcdHosts",
 			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
-			expected:      observedConfig(),
+			expected:      observedConfig(withStorageURL("https://previous.url:2379")),
+			expectErrors:  true,
 		},
 		{
 			name:          "ValidIPv4",
