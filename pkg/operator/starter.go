@@ -14,14 +14,6 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservercontrollerset"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
@@ -43,6 +35,16 @@ import (
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 	utilpointer "k8s.io/utils/pointer"
+
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservercontrollerset"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdobserver"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
@@ -70,7 +72,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
-		operatorclient.EtcdEndpointNamespace,
+		etcdobserver.EtcdEndpointNamespace,
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -177,7 +179,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 				{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 				{Resource: "namespaces", Name: operatorclient.TargetNamespace},
-				{Resource: "endpoints", Name: operatorclient.EtcdEndpointName, Namespace: operatorclient.EtcdEndpointNamespace},
+				{Resource: "endpoints", Name: etcdobserver.EtcdEndpointName, Namespace: etcdobserver.EtcdEndpointNamespace},
 			},
 			apiServicesReferences()...,
 		),
@@ -194,7 +196,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	configObserver := configobservercontroller.NewConfigObserver(
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		kubeInformersForNamespaces.InformersFor(operatorclient.EtcdEndpointNamespace),
+		kubeInformersForNamespaces.InformersFor(etcdobserver.EtcdEndpointNamespace),
 		operatorClient,
 		resourceSyncController,
 		operatorConfigInformers,

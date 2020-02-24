@@ -28,8 +28,7 @@ func TestObserveStorageURLs(t *testing.T) {
 		{
 			name:          "NoEtcdHosts",
 			currentConfig: observedConfig(withStorageURL("https://previous.url:2379")),
-			expected:      observedConfig(withStorageURL("https://previous.url:2379")),
-			expectErrors:  true,
+			expected:      observedConfig(),
 		},
 		{
 			name:          "ValidIPv4",
@@ -164,7 +163,7 @@ func withStorageURL(url string) func(map[string]interface{}) {
 func endpoints(configs ...func(endpoints *v1.Endpoints)) *v1.Endpoints {
 	endpoints := &v1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "host-etcd",
+			Name:      "host-etcd-2",
 			Namespace: "openshift-etcd",
 			Annotations: map[string]string{
 				"alpha.installer.openshift.io/dns-suffix": clusterFQDN,
