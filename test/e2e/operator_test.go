@@ -40,12 +40,12 @@ func TestRedeployOnConfigChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ds, err := kubeClient.AppsV1().DaemonSets(operatorclient.TargetNamespace).Get("apiserver", metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace).Get("apiserver", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	prevGeneration := ds.Generation
+	prevGeneration := deployment.Generation
 
 	configCMClient := kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace)
 
@@ -61,12 +61,12 @@ func TestRedeployOnConfigChange(t *testing.T) {
 	}
 
 	err = wait.PollImmediate(1*time.Second, 2*time.Minute, func() (done bool, err error) {
-		ds, err := kubeClient.AppsV1().DaemonSets(operatorclient.TargetNamespace).Get("apiserver", metav1.GetOptions{})
+		deployment, err := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace).Get("apiserver", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 
-		if ds.Generation == prevGeneration {
+		if deployment.Generation == prevGeneration {
 			return false, nil
 		}
 

@@ -12,18 +12,18 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 )
 
-// DaemonSetNodeProvider returns the node list from nodes matching the node selector of a DaemonSet
-type DaemonSetNodeProvider struct {
-	TargetNamespaceDaemonSetInformer appsv1informers.DaemonSetInformer
-	NodeInformer                     corev1informers.NodeInformer
+// DeploymentNodeProvider returns the node list from nodes matching the node selector of a Deployment
+type DeploymentNodeProvider struct {
+	TargetNamespaceDeploymentInformer appsv1informers.DeploymentInformer
+	NodeInformer                      corev1informers.NodeInformer
 }
 
 var (
-	_ encryptiondeployer.MasterNodeProvider = &DaemonSetNodeProvider{}
+	_ encryptiondeployer.MasterNodeProvider = &DeploymentNodeProvider{}
 )
 
-func (p DaemonSetNodeProvider) MasterNodeNames() ([]string, error) {
-	ds, err := p.TargetNamespaceDaemonSetInformer.Lister().DaemonSets(operatorclient.TargetNamespace).Get("apiserver")
+func (p DeploymentNodeProvider) MasterNodeNames() ([]string, error) {
+	ds, err := p.TargetNamespaceDeploymentInformer.Lister().Deployments(operatorclient.TargetNamespace).Get("apiserver")
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -44,12 +44,12 @@ func (p DaemonSetNodeProvider) MasterNodeNames() ([]string, error) {
 	return ret, nil
 }
 
-func (p DaemonSetNodeProvider) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
-	p.TargetNamespaceDaemonSetInformer.Informer().AddEventHandler(handler)
+func (p DeploymentNodeProvider) AddEventHandler(handler cache.ResourceEventHandler) []cache.InformerSynced {
+	p.TargetNamespaceDeploymentInformer.Informer().AddEventHandler(handler)
 	p.NodeInformer.Informer().AddEventHandler(handler)
 
 	return []cache.InformerSynced{
-		p.TargetNamespaceDaemonSetInformer.Informer().HasSynced,
+		p.TargetNamespaceDeploymentInformer.Informer().HasSynced,
 		p.NodeInformer.Informer().HasSynced,
 	}
 }

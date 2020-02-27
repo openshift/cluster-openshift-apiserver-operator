@@ -28,7 +28,7 @@ type finalizerController struct {
 
 	namespaceGetter v1.NamespacesGetter
 	podLister       corev1listers.PodLister
-	dsLister        appsv1lister.DaemonSetLister
+	deployLister    appsv1lister.DeploymentLister
 	eventRecorder   events.Recorder
 
 	preRunHasSynced []cache.InformerSynced
@@ -43,7 +43,7 @@ type finalizerController struct {
 // so it deletes the rest and requeues. The ns controller starts again and does a complete discovery and.... fails. The
 // failure means it refuses to complete the cleanup. Now, we don't actually want to delete the resoruces from our
 // aggregated API, only the server plus config if we remove the apiservices to unstick it, GC will start cleaning
-// everything. For now, we can unbork 4.0, but clearing the finalizer after the pod and daemonset we created are gone.
+// everything. For now, we can unbork 4.0, but clearing the finalizer after the pod and deployment we created are gone.
 func NewFinalizerController(
 	namespaceName string,
 	kubeInformersForTargetNamespace kubeinformers.SharedInformerFactory,
@@ -57,18 +57,18 @@ func NewFinalizerController(
 
 		namespaceGetter: namespaceGetter,
 		podLister:       kubeInformersForTargetNamespace.Core().V1().Pods().Lister(),
-		dsLister:        kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Lister(),
+		deployLister:    kubeInformersForTargetNamespace.Apps().V1().Deployments().Lister(),
 		eventRecorder:   eventRecorder.WithComponentSuffix("finalizer-controller"),
 
 		preRunHasSynced: []cache.InformerSynced{
 			kubeInformersForTargetNamespace.Core().V1().Pods().Informer().HasSynced,
-			kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer().HasSynced,
+			kubeInformersForTargetNamespace.Apps().V1().Deployments().Informer().HasSynced,
 		},
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), fullname),
 	}
 
 	kubeInformersForTargetNamespace.Core().V1().Pods().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForTargetNamespace.Apps().V1().DaemonSets().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForTargetNamespace.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
 
 	return c
 }
@@ -100,11 +100,11 @@ func (c finalizerController) sync() error {
 	if len(pods) > 0 {
 		return nil
 	}
-	dses, err := c.dsLister.DaemonSets(c.namespaceName).List(labels.Everything())
+	deployments, err := c.deployLister.Deployments(c.namespaceName).List(labels.Everything())
 	if err != nil {
 		return err
 	}
-	if len(dses) > 0 {
+	if len(deployments) > 0 {
 		return nil
 	}
 
@@ -153,20 +153,20 @@ func (c *finalizerController) runWorker() {
 }
 
 func (c *finalizerController) processNextWorkItem() bool {
-	dsKey, quit := c.queue.Get()
+	key, quit := c.queue.Get()
 	if quit {
 		return false
 	}
-	defer c.queue.Done(dsKey)
+	defer c.queue.Done(key)
 
 	err := c.sync()
 	if err == nil {
-		c.queue.Forget(dsKey)
+		c.queue.Forget(key)
 		return true
 	}
 
-	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
-	c.queue.AddRateLimited(dsKey)
+	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", key, err))
+	c.queue.AddRateLimited(key)
 
 	return true
 }

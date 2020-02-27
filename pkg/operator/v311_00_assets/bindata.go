@@ -3,7 +3,7 @@
 // bindata/v3.11.0/config/defaultconfig.yaml
 // bindata/v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml
 // bindata/v3.11.0/openshift-apiserver/cm.yaml
-// bindata/v3.11.0/openshift-apiserver/ds.yaml
+// bindata/v3.11.0/openshift-apiserver/deploy.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
@@ -173,8 +173,8 @@ func v3110OpenshiftApiserverCmYaml() (*asset, error) {
 	return a, nil
 }
 
-var _v3110OpenshiftApiserverDsYaml = []byte(`apiVersion: apps/v1
-kind: DaemonSet
+var _v3110OpenshiftApiserverDeployYaml = []byte(`apiVersion: apps/v1
+kind: Deployment
 metadata:
   namespace: openshift-apiserver
   name: apiserver
@@ -182,17 +182,26 @@ metadata:
     app: openshift-apiserver
     apiserver: "true"
 spec:
-  updateStrategy:
-    type: RollingUpdate
+  replicas: 3
   selector:
     matchLabels:
-      app: openshift-apiserver
+      # Need to vary the app label from that used by the legacy
+      # daemonset ('openshift-apiserver') to avoid the legacy
+      # daemonset and its replacement deployment trying to try to
+      # manage the same pods.
+      #
+      # It's also necessary to use different labeling to ensure, via
+      # anti-affinity, at most one deployment-managed pod on each
+      # master node. Without label differentiation, anti-affinity
+      # would prevent a deployment-managed pod from running on a node
+      # that was already running a daemonset-managed pod.
+      app: openshift-apiserver-a
       apiserver: "true"
   template:
     metadata:
       name: openshift-apiserver
       labels:
-        app: openshift-apiserver
+        app: openshift-apiserver-a
         apiserver: "true"
     spec:
       serviceAccountName: openshift-apiserver-sa
@@ -294,20 +303,36 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
-      - operator: Exists
+        # Ensure pod can be scheduled on master nodes
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"
+        # Ensure pod can be evicted if the node is unreachable
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 120
+        # Ensure scheduling is delayed until node readiness
+        # (i.e. network operator configures CNI on the node)
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 120
+      # Anti-affinity is configured in code due to the need to scope
+      # selection to the computed pod template.
 `)
 
-func v3110OpenshiftApiserverDsYamlBytes() ([]byte, error) {
-	return _v3110OpenshiftApiserverDsYaml, nil
+func v3110OpenshiftApiserverDeployYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverDeployYaml, nil
 }
 
-func v3110OpenshiftApiserverDsYaml() (*asset, error) {
-	bytes, err := v3110OpenshiftApiserverDsYamlBytes()
+func v3110OpenshiftApiserverDeployYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverDeployYamlBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/ds.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/deploy.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -472,7 +497,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/config/defaultconfig.yaml":                             v3110ConfigDefaultconfigYaml,
 	"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml": v3110OpenshiftApiserverApiserverClusterrolebindingYaml,
 	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
-	"v3.11.0/openshift-apiserver/ds.yaml":                           v3110OpenshiftApiserverDsYaml,
+	"v3.11.0/openshift-apiserver/deploy.yaml":                       v3110OpenshiftApiserverDeployYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
@@ -527,7 +552,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 		"openshift-apiserver": {nil, map[string]*bintree{
 			"apiserver-clusterrolebinding.yaml": {v3110OpenshiftApiserverApiserverClusterrolebindingYaml, map[string]*bintree{}},
 			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
-			"ds.yaml":                           {v3110OpenshiftApiserverDsYaml, map[string]*bintree{}},
+			"deploy.yaml":                       {v3110OpenshiftApiserverDeployYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
