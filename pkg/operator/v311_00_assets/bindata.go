@@ -182,7 +182,7 @@ metadata:
     app: openshift-apiserver
     apiserver: "true"
 spec:
-  replicas: 3
+  # The number of replicas will be set in code to the number of master nodes.
   selector:
     matchLabels:
       # Need to vary the app label from that used by the legacy
