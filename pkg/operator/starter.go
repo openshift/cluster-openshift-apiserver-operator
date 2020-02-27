@@ -136,6 +136,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	}
 	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
+	nodeInformer := kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes()
+
 	workloadController := workloadcontroller.NewWorkloadController(
 		os.Getenv("IMAGE"), os.Getenv("OPERATOR_IMAGE_VERSION"), os.Getenv("OPERATOR_IMAGE"),
 		operatorClient,
@@ -146,6 +148,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		apiregistrationInformers,
 		configInformers,
+		nodeInformer,
 		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
 		kubeClient,
@@ -209,7 +212,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	nodeProvider := DeploymentNodeProvider{
 		TargetNamespaceDeploymentInformer: kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Apps().V1().Deployments(),
-		NodeInformer:                      kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes(),
+		NodeInformer:                      nodeInformer,
 	}
 
 	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), nodeProvider)
