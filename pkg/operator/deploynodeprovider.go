@@ -23,7 +23,7 @@ var (
 )
 
 func (p DeploymentNodeProvider) MasterNodeNames() ([]string, error) {
-	ds, err := p.TargetNamespaceDeploymentInformer.Lister().Deployments(operatorclient.TargetNamespace).Get("apiserver")
+	deploy, err := p.TargetNamespaceDeploymentInformer.Lister().Deployments(operatorclient.TargetNamespace).Get("apiserver")
 	if err != nil && errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -31,7 +31,7 @@ func (p DeploymentNodeProvider) MasterNodeNames() ([]string, error) {
 		return nil, err
 	}
 
-	nodes, err := p.NodeInformer.Lister().List(labels.SelectorFromSet(ds.Spec.Template.Spec.NodeSelector))
+	nodes, err := p.NodeInformer.Lister().List(labels.SelectorFromSet(deploy.Spec.Template.Spec.NodeSelector))
 	if err != nil {
 		return nil, err
 	}

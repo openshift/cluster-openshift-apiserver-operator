@@ -192,7 +192,9 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		desiredReplicas = *(actualDeployment.Spec.Replicas)
 	}
 
-	deploymentHasAllPodsAvailable := actualDeployment.Status.AvailableReplicas == desiredReplicas
+	// During a rollout with default maxSurge (25%) will allow the available
+	// replicas to temporarily exceed the desired replica count.
+	deploymentHasAllPodsAvailable := actualDeployment.Status.AvailableReplicas >= desiredReplicas
 	if !deploymentHasAllPodsAvailable {
 		numNonAvailablePods := desiredReplicas - actualDeployment.Status.AvailableReplicas
 		errors = append(errors,
@@ -369,7 +371,6 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 
 	required.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
 	required.Spec.Template.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
-	required.Spec.Template.Labels["previousGeneration"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
 
 	var observedConfig map[string]interface{}
 	if err := yaml.Unmarshal(operatorConfig.Spec.ObservedConfig.Raw, &observedConfig); err != nil {

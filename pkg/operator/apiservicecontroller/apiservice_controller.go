@@ -220,20 +220,20 @@ func (c *APIServiceController) runWorker() {
 }
 
 func (c *APIServiceController) processNextWorkItem() bool {
-	dsKey, quit := c.queue.Get()
+	key, quit := c.queue.Get()
 	if quit {
 		return false
 	}
-	defer c.queue.Done(dsKey)
+	defer c.queue.Done(key)
 
 	err := c.sync()
 	if err == nil {
-		c.queue.Forget(dsKey)
+		c.queue.Forget(key)
 		return true
 	}
 
-	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
-	c.queue.AddRateLimited(dsKey)
+	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", key, err))
+	c.queue.AddRateLimited(key)
 
 	return true
 }
