@@ -57,7 +57,7 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 
 	// our configmaps and secrets are in order, now it is time to create the deployment
 	// TODO check basic preconditions here
-	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(c.kubeClient, c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations)
+	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(c.kubeClient, c.kubeClient.AppsV1(), c.countNodes, c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "deployments", err))
 	}
@@ -192,8 +192,9 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		desiredReplicas = *(actualDeployment.Spec.Replicas)
 	}
 
-	// During a rollout with default maxSurge (25%) will allow the available
-	// replicas to temporarily exceed the desired replica count.
+	// During a rollout the default maxSurge (25%) will allow the available
+	// replicas to temporarily exceed the desired replica count. If this were
+	// to occur, the operator should not report degraded.
 	deploymentHasAllPodsAvailable := actualDeployment.Status.AvailableReplicas >= desiredReplicas
 	if !deploymentHasAllPodsAvailable {
 		numNonAvailablePods := desiredReplicas - actualDeployment.Status.AvailableReplicas
@@ -337,6 +338,7 @@ func loglevelToKlog(logLevel operatorv1.LogLevel) string {
 func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	kubeClient kubernetes.Interface,
 	client appsclientv1.DeploymentsGetter,
+	countNodes nodeCountFunc,
 	recorder events.Recorder,
 	imagePullSpec string,
 	operatorImagePullSpec string,
@@ -412,6 +414,18 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to ensure at most one pod per node: %v", err)
 	}
+
+	// Set the replica count to the number of master nodes.
+	masterNodeCount, err := countNodes(required.Spec.Template.Spec.NodeSelector)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to determine number of master nodes: %v", err)
+	}
+	required.Spec.Replicas = masterNodeCount
+	// Set the replica count as an annotation to ensure that ApplyDeployment
+	// will update the deployment in the API when the replica count
+	// changes. Updates are otherwise skipped if the metadata matches and the
+	// generation is up-to-date.
+	required.Annotations["openshiftapiservers.operator.openshift.io/replicas"] = fmt.Sprintf("%d", *masterNodeCount)
 
 	return resourceapply.ApplyDeployment(client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus), false)
 }

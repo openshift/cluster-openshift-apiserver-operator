@@ -26,6 +26,11 @@ import (
 	kubetesting "k8s.io/client-go/testing"
 )
 
+func fakeCountNodes(_ map[string]string) (*int32, error) {
+	masterNodeCount := int32(3)
+	return &masterNodeCount, nil
+}
+
 func TestAPIServerDeploymentProgressingCondition(t *testing.T) {
 	testCases := []struct {
 		name                         string
@@ -102,6 +107,7 @@ func TestAPIServerDeploymentProgressingCondition(t *testing.T) {
 				operatorConfigClient:  apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient: openshiftConfigClient.ConfigV1(),
 				versionRecorder:       status.NewVersionGetter(),
+				countNodes:            fakeCountNodes,
 			}
 
 			_ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
@@ -198,6 +204,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 				operatorConfigClient:  apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient: openshiftConfigClient.ConfigV1(),
 				versionRecorder:       status.NewVersionGetter(),
+				countNodes:            fakeCountNodes,
 			}
 
 			_ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
@@ -314,6 +321,7 @@ func TestAvailableStatus(t *testing.T) {
 				operatorConfigClient:  apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient: openshiftConfigClient.ConfigV1(),
 				versionRecorder:       status.NewVersionGetter(),
+				countNodes:            fakeCountNodes,
 			}
 
 			_ = syncOpenShiftAPIServer_v311_00_to_latest(operator, operatorConfig)
