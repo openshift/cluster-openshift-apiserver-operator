@@ -14,10 +14,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -38,6 +40,8 @@ const (
 	workQueueKey      = "key"
 )
 
+type nodeCountFunc func(nodeSelector map[string]string) (*int32, error)
+
 type OpenShiftAPIServerOperator struct {
 	targetImagePullSpec, targetOperandVersion, operatorImagePullSpec string
 
@@ -46,7 +50,12 @@ type OpenShiftAPIServerOperator struct {
 	operatorConfigClient  operatorv1client.OpenShiftAPIServersGetter
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface
 	kubeClient            kubernetes.Interface
+	nodeInformer          corev1informers.NodeInformer
 	eventRecorder         events.Recorder
+
+	// Function to return count of nodes is a variable to support
+	// replacement in unit tests.
+	countNodes nodeCountFunc
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
@@ -62,6 +71,7 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftConfigNamespace kubeinformers.SharedInformerFactory,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
+	nodeInformer corev1informers.NodeInformer,
 	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
 	kubeClient kubernetes.Interface,
@@ -77,10 +87,13 @@ func NewWorkloadController(
 		operatorConfigClient:  operatorConfigClient,
 		openshiftConfigClient: openshiftConfigClient,
 		kubeClient:            kubeClient,
+		nodeInformer:          nodeInformer,
 		eventRecorder:         eventRecorder.WithComponentSuffix("workload-controller"),
 
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "OpenShiftAPIServerOperator"),
 	}
+
+	c.countNodes = c.countNodesImpl
 
 	operatorConfigInformer.Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForEtcdNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
@@ -88,7 +101,7 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().ServiceAccounts().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForOpenShiftAPIServerNamespace.Apps().V1().DaemonSets().Informer().AddEventHandler(c.eventHandler())
+	kubeInformersForOpenShiftAPIServerNamespace.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftConfigNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	configInformers.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 	apiregistrationInformers.Apiregistration().V1().APIServices().Informer().AddEventHandler(c.eventHandler())
@@ -169,20 +182,20 @@ func (c *OpenShiftAPIServerOperator) runWorker() {
 }
 
 func (c *OpenShiftAPIServerOperator) processNextWorkItem() bool {
-	dsKey, quit := c.queue.Get()
+	key, quit := c.queue.Get()
 	if quit {
 		return false
 	}
-	defer c.queue.Done(dsKey)
+	defer c.queue.Done(key)
 
 	err := c.sync()
 	if err == nil {
-		c.queue.Forget(dsKey)
+		c.queue.Forget(key)
 		return true
 	}
 
-	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", dsKey, err))
-	c.queue.AddRateLimited(dsKey)
+	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", key, err))
+	c.queue.AddRateLimited(key)
 
 	return true
 }
@@ -238,4 +251,18 @@ func (c *OpenShiftAPIServerOperator) namespaceEventHandler() cache.ResourceEvent
 			}
 		},
 	}
+}
+
+// countNodesImpl returns the number of nodes that match the given
+// selector. This supports determining the number of master nodes to
+// allow setting the deployment replica count to match. It is not
+// intended to be called directly and instead should be called via
+// countNodes to allow replacement in testing.
+func (c *OpenShiftAPIServerOperator) countNodesImpl(nodeSelector map[string]string) (*int32, error) {
+	nodes, err := c.nodeInformer.Lister().List(labels.SelectorFromSet(nodeSelector))
+	if err != nil {
+		return nil, err
+	}
+	replicas := int32(len(nodes))
+	return &replicas, nil
 }

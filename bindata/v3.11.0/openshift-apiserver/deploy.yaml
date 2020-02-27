@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   namespace: openshift-apiserver
   name: apiserver
@@ -7,17 +7,26 @@ metadata:
     app: openshift-apiserver
     apiserver: "true"
 spec:
-  updateStrategy:
-    type: RollingUpdate
+  # The number of replicas will be set in code to the number of master nodes.
   selector:
     matchLabels:
-      app: openshift-apiserver
+      # Need to vary the app label from that used by the legacy
+      # daemonset ('openshift-apiserver') to avoid the legacy
+      # daemonset and its replacement deployment trying to try to
+      # manage the same pods.
+      #
+      # It's also necessary to use different labeling to ensure, via
+      # anti-affinity, at most one deployment-managed pod on each
+      # master node. Without label differentiation, anti-affinity
+      # would prevent a deployment-managed pod from running on a node
+      # that was already running a daemonset-managed pod.
+      app: openshift-apiserver-a
       apiserver: "true"
   template:
     metadata:
       name: openshift-apiserver
       labels:
-        app: openshift-apiserver
+        app: openshift-apiserver-a
         apiserver: "true"
     spec:
       serviceAccountName: openshift-apiserver-sa
@@ -119,4 +128,20 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
-      - operator: Exists
+        # Ensure pod can be scheduled on master nodes
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"
+        # Ensure pod can be evicted if the node is unreachable
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 120
+        # Ensure scheduling is delayed until node readiness
+        # (i.e. network operator configures CNI on the node)
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 120
+      # Anti-affinity is configured in code due to the need to scope
+      # selection to the computed pod template.

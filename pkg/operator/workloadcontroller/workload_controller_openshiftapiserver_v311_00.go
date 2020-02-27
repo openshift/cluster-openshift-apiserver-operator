@@ -10,6 +10,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/ghodss/yaml"
+	"github.com/google/uuid"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -54,11 +55,11 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "image-import-ca", err))
 	}
 
-	// our configmaps and secrets are in order, now it is time to create the DS
+	// our configmaps and secrets are in order, now it is time to create the deployment
 	// TODO check basic preconditions here
-	actualDaemonSet, _, err := manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(c.kubeClient, c.kubeClient.AppsV1(), c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations)
+	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(c.kubeClient, c.kubeClient.AppsV1(), c.countNodes, c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("%q: %v", "daemonsets", err))
+		errors = append(errors, fmt.Errorf("%q: %v", "deployments", err))
 	}
 
 	if len(errors) > 0 {
@@ -101,29 +102,29 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		)
 	}
 
-	if actualDaemonSet == nil {
-		message := "daemonset/apiserver.openshift-apiserver: could not be retrieved"
+	if actualDeployment == nil {
+		message := "deployment/apiserver.openshift-apiserver: could not be retrieved"
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDaemonSetAvailable",
+				Type:    "APIServerDeploymentAvailable",
 				Status:  operatorv1.ConditionFalse,
-				Reason:  "NoDaemon",
+				Reason:  "NoDeployment",
 				Message: message,
 			})))...,
 		)
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDaemonSetProgressing",
+				Type:    "APIServerDeploymentProgressing",
 				Status:  operatorv1.ConditionTrue,
-				Reason:  "NoDaemon",
+				Reason:  "NoDeployment",
 				Message: message,
 			})))...,
 		)
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDaemonSetDegraded",
+				Type:    "APIServerDeploymentDegraded",
 				Status:  operatorv1.ConditionTrue,
-				Reason:  "NoDaemon",
+				Reason:  "NoDeployment",
 				Message: message,
 			})))...,
 		)
@@ -132,40 +133,40 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	}
 
 	// manage status
-	if actualDaemonSet.Status.NumberAvailable == 0 {
+	if actualDeployment.Status.AvailableReplicas == 0 {
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDaemonSetAvailable",
+				Type:    "APIServerDeploymentAvailable",
 				Status:  operatorv1.ConditionFalse,
 				Reason:  "NoAPIServerPod",
-				Message: "no openshift-apiserver daemon pods available on any node.",
+				Message: "no openshift-apiserver pods available.",
 			})))...,
 		)
 	} else {
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "APIServerDaemonSetAvailable",
+				Type:   "APIServerDeploymentAvailable",
 				Status: operatorv1.ConditionTrue,
 				Reason: "AsExpected",
 			})))...,
 		)
 	}
 
-	// If the daemonset is up to date and the operatorConfig are up to date, then we are no longer progressing
-	daemonSetAtHighestGeneration := actualDaemonSet.ObjectMeta.Generation == actualDaemonSet.Status.ObservedGeneration
-	if !daemonSetAtHighestGeneration {
+	// If the deployment is up to date and the operatorConfig are up to date, then we are no longer progressing
+	deploymentAtHighestGeneration := actualDeployment.ObjectMeta.Generation == actualDeployment.Status.ObservedGeneration
+	if !deploymentAtHighestGeneration {
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDaemonSetProgressing",
+				Type:    "APIServerDeploymentProgressing",
 				Status:  operatorv1.ConditionTrue,
 				Reason:  "NewGeneration",
-				Message: fmt.Sprintf("daemonset/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDaemonSet.Status.ObservedGeneration, actualDaemonSet.ObjectMeta.Generation),
+				Message: fmt.Sprintf("deployment/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDeployment.Status.ObservedGeneration, actualDeployment.ObjectMeta.Generation),
 			})))...,
 		)
 	} else {
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "APIServerDaemonSetProgressing",
+				Type:   "APIServerDeploymentProgressing",
 				Status: operatorv1.ConditionFalse,
 				Reason: "AsExpected",
 			})))...,
@@ -181,38 +182,46 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 	)
 	errors = append(errors,
 		appendErrors(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
-			resourcemerge.SetDaemonSetGeneration(&status.Generations, actualDaemonSet)
+			resourcemerge.SetDeploymentGeneration(&status.Generations, actualDeployment)
 			return nil
 		}))...,
 	)
 
-	daemonSetHasAllPodsAvailable := actualDaemonSet.Status.NumberAvailable == actualDaemonSet.Status.DesiredNumberScheduled
-	if !daemonSetHasAllPodsAvailable {
-		numNonAvailablePods := actualDaemonSet.Status.DesiredNumberScheduled - actualDaemonSet.Status.NumberAvailable
+	desiredReplicas := int32(1)
+	if actualDeployment.Spec.Replicas != nil {
+		desiredReplicas = *(actualDeployment.Spec.Replicas)
+	}
+
+	// During a rollout the default maxSurge (25%) will allow the available
+	// replicas to temporarily exceed the desired replica count. If this were
+	// to occur, the operator should not report degraded.
+	deploymentHasAllPodsAvailable := actualDeployment.Status.AvailableReplicas >= desiredReplicas
+	if !deploymentHasAllPodsAvailable {
+		numNonAvailablePods := desiredReplicas - actualDeployment.Status.AvailableReplicas
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDaemonSetDegraded",
+				Type:    "APIServerDeploymentDegraded",
 				Status:  operatorv1.ConditionTrue,
 				Reason:  "UnavailablePod",
-				Message: fmt.Sprintf("%v of %v requested instances are unavailable", numNonAvailablePods, actualDaemonSet.Status.DesiredNumberScheduled),
+				Message: fmt.Sprintf("%v of %v requested instances are unavailable", numNonAvailablePods, desiredReplicas),
 			})))...,
 		)
 	} else {
 		errors = append(errors,
 			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "APIServerDaemonSetDegraded",
+				Type:   "APIServerDeploymentDegraded",
 				Status: operatorv1.ConditionFalse,
 				Reason: "AsExpected",
 			})))...,
 		)
 	}
 
-	// if the daemonset is all available and at the expected generation, then update the version to the latest
-	// when we update, the image pull spec should immediately be different, which should immediately cause a daemonset rollout
-	// which should immediately result in a daemonset generation diff, which should cause this block to be skipped until it is ready.
-	daemonSetHasAllPodsUpdated := actualDaemonSet.Status.UpdatedNumberScheduled == actualDaemonSet.Status.DesiredNumberScheduled
+	// if the deployment is all available and at the expected generation, then update the version to the latest
+	// when we update, the image pull spec should immediately be different, which should immediately cause a deployment rollout
+	// which should immediately result in a deployment generation diff, which should cause this block to be skipped until it is ready.
+	deploymentHasAllPodsUpdated := actualDeployment.Status.UpdatedReplicas == desiredReplicas
 	operatorConfigAtHighestGeneration := operatorConfig.Status.ObservedGeneration == operatorConfig.ObjectMeta.Generation
-	if operatorConfigAtHighestGeneration && daemonSetAtHighestGeneration && daemonSetHasAllPodsAvailable && daemonSetHasAllPodsUpdated {
+	if operatorConfigAtHighestGeneration && deploymentAtHighestGeneration && deploymentHasAllPodsAvailable && deploymentHasAllPodsUpdated {
 		c.versionRecorder.SetVersion("openshift-apiserver", c.targetOperandVersion)
 	}
 
@@ -326,16 +335,17 @@ func loglevelToKlog(logLevel operatorv1.LogLevel) string {
 	}
 }
 
-func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
+func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	kubeClient kubernetes.Interface,
-	client appsclientv1.DaemonSetsGetter,
+	client appsclientv1.DeploymentsGetter,
+	countNodes nodeCountFunc,
 	recorder events.Recorder,
 	imagePullSpec string,
 	operatorImagePullSpec string,
 	operatorConfig *operatorv1.OpenShiftAPIServer,
 	generationStatus []operatorv1.GenerationStatus,
-) (*appsv1.DaemonSet, bool, error) {
-	tmpl := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/ds.yaml")
+) (*appsv1.Deployment, bool, error) {
+	tmpl := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/deploy.yaml")
 
 	r := strings.NewReplacer(
 		"${IMAGE}", imagePullSpec,
@@ -350,10 +360,10 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 		return nil, false, fmt.Errorf("invalid template reference %q", string(match))
 	}
 
-	required := resourceread.ReadDaemonSetV1OrDie(tmpl)
+	required := resourceread.ReadDeploymentV1OrDie(tmpl)
 
 	// we set this so that when the requested image pull spec changes, we always have a diff.  Remember that we don't directly
-	// diff any fields on the daemonset because they can be rewritten by admission and we don't want to constantly be fighting
+	// diff any fields on the deployment because they can be rewritten by admission and we don't want to constantly be fighting
 	// against admission or defaults.  That was a problem with original versions of apply.
 	if required.Annotations == nil {
 		required.Annotations = map[string]string{}
@@ -378,7 +388,7 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 		required.Spec.Template.Spec.Containers[i].Env = append(container.Env, proxyEnvVars...)
 	}
 
-	// we watch some resources so that our daemonset will redeploy without explicitly and carefully ordered resource creation
+	// we watch some resources so that our deployment will redeploy without explicitly and carefully ordered resource creation
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
 		kubeClient,
 		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("config"),
@@ -400,7 +410,24 @@ func manageOpenShiftAPIServerDaemonSet_v311_00_to_latest(
 		required.Spec.Template.Annotations[annotationKey] = v
 	}
 
-	return resourceapply.ApplyDaemonSet(client, recorder, required, resourcemerge.ExpectedDaemonSetGeneration(required, generationStatus), false)
+	err = ensureAtMostOnePodPerNode(&required.Spec)
+	if err != nil {
+		return nil, false, fmt.Errorf("unable to ensure at most one pod per node: %v", err)
+	}
+
+	// Set the replica count to the number of master nodes.
+	masterNodeCount, err := countNodes(required.Spec.Template.Spec.NodeSelector)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to determine number of master nodes: %v", err)
+	}
+	required.Spec.Replicas = masterNodeCount
+	// Set the replica count as an annotation to ensure that ApplyDeployment
+	// will update the deployment in the API when the replica count
+	// changes. Updates are otherwise skipped if the metadata matches and the
+	// generation is up-to-date.
+	required.Annotations["openshiftapiservers.operator.openshift.io/replicas"] = fmt.Sprintf("%d", *masterNodeCount)
+
+	return resourceapply.ApplyDeployment(client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus), false)
 }
 
 var openshiftScheme = runtime.NewScheme()
@@ -453,4 +480,53 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	// sort the env vars to prevent update hotloops
 	sort.Slice(envVars, func(i, j int) bool { return envVars[i].Name < envVars[j].Name })
 	return envVars
+}
+
+// ensureAtMostOnePodPerNode updates the deployment spec to prevent more than
+// one pod of a given replicaset from landing on a node. It accomplishes this
+// by adding a uuid as a label on the template and updates the pod
+// anti-affinity term to include that label. Since the deployment is only
+// written (via ApplyDeployment) when the metadata differs or the generations
+// don't match, the uuid should only be updated in the API when a new
+// replicaset is created.
+func ensureAtMostOnePodPerNode(spec *appsv1.DeploymentSpec) error {
+	uuidKey := "anti-affinity-uuid"
+	uuidValue := uuid.New().String()
+
+	// Label the pod template with the template hash
+	spec.Template.Labels[uuidKey] = uuidValue
+
+	// Ensure that match labels are defined
+	if spec.Selector == nil {
+		return fmt.Errorf("deployment is missing spec.selector")
+	}
+	if len(spec.Selector.MatchLabels) == 0 {
+		return fmt.Errorf("deployment is missing spec.selector.matchLabels")
+	}
+
+	// Ensure anti-affinity selects on the uuid
+	antiAffinityMatchLabels := map[string]string{
+		uuidKey: uuidValue,
+	}
+	// Ensure anti-affinity selects on the same labels as the deployment
+	for key, value := range spec.Selector.MatchLabels {
+		antiAffinityMatchLabels[key] = value
+	}
+
+	// Add an anti-affinity rule to the pod template that precludes more than
+	// one pod for a uuid from being scheduled to a node.
+	spec.Template.Spec.Affinity = &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+				{
+					TopologyKey: "kubernetes.io/hostname",
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: antiAffinityMatchLabels,
+					},
+				},
+			},
+		},
+	}
+
+	return nil
 }

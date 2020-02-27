@@ -359,7 +359,6 @@ func TestAvailableStatus(t *testing.T) {
 		expectedMessages    []string
 		existingAPIServices []runtime.Object
 		apiServiceReactor   kubetesting.ReactionFunc
-		daemonReactor       kubetesting.ReactionFunc
 	}{
 		{
 			name:           "Default",
