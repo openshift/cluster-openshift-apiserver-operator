@@ -42,8 +42,9 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 	var etcdURLs sort.StringSlice
 	etcdEndpoints, err := listers.EndpointsLister.Endpoints(EtcdEndpointNamespace).Get(EtcdEndpointName)
 	if errors.IsNotFound(err) {
-		recorder.Warningf("ObserveStorageFailed", "Required endpoints/%s in the %s namespace not found, falling back to default etcd service", EtcdEndpointName, EtcdEndpointNamespace)
-		return observedConfig, errs
+		recorder.Warningf("ObserveStorageFailed", "Required endpoints/%s in the %s namespace not found.", EtcdEndpointName, EtcdEndpointNamespace)
+		errs = append(errs, fmt.Errorf("endpoints/%s in the %s namespace: not found", EtcdEndpointName, EtcdEndpointNamespace))
+		return previouslyObservedConfig, errs
 	}
 	if err != nil {
 		recorder.Warningf("ObserveStorageFailed", "Error getting endpoints/%s in the %s namespace: %v", EtcdEndpointName, EtcdEndpointNamespace, err)
