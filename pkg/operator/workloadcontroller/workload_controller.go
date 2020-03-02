@@ -188,7 +188,7 @@ func (c OpenShiftAPIServerOperator) sync() error {
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
-func (c *OpenShiftAPIServerOperator) Run(ctx context.Context, workers int) {
+func (c *OpenShiftAPIServerOperator) Run(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
