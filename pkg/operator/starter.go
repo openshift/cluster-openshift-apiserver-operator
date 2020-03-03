@@ -282,7 +282,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	migrationInformer.Start(ctx.Done())
 
 	go staticResourceController.Run(ctx, 1)
-	go workloadController.Run(ctx, 1)
+	go workloadController.Run(ctx)
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
 	go revisionController.Run(ctx, 1)
