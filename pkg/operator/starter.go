@@ -73,6 +73,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
+		metav1.NamespaceSystem,
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -125,6 +126,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
+		kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem),
 		apiregistrationInformers,
 		configInformers,
 		operatorConfigClient.OperatorV1(),
@@ -219,7 +221,7 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
 
-	go workloadController.Run(1, ctx.Done())
+	go workloadController.Run(ctx.Done())
 	go configObserver.Run(1, ctx.Done())
 	go clusterOperatorStatus.Run(1, ctx.Done())
 	go finalizerController.Run(1, ctx.Done())
