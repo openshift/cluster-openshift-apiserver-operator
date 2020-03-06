@@ -8,8 +8,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
@@ -209,6 +211,8 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 		ctx.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
+	ensureDeploymentCleanup(kubeClient, ctx.Done())
+
 	operatorConfigInformers.Start(ctx.Done())
 	kubeInformersForNamespaces.Start(ctx.Done())
 	apiregistrationInformers.Start(ctx.Done())
@@ -228,4 +232,56 @@ func RunOperator(ctx *controllercmd.ControllerContext) error {
 
 	<-ctx.Done()
 	return fmt.Errorf("stopped")
+}
+
+// ensureDeploymentCleanup removes the deployment used to manage apiserver
+// pods in release 4.4 and greater in the event of a downgrade to 4.3. The
+// deployment is removed once the daemonset managing the apiserver pods
+// reports at least one pod available.
+func ensureDeploymentCleanup(kubeClient *kubernetes.Clientset, stopCh <-chan struct{}) {
+	// daemonset and deployment both use the same name
+	resourceName := "apiserver"
+
+	dsClient := kubeClient.AppsV1().DaemonSets(operatorclient.TargetNamespace)
+	deployClient := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace)
+
+	go wait.Until(func() {
+		// Check whether the 4.4 deployment exists and is not marked for deletion
+		deploy, err := deployClient.Get(resourceName, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			// Done - deployment does not exist
+			return
+		}
+		if err != nil {
+			klog.Warningf("Error retrieving 4.4 deployment: %v", err)
+			return
+		}
+		if deploy.ObjectMeta.DeletionTimestamp != nil {
+			// Done - deployment has been marked for deletion
+			return
+		}
+
+		// Check that the daemonset managing the apiserver pods has at last one available replica
+		ds, err := dsClient.Get(resourceName, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			// No available replicas if the daemonset doesn't exist
+			return
+		}
+		if err != nil {
+			klog.Warningf("Error retrieving the daemonset that manages apiserver pods: %v", err)
+			return
+		}
+		if ds.Status.NumberAvailable == 0 {
+			// No available replicas yet
+			return
+		}
+
+		// Safe to remove 4.4 deployment since the daemonset has at least one available replica
+		err = deployClient.Delete(resourceName, &metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			klog.Warningf("Failed to delete 4.4 deployment: %v", err)
+			return
+		}
+		// Done - 4.4 deployment is missing or has been marked for deletion
+	}, time.Minute, stopCh)
 }
