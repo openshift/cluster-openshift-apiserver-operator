@@ -183,6 +183,16 @@ metadata:
     apiserver: "true"
 spec:
   # The number of replicas will be set in code to the number of master nodes.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # To ensure that only one pod at a time writes to the node's
+      # audit log, require the update strategy to proceed a node at a
+      # time. Only when a master node has its existing
+      # openshift-apiserver pod stopped will a new one be allowed to
+      # start.
+      maxUnavailable: 1
+      maxSurge: 0
   selector:
     matchLabels:
       # Need to vary the app label from that used by the legacy
@@ -318,8 +328,15 @@ spec:
         operator: "Exists"
         effect: "NoExecute"
         tolerationSeconds: 120
-      # Anti-affinity is configured in code due to the need to scope
-      # selection to the computed pod template.
+      affinity:
+        podAntiAffinity:
+          # Ensure that at most one apiserver pod will be scheduled on a node.
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - topologyKey: "kubernetes.io/hostname"
+            labelSelector:
+              matchLabels:
+                app: "openshift-apiserver-a"
+                apiserver: "true"
 `)
 
 func v3110OpenshiftApiserverDeployYamlBytes() ([]byte, error) {
