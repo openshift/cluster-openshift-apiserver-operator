@@ -10,7 +10,6 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/ghodss/yaml"
-	"github.com/google/uuid"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -410,11 +409,6 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 		required.Spec.Template.Annotations[annotationKey] = v
 	}
 
-	err = ensureAtMostOnePodPerNode(&required.Spec)
-	if err != nil {
-		return nil, false, fmt.Errorf("unable to ensure at most one pod per node: %v", err)
-	}
-
 	// Set the replica count to the number of master nodes.
 	masterNodeCount, err := countNodes(required.Spec.Template.Spec.NodeSelector)
 	if err != nil {
@@ -480,53 +474,4 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	// sort the env vars to prevent update hotloops
 	sort.Slice(envVars, func(i, j int) bool { return envVars[i].Name < envVars[j].Name })
 	return envVars
-}
-
-// ensureAtMostOnePodPerNode updates the deployment spec to prevent more than
-// one pod of a given replicaset from landing on a node. It accomplishes this
-// by adding a uuid as a label on the template and updates the pod
-// anti-affinity term to include that label. Since the deployment is only
-// written (via ApplyDeployment) when the metadata differs or the generations
-// don't match, the uuid should only be updated in the API when a new
-// replicaset is created.
-func ensureAtMostOnePodPerNode(spec *appsv1.DeploymentSpec) error {
-	uuidKey := "anti-affinity-uuid"
-	uuidValue := uuid.New().String()
-
-	// Label the pod template with the template hash
-	spec.Template.Labels[uuidKey] = uuidValue
-
-	// Ensure that match labels are defined
-	if spec.Selector == nil {
-		return fmt.Errorf("deployment is missing spec.selector")
-	}
-	if len(spec.Selector.MatchLabels) == 0 {
-		return fmt.Errorf("deployment is missing spec.selector.matchLabels")
-	}
-
-	// Ensure anti-affinity selects on the uuid
-	antiAffinityMatchLabels := map[string]string{
-		uuidKey: uuidValue,
-	}
-	// Ensure anti-affinity selects on the same labels as the deployment
-	for key, value := range spec.Selector.MatchLabels {
-		antiAffinityMatchLabels[key] = value
-	}
-
-	// Add an anti-affinity rule to the pod template that precludes more than
-	// one pod for a uuid from being scheduled to a node.
-	spec.Template.Spec.Affinity = &corev1.Affinity{
-		PodAntiAffinity: &corev1.PodAntiAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
-				{
-					TopologyKey: "kubernetes.io/hostname",
-					LabelSelector: &metav1.LabelSelector{
-						MatchLabels: antiAffinityMatchLabels,
-					},
-				},
-			},
-		},
-	}
-
-	return nil
 }
