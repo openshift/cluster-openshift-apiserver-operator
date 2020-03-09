@@ -1,26 +1,23 @@
-package workloadcontroller
+package workload
 
 import (
 	"fmt"
+	"k8s.io/klog"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 
 	"github.com/ghodss/yaml"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
@@ -28,6 +25,7 @@ import (
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -35,16 +33,127 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
+	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
-// syncOpenShiftAPIServer_v311_00_to_latest takes care of synchronizing (not upgrading) the thing we're managing.
-// most of the time the sync method will be good for a large span of minor versions
-func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, originalOperatorConfig *operatorv1.OpenShiftAPIServer) error {
-	errors := []error{}
+const (
+	imageImportCAName = "image-import-ca"
+)
+
+// nodeCountFunction a function to return count of nodes
+type nodeCountFunc func(nodeSelector map[string]string) (*int32, error)
+
+// ensureAtMostOnePodPerNode a function that updates the deployment spec to prevent more than
+// one pod of a given replicaset from landing on a node.
+type ensureAtMostOnePodPerNodeFunc func(spec *appsv1.DeploymentSpec) error
+
+// OpenShiftAPIServerWorkload is a struct that holds necessary data to install OpenShiftAPIServer
+type OpenShiftAPIServerWorkload struct {
+	operatorClient        v1helpers.OperatorClient
+	operatorConfigClient  operatorv1client.OpenShiftAPIServersGetter
+	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface
+	kubeClient            kubernetes.Interface
+
+	// countNodes a function to return count of nodes on which the workload will be installed
+	countNodes nodeCountFunc
+
+	// ensureAtMostOnePodPerNode a function that updates the deployment spec to prevent more than
+	// one pod of a given replicaset from landing on a node.
+	ensureAtMostOnePodPerNode ensureAtMostOnePodPerNodeFunc
+
+	targetNamespace       string
+	targetImagePullSpec   string
+	operatorImagePullSpec string
+
+	eventRecorder   events.Recorder
+	versionRecorder status.VersionGetter
+
+	// haveObservedExtensionConfigMap preserves the state so that we don't ask the server on every sync
+	haveObservedExtensionConfigMap bool
+}
+
+// NewOpenShiftAPIServerWorkload creates new OpenShiftAPIServerWorkload struct
+func NewOpenShiftAPIServerWorkload(
+	operatorClient v1helpers.OperatorClient,
+	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
+	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
+	countNodes nodeCountFunc,
+	ensureAtMostOnePodPerNode ensureAtMostOnePodPerNodeFunc,
+	targetNamespace string,
+	targetImagePullSpec string,
+	operatorImagePullSpec string,
+	kubeClient kubernetes.Interface,
+	eventRecorder events.Recorder,
+	versionRecorder status.VersionGetter,
+) *OpenShiftAPIServerWorkload {
+	return &OpenShiftAPIServerWorkload{
+		operatorClient:            operatorClient,
+		operatorConfigClient:      operatorConfigClient,
+		openshiftConfigClient:     openshiftConfigClient,
+		countNodes:                countNodes,
+		ensureAtMostOnePodPerNode: ensureAtMostOnePodPerNode,
+		targetNamespace:           targetNamespace,
+		targetImagePullSpec:       targetImagePullSpec,
+		operatorImagePullSpec:     operatorImagePullSpec,
+		kubeClient:                kubeClient,
+		eventRecorder:             eventRecorder,
+		versionRecorder:           versionRecorder,
+	}
+}
+
+// PreconditionFulfilled is a function that indicates whether all prerequisites are met and we can Sync.
+func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled() (bool, error) {
+	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
-	_, _, err := manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient, c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
+	// block until config is obvserved
+	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
+		klog.Info("Waiting for observed configuration to be available")
+		return false, nil
+	}
+
+	// block until extension-apiserver-authentication configmap is fully populated to avoid
+	// that openshift-apiserver starts up with request header setting (which are not dynamically reloaded).
+	// in the future we need to change upstream code to be more dynamic
+	// see https://bugzilla.redhat.com/show_bug.cgi?id=1795163#c19 for more details.
+	if !c.haveObservedExtensionConfigMap {
+		authConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			klog.Infof("Waiting for %q configmap in %q namespace to be available", "extension-apiserver-authentication", metav1.NamespaceSystem)
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+
+		if len(authConfigMap.Data["requestheader-client-ca-file"]) == 0 {
+			klog.V(2).Infof("waiting for requestheader-client-ca-file filed in %q configmap to be populated", "extension-apiserver-authentication")
+			// will be requeued by kubeInformersForKubeSystemNamespace informer
+			return false, nil
+		}
+		c.haveObservedExtensionConfigMap = true
+	}
+
+	return true, nil
+}
+
+// Sync takes care of synchronizing (not upgrading) the thing we're managing.
+// most of the time the sync method will be good for a large span of minor versions
+func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) {
+	errors := []error{}
+
+	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+	if err != nil {
+		errors = append(errors, err)
+		return nil, false, errors
+	}
+	operatorConfig := originalOperatorConfig.DeepCopy()
+
+	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -61,177 +170,36 @@ func syncOpenShiftAPIServer_v311_00_to_latest(c OpenShiftAPIServerOperator, orig
 		errors = append(errors, fmt.Errorf("%q: %v", "deployments", err))
 	}
 
-	if len(errors) > 0 {
-		message := ""
-		for _, err := range errors {
-			message = message + err.Error() + "\n"
-		}
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "WorkloadDegraded",
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "SyncError",
-				Message: message,
-			})))...,
-		)
-	} else {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "WorkloadDegraded",
-				Status: operatorv1.ConditionFalse,
-			})))...,
-		)
-	}
 	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "OperatorConfigProgressing",
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "NewGeneration",
-				Message: fmt.Sprintf("openshiftapiserveroperatorconfigs/instance: observed generation is %d, desired generation is %d.", operatorConfig.Status.ObservedGeneration, operatorConfig.ObjectMeta.Generation),
-			})))...,
+		handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+			Type:    "OperatorConfigProgressing",
+			Status:  operatorv1.ConditionTrue,
+			Reason:  "NewGeneration",
+			Message: fmt.Sprintf("openshiftapiserveroperatorconfigs/instance: observed generation is %d, desired generation is %d.", operatorConfig.Status.ObservedGeneration, operatorConfig.ObjectMeta.Generation),
+		})),
 		)
 	} else {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "OperatorConfigProgressing",
-				Status: operatorv1.ConditionFalse,
-				Reason: "AsExpected",
-			})))...,
-		)
-	}
-
-	if actualDeployment == nil {
-		message := "deployment/apiserver.openshift-apiserver: could not be retrieved"
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDeploymentAvailable",
-				Status:  operatorv1.ConditionFalse,
-				Reason:  "NoDeployment",
-				Message: message,
-			})))...,
-		)
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDeploymentProgressing",
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "NoDeployment",
-				Message: message,
-			})))...,
-		)
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDeploymentDegraded",
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "NoDeployment",
-				Message: message,
-			})))...,
-		)
-
-		return utilerrors.NewAggregate(errors)
-	}
-
-	// manage status
-	if actualDeployment.Status.AvailableReplicas == 0 {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDeploymentAvailable",
-				Status:  operatorv1.ConditionFalse,
-				Reason:  "NoAPIServerPod",
-				Message: "no openshift-apiserver pods available.",
-			})))...,
-		)
-	} else {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "APIServerDeploymentAvailable",
-				Status: operatorv1.ConditionTrue,
-				Reason: "AsExpected",
-			})))...,
-		)
-	}
-
-	// If the deployment is up to date and the operatorConfig are up to date, then we are no longer progressing
-	deploymentAtHighestGeneration := actualDeployment.ObjectMeta.Generation == actualDeployment.Status.ObservedGeneration
-	if !deploymentAtHighestGeneration {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDeploymentProgressing",
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "NewGeneration",
-				Message: fmt.Sprintf("deployment/apiserver.openshift-operator: observed generation is %d, desired generation is %d.", actualDeployment.Status.ObservedGeneration, actualDeployment.ObjectMeta.Generation),
-			})))...,
-		)
-	} else {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "APIServerDeploymentProgressing",
-				Status: operatorv1.ConditionFalse,
-				Reason: "AsExpected",
-			})))...,
+		handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+			Type:   "OperatorConfigProgressing",
+			Status: operatorv1.ConditionFalse,
+			Reason: "AsExpected",
+		})),
 		)
 	}
 
 	// TODO this is changing too early and it was before too.
-	errors = append(errors,
-		appendErrors(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
-			status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
-			return nil
-		}))...,
+	handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
+		status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
+		return nil
+	}),
 	)
-	errors = append(errors,
-		appendErrors(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
-			resourcemerge.SetDeploymentGeneration(&status.Generations, actualDeployment)
-			return nil
-		}))...,
+	handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
+		resourcemerge.SetDeploymentGeneration(&status.Generations, actualDeployment)
+		return nil
+	}),
 	)
 
-	desiredReplicas := int32(1)
-	if actualDeployment.Spec.Replicas != nil {
-		desiredReplicas = *(actualDeployment.Spec.Replicas)
-	}
-
-	// During a rollout the default maxSurge (25%) will allow the available
-	// replicas to temporarily exceed the desired replica count. If this were
-	// to occur, the operator should not report degraded.
-	deploymentHasAllPodsAvailable := actualDeployment.Status.AvailableReplicas >= desiredReplicas
-	if !deploymentHasAllPodsAvailable {
-		numNonAvailablePods := desiredReplicas - actualDeployment.Status.AvailableReplicas
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:    "APIServerDeploymentDegraded",
-				Status:  operatorv1.ConditionTrue,
-				Reason:  "UnavailablePod",
-				Message: fmt.Sprintf("%v of %v requested instances are unavailable", numNonAvailablePods, desiredReplicas),
-			})))...,
-		)
-	} else {
-		errors = append(errors,
-			appendErrors(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
-				Type:   "APIServerDeploymentDegraded",
-				Status: operatorv1.ConditionFalse,
-				Reason: "AsExpected",
-			})))...,
-		)
-	}
-
-	// if the deployment is all available and at the expected generation, then update the version to the latest
-	// when we update, the image pull spec should immediately be different, which should immediately cause a deployment rollout
-	// which should immediately result in a deployment generation diff, which should cause this block to be skipped until it is ready.
-	deploymentHasAllPodsUpdated := actualDeployment.Status.UpdatedReplicas == desiredReplicas
-	operatorConfigAtHighestGeneration := operatorConfig.Status.ObservedGeneration == operatorConfig.ObjectMeta.Generation
-	if operatorConfigAtHighestGeneration && deploymentAtHighestGeneration && deploymentHasAllPodsAvailable && deploymentHasAllPodsUpdated {
-		c.versionRecorder.SetVersion("openshift-apiserver", c.targetOperandVersion)
-	}
-
-	return utilerrors.NewAggregate(errors)
-}
-
-func appendErrors(_ *operatorv1.OperatorStatus, _ bool, err error) []error {
-	if err != nil {
-		return []error{err}
-	}
-	return []error{}
+	return actualDeployment, operatorConfig.Status.ObservedGeneration == operatorConfig.ObjectMeta.Generation, errors
 }
 
 // mergeImageRegistryCertificates merges two distinct ConfigMap, both containing
@@ -300,7 +268,7 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClie
 	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(kubeClient kubernetes.Interface, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
+func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/config/defaultconfig.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
@@ -432,35 +400,6 @@ func init() {
 	}
 }
 
-func resourceSelectorForCLI(obj runtime.Object) string {
-	groupVersionKind := obj.GetObjectKind().GroupVersionKind()
-	if len(groupVersionKind.Kind) == 0 {
-		if kinds, _, _ := scheme.Scheme.ObjectKinds(obj); len(kinds) > 0 {
-			groupVersionKind = kinds[0]
-		}
-	}
-	if len(groupVersionKind.Kind) == 0 {
-		if kinds, _, _ := openshiftScheme.ObjectKinds(obj); len(kinds) > 0 {
-			groupVersionKind = kinds[0]
-		}
-	}
-	if len(groupVersionKind.Kind) == 0 {
-		groupVersionKind = schema.GroupVersionKind{Kind: "Unknown"}
-	}
-	kind := groupVersionKind.Kind
-	group := groupVersionKind.Group
-	var name string
-	accessor, err := meta.Accessor(obj)
-	if err != nil {
-		name = "unknown"
-	}
-	name = accessor.GetName()
-	if len(group) > 0 {
-		group = "." + group
-	}
-	return kind + group + "/" + name
-}
-
 func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	if proxyConfig == nil {
 		return nil
@@ -474,4 +413,10 @@ func proxyMapToEnvVars(proxyConfig map[string]string) []corev1.EnvVar {
 	// sort the env vars to prevent update hotloops
 	sort.Slice(envVars, func(i, j int) bool { return envVars[i].Name < envVars[j].Name })
 	return envVars
+}
+
+func handleErrorForOperatorStatus(_ *operatorv1.OperatorStatus, _ bool, err error) {
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("failed to update the operator status, err %v", err))
+	}
 }

@@ -20,11 +20,9 @@ import (
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
-	"github.com/openshift/library-go/pkg/operator/staticresourcecontroller"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,15 +37,16 @@ import (
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 	utilpointer "k8s.io/utils/pointer"
 
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservercontrollerset"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservicecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdobserver"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workloadcontroller"
+	operatorworkload "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workload"
+	apiservicecontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
+	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
+	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
@@ -85,21 +84,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
-
-	staticResourceController := staticresourcecontroller.NewStaticResourceController(
-		"OpenshiftAPIServerStaticResources",
-		v311_00_assets.Asset,
-		[]string{
-			"v3.11.0/openshift-apiserver/ns.yaml",
-			"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
-			"v3.11.0/openshift-apiserver/svc.yaml",
-			"v3.11.0/openshift-apiserver/sa.yaml",
-			"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
-		},
-		resourceapply.NewKubeClientHolder(kubeClient),
-		operatorClient,
-		controllerConfig.EventRecorder,
-	).AddKubeInformers(kubeInformersForNamespaces)
 
 	resourceSyncController, debugHandler, err := resourcesynccontroller.NewResourceSyncController(
 		operatorClient,
@@ -139,23 +123,18 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	nodeInformer := kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes()
 
-	workloadController := workloadcontroller.NewWorkloadController(
-		os.Getenv("IMAGE"), os.Getenv("OPERATOR_IMAGE_VERSION"), os.Getenv("OPERATOR_IMAGE"),
+	openShiftAPIServerWorkload := operatorworkload.NewOpenShiftAPIServerWorkload(
 		operatorClient,
-		versionRecorder,
-		operatorConfigInformers.Operator().V1().OpenShiftAPIServers(),
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
-		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
-		kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem),
-		apiregistrationInformers,
-		configInformers,
-		nodeInformer,
 		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
+		workloadcontroller.CountNodesFuncWrapper(kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister()),
+		workloadcontroller.EnsureAtMostOnePodPerNode,
+		"openshift-apiserver",
+		os.Getenv("IMAGE"),
+		os.Getenv("OPERATOR_IMAGE"),
 		kubeClient,
 		controllerConfig.EventRecorder,
-	)
+		versionRecorder)
 
 	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
 		operatorClient,
@@ -194,6 +173,32 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configClient.ConfigV1(),
 		configInformers.Config().V1().ClusterOperators(),
 		versionRecorder,
+	).WithWorkloadController(
+		"OpenShiftAPIServer",
+		operatorclient.OperatorNamespace,
+		operatorclient.TargetNamespace,
+		os.Getenv("OPERATOR_IMAGE_VERSION"),
+		"openshift",
+		kubeClient,
+		openShiftAPIServerWorkload,
+		configClient.ConfigV1().ClusterOperators(),
+		versionRecorder,
+		kubeInformersForNamespaces,
+		kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Informer(),
+		operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer(),
+		configInformers.Config().V1().Images().Informer(),
+	).WithStaticResourcesController(
+		"OpenShiftAPIServerStaticResources",
+		v311_00_assets.Asset,
+		[]string{
+			"v3.11.0/openshift-apiserver/ns.yaml",
+			"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
+			"v3.11.0/openshift-apiserver/svc.yaml",
+			"v3.11.0/openshift-apiserver/sa.yaml",
+			"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
+		},
+		kubeInformersForNamespaces,
+		kubeClient,
 	).WithConfigUpgradableController().
 		WithLogLevelController()
 
@@ -263,6 +268,12 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			"APIServerDaemonSetAvailable",
 			"APIServerDaemonSetProgressing",
 			"APIServerDaemonSetDegraded",
+			// in 4.5.z we changed the following conditions
+			"OpenshiftAPIServerStaticResourcesDegraded", // became OpenShiftAPIServerStaticResourcesDegraded
+			"WorkloadDegraded",                          // became OpenShiftAPIServerWorkloadControllerWorkloadDegraded
+			"APIServerDeploymentAvailable",              // became OpenShiftAPIServerWorkloadControllerDeploymentAvailable
+			"APIServerDeploymentProgressing",            // became OpenShiftAPIServerWorkloadControllerDeploymentProgressing
+			"APIServerDeploymentDegraded",               // became OpenShiftAPIServerWorkloadControllerDeploymentDegraded
 		},
 		operatorClient,
 		controllerConfig.EventRecorder,
@@ -281,8 +292,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
 
-	go staticResourceController.Run(ctx, 1)
-	go workloadController.Run(ctx)
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
 	go revisionController.Run(ctx, 1)
