@@ -105,7 +105,7 @@ func (c *StaticResourceController) AddKubeInformers(kubeInformersByNamespace v1h
 
 		// find the right subset of informers.  Interestingly, cluster scoped resources require cluster scoped informers
 		var informer informers.SharedInformerFactory
-		if _, ok := requiredObj.(*corev1.Namespace); !ok {
+		if _, ok := requiredObj.(*corev1.Namespace); ok {
 			informer = kubeInformersByNamespace.InformersFor(metadata.GetName())
 			if informer == nil {
 				utilruntime.HandleError(fmt.Errorf("missing informer for namespace %q; no dynamic wiring added, time-based only.", metadata.GetName()))
@@ -212,6 +212,10 @@ func appendErrors(_ *operatorv1.OperatorStatus, _ bool, err error) []error {
 	return []error{}
 }
 
+func (c *StaticResourceController) Name() string {
+	return "StaticResourceController"
+}
+
 func (c *StaticResourceController) Run(ctx context.Context, workers int) {
-	c.factory.WithSync(c.Sync).ToController("", c.eventRecorder).Run(ctx, workers)
+	c.factory.WithSync(c.Sync).ToController(c.Name(), c.eventRecorder).Run(ctx, workers)
 }
