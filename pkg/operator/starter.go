@@ -179,6 +179,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorclient.TargetNamespace,
 		os.Getenv("OPERATOR_IMAGE_VERSION"),
 		"openshift",
+		"APIServer",
 		kubeClient,
 		openShiftAPIServerWorkload,
 		configClient.ConfigV1().ClusterOperators(),
@@ -188,7 +189,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer(),
 		configInformers.Config().V1().Images().Informer(),
 	).WithStaticResourcesController(
-		"OpenShiftAPIServerStaticResources",
+		"APIServerStaticResources",
 		v311_00_assets.Asset,
 		[]string{
 			"v3.11.0/openshift-apiserver/ns.yaml",
@@ -258,7 +259,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	)
 
-	staleConditions := staleconditions.NewRemoveStaleConditions(
+	staleConditions := staleconditions.NewRemoveStaleConditionsController(
 		[]string{
 			// in 4.1.0-4.3.0 this was used for indicating the apiserver daemonset was progressing
 			"Progressing",
@@ -268,12 +269,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			"APIServerDaemonSetAvailable",
 			"APIServerDaemonSetProgressing",
 			"APIServerDaemonSetDegraded",
-			// in 4.5.z we changed the following conditions
-			"OpenshiftAPIServerStaticResourcesDegraded", // became OpenShiftAPIServerStaticResourcesDegraded
-			"WorkloadDegraded",                          // became OpenShiftAPIServerWorkloadControllerWorkloadDegraded
-			"APIServerDeploymentAvailable",              // became OpenShiftAPIServerWorkloadControllerDeploymentAvailable
-			"APIServerDeploymentProgressing",            // became OpenShiftAPIServerWorkloadControllerDeploymentProgressing
-			"APIServerDeploymentDegraded",               // became OpenShiftAPIServerWorkloadControllerDeploymentDegraded
+			// in 4.5.z we changed (renamed) the following conditions
+			"OpenshiftAPIServerStaticResourcesDegraded", // became APIServerStaticResourcesDegraded
+			"WorkloadDegraded",                          // became APIServerWorkloadDegraded
 		},
 		operatorClient,
 		controllerConfig.EventRecorder,

@@ -6,6 +6,7 @@ import (
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
@@ -22,10 +23,6 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 )
 
-type ConfigObserver struct {
-	*configobserver.ConfigObserver
-}
-
 // NewConfigObserver initializes a new configuration observer.
 func NewConfigObserver(
 	kubeInformers kubeinformers.SharedInformerFactory,
@@ -35,45 +32,38 @@ func NewConfigObserver(
 	operatorConfigInformers operatorv1informers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
 	eventRecorder events.Recorder,
-) *ConfigObserver {
-	c := &ConfigObserver{
-		ConfigObserver: configobserver.NewConfigObserver(
-			operatorClient,
-			eventRecorder,
-			configobservation.Listers{
-				ResourceSync:        resourceSyncer,
-				APIServerLister_:    configInformers.Config().V1().APIServers().Lister(),
-				ImageConfigLister:   configInformers.Config().V1().Images().Lister(),
-				ProjectConfigLister: configInformers.Config().V1().Projects().Lister(),
-				ProxyLister_:        configInformers.Config().V1().Proxies().Lister(),
-				IngressConfigLister: configInformers.Config().V1().Ingresses().Lister(),
-				EndpointsLister:     kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
-				SecretLister_:       kubeInformers.Core().V1().Secrets().Lister(),
-				PreRunCachesSynced: []cache.InformerSynced{
-					operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
-					configInformers.Config().V1().Images().Informer().HasSynced,
-					configInformers.Config().V1().Projects().Informer().HasSynced,
-					configInformers.Config().V1().Proxies().Informer().HasSynced,
-					configInformers.Config().V1().Ingresses().Informer().HasSynced,
-				},
+) factory.Controller {
+	c := configobserver.NewConfigObserver(
+		operatorClient,
+		eventRecorder,
+		configobservation.Listers{
+			ResourceSync:        resourceSyncer,
+			APIServerLister_:    configInformers.Config().V1().APIServers().Lister(),
+			ImageConfigLister:   configInformers.Config().V1().Images().Lister(),
+			ProjectConfigLister: configInformers.Config().V1().Projects().Lister(),
+			ProxyLister_:        configInformers.Config().V1().Proxies().Lister(),
+			IngressConfigLister: configInformers.Config().V1().Ingresses().Lister(),
+			EndpointsLister:     kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
+			SecretLister_:       kubeInformers.Core().V1().Secrets().Lister(),
+			PreRunCachesSynced: []cache.InformerSynced{
+				operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
+				configInformers.Config().V1().Images().Informer().HasSynced,
+				configInformers.Config().V1().Projects().Informer().HasSynced,
+				configInformers.Config().V1().Proxies().Informer().HasSynced,
+				configInformers.Config().V1().Ingresses().Informer().HasSynced,
 			},
-			images.ObserveInternalRegistryHostname,
-			images.ObserveExternalRegistryHostnames,
-			images.ObserveAllowedRegistriesForImport,
-			ingresses.ObserveIngressDomain,
-			etcdobserver.ObserveStorageURLs,
-			libgoapiserver.ObserveTLSSecurityProfile,
-			project.ObserveProjectRequestMessage,
-			project.ObserveProjectRequestTemplateName,
-			proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
-			observer.NewEncryptionConfigObserver(operatorclient.TargetNamespace, "/var/run/secrets/encryption-config/encryption-config"),
-		),
-	}
-	operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().AddEventHandler(c.EventHandler())
-	configInformers.Config().V1().Images().Informer().AddEventHandler(c.EventHandler())
-	configInformers.Config().V1().Ingresses().Informer().AddEventHandler(c.EventHandler())
-	configInformers.Config().V1().Projects().Informer().AddEventHandler(c.EventHandler())
-	configInformers.Config().V1().Proxies().Informer().AddEventHandler(c.EventHandler())
-	kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().AddEventHandler(c.EventHandler())
+		},
+		images.ObserveInternalRegistryHostname,
+		images.ObserveExternalRegistryHostnames,
+		images.ObserveAllowedRegistriesForImport,
+		ingresses.ObserveIngressDomain,
+		etcdobserver.ObserveStorageURLs,
+		libgoapiserver.ObserveTLSSecurityProfile,
+		project.ObserveProjectRequestMessage,
+		project.ObserveProjectRequestTemplateName,
+		proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
+		observer.NewEncryptionConfigObserver(operatorclient.TargetNamespace, "/var/run/secrets/encryption-config/encryption-config"),
+	)
+
 	return c
 }
