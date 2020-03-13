@@ -1,24 +1,19 @@
 package apiservice
 
 import (
-	"fmt"
-
 	"testing"
-
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/diff"
-	"k8s.io/apimachinery/pkg/util/sets"
-	clientgotesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
-	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	kubeaggregatorfake "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/fake"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	operatorlistersv1 "github.com/openshift/client-go/operator/listers/operator/v1"
 	"github.com/openshift/library-go/pkg/operator/events"
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/diff"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	apiregistrationv1lister "k8s.io/kube-aggregator/pkg/client/listers/apiregistration/v1"
 )
 
 func TestDiffAPIServices(t *testing.T) {
@@ -175,7 +170,6 @@ func TestHandlingControlOverTheAPI(t *testing.T) {
 		name                    string
 		existingAPIServices     []runtime.Object
 		expectedAPIServices     []*apiregistrationv1.APIService
-		expectedActions         []string
 		expectedEventMsg        string
 		expectsEvent            bool
 		authOperatorUnavailable bool
@@ -205,7 +199,6 @@ func TestHandlingControlOverTheAPI(t *testing.T) {
 				newAPIService("build.openshift.io", "v1"),
 				newAPIService("apps.openshift.io", "v1"),
 			},
-			expectedActions:  []string{"get:apiservices:v1.user.openshift.io", "get:apiservices:v1.oauth.openshift.io"},
 			expectedEventMsg: "The new API Services list this operator will manage is [v1.apps.openshift.io v1.build.openshift.io]",
 		},
 
@@ -229,7 +222,6 @@ func TestHandlingControlOverTheAPI(t *testing.T) {
 				newAPIService("apps.openshift.io", "v1"),
 				newAPIService("oauth.openshift.io", "v1"),
 			},
-			expectedActions:  []string{"get:apiservices:v1.user.openshift.io", "get:apiservices:v1.oauth.openshift.io"},
 			expectedEventMsg: "The new API Services list this operator will manage is [v1.apps.openshift.io v1.build.openshift.io v1.oauth.openshift.io]",
 		},
 
@@ -269,7 +261,6 @@ func TestHandlingControlOverTheAPI(t *testing.T) {
 					return apiService
 				}(),
 			},
-			expectedActions:         []string{},
 			authOperatorUnavailable: true,
 		},
 
@@ -309,13 +300,11 @@ func TestHandlingControlOverTheAPI(t *testing.T) {
 					return apiService
 				}(),
 			},
-			expectedActions: []string{},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			eventRecorder := events.NewInMemoryRecorder("")
-			kubeAggregatorClient := kubeaggregatorfake.NewSimpleClientset(tc.existingAPIServices...)
 
 			fakeAuthOperatorIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			{
@@ -335,16 +324,20 @@ func TestHandlingControlOverTheAPI(t *testing.T) {
 			}
 
 			apiServices := []*apiregistrationv1.APIService{}
+			fakeAPIRegistrationIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			for _, rawService := range tc.existingAPIServices {
 				service, ok := rawService.(*apiregistrationv1.APIService)
 				if !ok {
 					t.Fatal("unable to convert an api service to *apiregistrationv1.APIService")
 				}
 				apiServices = append(apiServices, service)
+				if err := fakeAPIRegistrationIndexer.Add(service); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			target := NewAPIServicesToManage(
-				kubeAggregatorClient.ApiregistrationV1(),
+				apiregistrationv1lister.NewAPIServiceLister(fakeAPIRegistrationIndexer),
 				operatorlistersv1.NewAuthenticationLister(fakeAuthOperatorIndexer),
 				apiServices,
 				eventRecorder,
@@ -354,10 +347,6 @@ func TestHandlingControlOverTheAPI(t *testing.T) {
 
 			actualAPIServicesToManage, err := target.GetAPIServicesToManage()
 			if err != nil {
-				t.Fatal(err)
-			}
-
-			if err := validateActionsVerbs(kubeAggregatorClient.Actions(), tc.expectedActions); err != nil {
 				t.Fatal(err)
 			}
 
@@ -388,45 +377,4 @@ func newAPIService(group, version string) *apiregistrationv1.APIService {
 		Spec:       apiregistrationv1.APIServiceSpec{Group: group, Version: version, Service: &apiregistrationv1.ServiceReference{Namespace: "target-namespace", Name: "api"}, GroupPriorityMinimum: 9900, VersionPriority: 15},
 		Status:     apiregistrationv1.APIServiceStatus{Conditions: []apiregistrationv1.APIServiceCondition{{Type: apiregistrationv1.Available, Status: apiregistrationv1.ConditionTrue}}},
 	}
-}
-
-func validateActionsVerbs(actualActions []clientgotesting.Action, expectedActions []string) error {
-	if len(actualActions) != len(expectedActions) {
-		return fmt.Errorf("expected to get %d actions but got %d\nexpected=%v \n got=%v", len(expectedActions), len(actualActions), expectedActions, actionStrings(actualActions))
-	}
-	for i, a := range actualActions {
-		if got, expected := actionString(a), expectedActions[i]; got != expected {
-			return fmt.Errorf("at %d got %s, expected %s", i, got, expected)
-		}
-	}
-	return nil
-}
-
-func actionString(a clientgotesting.Action) string {
-	involvedObjectName := ""
-	if updateAction, isUpdateAction := a.(clientgotesting.UpdateAction); isUpdateAction {
-		rawObj := updateAction.GetObject()
-		if objMeta, err := meta.Accessor(rawObj); err == nil {
-			involvedObjectName = objMeta.GetName()
-		}
-	}
-	if getAction, isGetAction := a.(clientgotesting.GetAction); isGetAction {
-		involvedObjectName = getAction.GetName()
-	}
-	action := a.GetVerb() + ":" + a.GetResource().Resource
-	if len(a.GetNamespace()) > 0 {
-		action = action + ":" + a.GetNamespace()
-	}
-	if len(involvedObjectName) > 0 {
-		action = action + ":" + involvedObjectName
-	}
-	return action
-}
-
-func actionStrings(actions []clientgotesting.Action) []string {
-	res := make([]string, 0, len(actions))
-	for _, a := range actions {
-		res = append(res, actionString(a))
-	}
-	return res
 }

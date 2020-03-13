@@ -142,7 +142,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).WithAPIServiceController(
 		"openshift-apiserver",
 		apiservice.NewAPIServicesToManage(
-			apiregistrationv1Client.ApiregistrationV1(),
+			apiregistrationInformers.Apiregistration().V1().APIServices().Lister(),
 			operatorConfigInformers.Operator().V1().Authentications().Lister(),
 			apiServices(),
 			controllerConfig.EventRecorder,

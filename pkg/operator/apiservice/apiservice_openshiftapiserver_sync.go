@@ -3,21 +3,19 @@ package apiservice
 import (
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	apiregistrationv1client "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1"
+	apiregistrationv1lister "k8s.io/kube-aggregator/pkg/client/listers/apiregistration/v1"
 
 	operatorlistersv1 "github.com/openshift/client-go/operator/listers/operator/v1"
-
 	"github.com/openshift/library-go/pkg/operator/events"
 )
 
 // APIServicesToMange preserve state and clients required to return an authoritative list of API services this operate must manage
 type APIServicesToManage struct {
 	authOperatorLister                         operatorlistersv1.AuthenticationLister
-	apiregistrationv1Client                    apiregistrationv1client.ApiregistrationV1Interface
+	apiregistrationv1Lister                    apiregistrationv1lister.APIServiceLister
 	allPossibleAPIServices                     []*apiregistrationv1.APIService
 	eventRecorder                              events.Recorder
 	apiGroupsManagedByExternalServer           sets.String
@@ -26,7 +24,8 @@ type APIServicesToManage struct {
 }
 
 // NewAPIServicesToManage returns an object that knows how to construct an authoritative list of API services this operate must manage
-func NewAPIServicesToManage(apiregistrationv1Client apiregistrationv1client.ApiregistrationV1Interface,
+func NewAPIServicesToManage(
+	apiregistrationv1Lister apiregistrationv1lister.APIServiceLister,
 	authOperatorLister operatorlistersv1.AuthenticationLister,
 	allPossibleAPIServices []*apiregistrationv1.APIService,
 	eventRecorder events.Recorder,
@@ -34,7 +33,7 @@ func NewAPIServicesToManage(apiregistrationv1Client apiregistrationv1client.Apir
 	apiGroupsManagedByExternalServerAnnotation string) *APIServicesToManage {
 	return &APIServicesToManage{
 		authOperatorLister:                         authOperatorLister,
-		apiregistrationv1Client:                    apiregistrationv1Client,
+		apiregistrationv1Lister:                    apiregistrationv1Lister,
 		allPossibleAPIServices:                     allPossibleAPIServices,
 		eventRecorder:                              eventRecorder,
 		apiGroupsManagedByExternalServer:           apiGroupsManagedByExternalServer,
@@ -68,7 +67,7 @@ func (a *APIServicesToManage) GetAPIServicesToManage() ([]*apiregistrationv1.API
 }
 
 func (a *APIServicesToManage) isAPIServiceAnnotatedByExternalServer(apiService *apiregistrationv1.APIService) bool {
-	existingApiService, err := a.apiregistrationv1Client.APIServices().Get(apiService.Name, metav1.GetOptions{})
+	existingApiService, err := a.apiregistrationv1Lister.Get(apiService.Name)
 	if err != nil {
 		a.eventRecorder.Warningf("APIServicesToManageAnnotation", "unable to determine if the following API Service %s was annotated by an external operator (it should be) due to %v", apiService.Name, err)
 		return false
