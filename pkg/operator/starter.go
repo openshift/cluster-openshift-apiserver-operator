@@ -3,6 +3,7 @@ package operator
 import (
 	"context"
 	"fmt"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservice"
 	"os"
 	"time"
 
@@ -44,7 +45,6 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	operatorworkload "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workload"
-	apiservicecontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
 )
@@ -141,7 +141,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	).WithAPIServiceController(
 		"openshift-apiserver",
-		apiservicecontroller.NewAPIServicesToManage(
+		apiservice.NewAPIServicesToManage(
 			apiregistrationv1Client.ApiregistrationV1(),
 			operatorConfigInformers.Operator().V1().Authentications().Lister(),
 			apiServices(),
