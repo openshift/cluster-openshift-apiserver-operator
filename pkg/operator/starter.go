@@ -213,6 +213,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces.InformersFor(etcdobserver.EtcdEndpointNamespace),
 		operatorClient,
 		resourceSyncController,
+		operatorConfigInformers,
 		configInformers,
 		controllerConfig.EventRecorder,
 	)

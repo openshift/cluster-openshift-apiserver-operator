@@ -5,6 +5,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
@@ -28,6 +29,7 @@ func NewConfigObserver(
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	operatorClient v1helpers.OperatorClient,
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
+	operatorConfigInformers operatorv1informers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
 	eventRecorder events.Recorder,
 ) factory.Controller {
@@ -44,6 +46,7 @@ func NewConfigObserver(
 			EndpointsLister:     kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
 			SecretLister_:       kubeInformers.Core().V1().Secrets().Lister(),
 			PreRunCachesSynced: []cache.InformerSynced{
+				operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
 				configInformers.Config().V1().APIServers().Informer().HasSynced,
 				configInformers.Config().V1().Images().Informer().HasSynced,
 				configInformers.Config().V1().Projects().Informer().HasSynced,
@@ -53,6 +56,7 @@ func NewConfigObserver(
 				kubeInformers.Core().V1().Secrets().Informer().HasSynced,
 			},
 		},
+		[]factory.Informer{operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer()},
 		images.ObserveInternalRegistryHostname,
 		images.ObserveExternalRegistryHostnames,
 		images.ObserveAllowedRegistriesForImport,
