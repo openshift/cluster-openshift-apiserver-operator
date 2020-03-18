@@ -87,7 +87,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		errs = append(errs, err)
 	}
 
-	if !reflect.DeepEqual(currentEtcdURLs, etcdURLs) {
+	if !reflect.DeepEqual(currentEtcdURLs, []string(etcdURLs)) {
 		recorder.Eventf("ObserveStorageUpdated", "Updated storage urls to %s", strings.Join(etcdURLs, ","))
 	}
 
