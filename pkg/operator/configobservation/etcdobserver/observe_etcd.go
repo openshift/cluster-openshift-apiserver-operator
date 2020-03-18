@@ -39,7 +39,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 
 	observedConfig := map[string]interface{}{}
 
-	var etcdURLs sort.StringSlice
+	var etcdURLs []string
 	etcdEndpoints, err := listers.EndpointsLister.Endpoints(EtcdEndpointNamespace).Get(EtcdEndpointName)
 	if errors.IsNotFound(err) {
 		recorder.Warningf("ObserveStorageFailed", "Required endpoints/%s in the %s namespace not found.", EtcdEndpointName, EtcdEndpointNamespace)
@@ -76,7 +76,7 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 
 	// do not add empty storage urls slice to observed config, we don't want override defaults with an empty slice
 	if len(etcdURLs) > 0 {
-		etcdURLs.Sort()
+		sort.Strings(etcdURLs)
 		if err := unstructured.SetNestedStringSlice(observedConfig, etcdURLs, storageConfigURLsPath...); err != nil {
 			errs = append(errs, err)
 			return previouslyObservedConfig, errs
@@ -87,7 +87,8 @@ func ObserveStorageURLs(genericListers configobserver.Listers, recorder events.R
 		errs = append(errs, err)
 	}
 
-	if !reflect.DeepEqual(currentEtcdURLs, []string(etcdURLs)) {
+	sort.Strings(currentEtcdURLs)
+	if !reflect.DeepEqual(currentEtcdURLs, etcdURLs) {
 		recorder.Eventf("ObserveStorageUpdated", "Updated storage urls to %s", strings.Join(etcdURLs, ","))
 	}
 
