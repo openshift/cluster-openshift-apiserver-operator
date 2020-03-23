@@ -2,8 +2,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservice"
 	"os"
 	"time"
 
@@ -38,6 +36,7 @@ import (
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 	utilpointer "k8s.io/utils/pointer"
 
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservice"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdobserver"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
@@ -299,7 +298,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go staleConditions.Run(ctx, 1)
 
 	<-ctx.Done()
-	return fmt.Errorf("stopped")
+	return nil
 }
 
 func apiServices() []*apiregistrationv1.APIService {
