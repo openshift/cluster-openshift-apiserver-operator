@@ -1,6 +1,7 @@
 package e2e_encryption_perf
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -26,6 +27,7 @@ const (
 )
 
 func TestPerfEncryptionTypeAESCBC(tt *testing.T) {
+	ctx := context.TODO()
 	clientSet := getPerfClients(tt)
 	library.TestPerfEncryptionTypeAESCBC(tt, library.PerfScenario{
 		BasicScenario: library.BasicScenario{
@@ -38,7 +40,7 @@ func TestPerfEncryptionTypeAESCBC(tt *testing.T) {
 			AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
 		},
 		GetOperatorConditionsFunc: func(t testing.TB) ([]operatorv1.OperatorCondition, error) {
-			apiServerOperator, err := clientSet.OperatorClient.Get("cluster", metav1.GetOptions{})
+			apiServerOperator, err := clientSet.OperatorClient.Get(ctx, "cluster", metav1.GetOptions{})
 			if err != nil {
 				return nil, err
 			}
@@ -65,11 +67,11 @@ func TestPerfEncryptionTypeAESCBC(tt *testing.T) {
 		},
 		DBLoaderWorkers: 3,
 		DBLoaderFunc: library.DBLoaderRepeat(1, false,
-			library.DBLoaderRepeatParallel(5010, 50, false, createAccessTokenWrapper(clientSet.TokenClient), reportSecret)),
+			library.DBLoaderRepeatParallel(5010, 50, false, createAccessTokenWrapper(ctx, clientSet.TokenClient), reportSecret)),
 	})
 }
 
-func createAccessTokenWrapper(tokenClient oauthclient.OAuthAccessTokensGetter) library.DBLoaderFuncType {
+func createAccessTokenWrapper(ctx context.Context, tokenClient oauthclient.OAuthAccessTokensGetter) library.DBLoaderFuncType {
 	return func(_ kubernetes.Interface, namespace string, errorCollector func(error), statsCollector func(string)) error {
 		token := &oauthapiv1.OAuthAccessToken{
 			ObjectMeta: metav1.ObjectMeta{
@@ -82,7 +84,7 @@ func createAccessTokenWrapper(tokenClient oauthclient.OAuthAccessTokensGetter) l
 			ClientName:   "console",
 			UserUID:      "non-existing-user-id",
 		}
-		_, err := tokenClient.OAuthAccessTokens().Create(token)
+		_, err := tokenClient.OAuthAccessTokens().Create(ctx, token, metav1.CreateOptions{})
 		return err
 	}
 }

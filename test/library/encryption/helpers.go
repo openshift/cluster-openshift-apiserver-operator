@@ -47,16 +47,16 @@ func GetClientsFor(t testing.TB, kubeConfig *rest.Config) ClientSet {
 	return ClientSet{OperatorClient: operatorClient.OpenShiftAPIServers(), TokenClient: oc}
 }
 
-func CreateAndStoreTokenOfLife(t testing.TB, cs ClientSet) runtime.Object {
+func CreateAndStoreTokenOfLife(ctx context.Context, t testing.TB, cs ClientSet) runtime.Object {
 	t.Helper()
 	{
-		oldTokenOfLife, err := cs.TokenClient.OAuthAccessTokens().Get("token-aaaaaaaa-of-aaaaaaaa-life-aaaaaaaa", metav1.GetOptions{})
+		oldTokenOfLife, err := cs.TokenClient.OAuthAccessTokens().Get(ctx, "token-aaaaaaaa-of-aaaaaaaa-life-aaaaaaaa", metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			t.Errorf("Failed to check if the route already exists, due to %v", err)
 		}
 		if len(oldTokenOfLife.Name) > 0 {
 			t.Log("The access token already exist, removing it first")
-			err := cs.TokenClient.OAuthAccessTokens().Delete(oldTokenOfLife.Name, &metav1.DeleteOptions{})
+			err := cs.TokenClient.OAuthAccessTokens().Delete(ctx, oldTokenOfLife.Name, metav1.DeleteOptions{})
 			if err != nil {
 				t.Errorf("Failed to delete %s, err %v", oldTokenOfLife.Name, err)
 			}
@@ -64,7 +64,7 @@ func CreateAndStoreTokenOfLife(t testing.TB, cs ClientSet) runtime.Object {
 	}
 	t.Logf("Creating %q at cluster scope level", "token-aaaaaaaa-of-aaaaaaaa-life-aaaaaaaa")
 	rawTokenOfLife := TokenOfLife(t)
-	tokenOfLife, err := cs.TokenClient.OAuthAccessTokens().Create(rawTokenOfLife.(*oauthapiv1.OAuthAccessToken))
+	tokenOfLife, err := cs.TokenClient.OAuthAccessTokens().Create(ctx, rawTokenOfLife.(*oauthapiv1.OAuthAccessToken), metav1.CreateOptions{})
 	require.NoError(t, err)
 	return tokenOfLife
 }

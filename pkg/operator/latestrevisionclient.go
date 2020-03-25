@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"context"
+
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +24,8 @@ type OpenshiftDeploymentLatestRevisionClient struct {
 var _ revisioncontroller.LatestRevisionClient = OpenshiftDeploymentLatestRevisionClient{}
 
 func (c OpenshiftDeploymentLatestRevisionClient) GetLatestRevisionState() (*operatorv1.OperatorSpec, *operatorv1.OperatorStatus, int32, string, error) {
-	o, err := c.TypedClient.OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+	ctx := context.TODO() // needs support in library-go
+	o, err := c.TypedClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, 0, "", err
 	}
@@ -30,10 +33,11 @@ func (c OpenshiftDeploymentLatestRevisionClient) GetLatestRevisionState() (*oper
 }
 
 func (c OpenshiftDeploymentLatestRevisionClient) UpdateLatestRevisionOperatorStatus(latestAvailableRevision int32, updateFuncs ...v1helpers.UpdateStatusFunc) (*operatorv1.OperatorStatus, bool, error) {
+	ctx := context.TODO() // needs support in library-go
 	updated := false
 	var updatedOperatorStatus *operatorv1.OperatorStatus
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		old, err := c.TypedClient.OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+		old, err := c.TypedClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -52,7 +56,7 @@ func (c OpenshiftDeploymentLatestRevisionClient) UpdateLatestRevisionOperatorSta
 			return nil
 		}
 
-		modified, err = c.TypedClient.OpenShiftAPIServers().UpdateStatus(modified)
+		modified, err = c.TypedClient.OpenShiftAPIServers().UpdateStatus(ctx, modified, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}

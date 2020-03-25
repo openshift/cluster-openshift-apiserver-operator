@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -24,13 +25,14 @@ func TestOperatorNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = kubeClient.CoreV1().Namespaces().Get(operatorclient.OperatorNamespace, metav1.GetOptions{})
+	_, err = kubeClient.CoreV1().Namespaces().Get(context.TODO(), operatorclient.OperatorNamespace, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestRedeployOnConfigChange(t *testing.T) {
+	ctx := context.TODO()
 	kubeConfig, err := test.NewClientConfigForTest()
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +42,7 @@ func TestRedeployOnConfigChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	deployment, err := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace).Get("apiserver", metav1.GetOptions{})
+	deployment, err := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace).Get(ctx, "apiserver", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,19 +51,19 @@ func TestRedeployOnConfigChange(t *testing.T) {
 
 	configCMClient := kubeClient.CoreV1().ConfigMaps(operatorclient.GlobalUserSpecifiedConfigNamespace)
 
-	etcdClientCM, err := configCMClient.Get("etcd-serving-ca", metav1.GetOptions{})
+	etcdClientCM, err := configCMClient.Get(ctx, "etcd-serving-ca", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	etcdClientCM.Data["some-key"] = "non-random data"
 
-	_, err = configCMClient.Update(etcdClientCM)
+	_, err = configCMClient.Update(ctx, etcdClientCM, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = wait.PollImmediate(1*time.Second, 2*time.Minute, func() (done bool, err error) {
-		deployment, err := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace).Get("apiserver", metav1.GetOptions{})
+		deployment, err := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace).Get(ctx, "apiserver", metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

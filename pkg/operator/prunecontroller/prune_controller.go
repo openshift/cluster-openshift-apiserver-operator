@@ -2,24 +2,18 @@ package prune
 
 import (
 	"context"
-	"fmt"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-
+	"github.com/openshift/library-go/pkg/controller/factory"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informer "k8s.io/client-go/informers/core/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+	"sort"
+	"strconv"
+	"strings"
 
 	encryptionsecrets "github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -36,15 +30,10 @@ type PruneController struct {
 	podGetter      corev1client.PodsGetter
 	podInformer    corev1informer.PodInformer
 	secretInformer corev1informer.SecretInformer
-
-	cachesToSync  []cache.InformerSynced
-	queue         workqueue.RateLimitingInterface
-	eventRecorder events.Recorder
 }
 
 const (
-	pruneControllerWorkQueueKey = "key"
-	numOldRevisionsToPreserve   = 5
+	numOldRevisionsToPreserve = 5
 )
 
 // NewPruneController creates a new pruning controller
@@ -55,7 +44,7 @@ func NewPruneController(
 	podGetter corev1client.PodsGetter,
 	informers v1helpers.KubeInformersForNamespaces,
 	eventRecorder events.Recorder,
-) *PruneController {
+) factory.Controller {
 	c := &PruneController{
 		targetNamespace: targetNamespace,
 		secretPrefixes:  secretPrefixes,
@@ -64,24 +53,15 @@ func NewPruneController(
 		podGetter:      podGetter,
 		podInformer:    informers.InformersFor(targetNamespace).Core().V1().Pods(),
 		secretInformer: informers.InformersFor(targetNamespace).Core().V1().Secrets(),
-		eventRecorder:  eventRecorder.WithComponentSuffix("prune-controller"),
-
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "PruneController"),
 	}
 
-	c.podInformer.Informer().AddEventHandler(c.eventHandler())
-	c.secretInformer.Informer().AddEventHandler(c.eventHandler())
-
-	c.cachesToSync = append(
-		c.cachesToSync,
-		c.podInformer.Informer().HasSynced,
-		c.secretInformer.Informer().HasSynced,
-	)
-
-	return c
+	return factory.New().WithInformers(
+		c.podInformer.Informer(),
+		c.secretInformer.Informer(),
+	).WithSync(c.sync).ToController("PruneController", eventRecorder.WithComponentSuffix("prune-controller"))
 }
 
-func (c *PruneController) sync() error {
+func (c *PruneController) sync(ctx context.Context, syncContext factory.SyncContext) error {
 	klog.V(5).Info("Syncing revision pruner")
 
 	pods, err := c.podInformer.Lister().Pods(c.targetNamespace).List(labels.SelectorFromSet(map[string]string{"apiserver": "true"}))
@@ -104,7 +84,7 @@ func (c *PruneController) sync() error {
 
 		// remove finalizer
 		retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			s, err := c.secretGetter.Secrets(s.Namespace).Get(s.Name, metav1.GetOptions{})
+			s, err := c.secretGetter.Secrets(s.Namespace).Get(ctx, s.Name, metav1.GetOptions{})
 			if err != nil {
 				if errors.IsNotFound(err) {
 					return nil
@@ -125,11 +105,11 @@ func (c *PruneController) sync() error {
 			}
 			s.Finalizers = newFinalizers
 
-			_, err = c.secretGetter.Secrets(s.Namespace).Update(s)
+			_, err = c.secretGetter.Secrets(s.Namespace).Update(ctx, s, metav1.UpdateOptions{})
 			return err
 		})
 
-		if err := c.secretGetter.Secrets(s.Namespace).Delete(s.Name, nil); err != nil && !errors.IsNotFound(err) {
+		if err := c.secretGetter.Secrets(s.Namespace).Delete(ctx, s.Name, metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -213,53 +193,4 @@ func minPodRevision(pods []*corev1.Pod) int {
 		}
 	}
 	return int(minRevision)
-}
-
-func (c *PruneController) Run(ctx context.Context) {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	klog.Infof("Starting PruneController")
-	defer klog.Infof("Shutting down PruneController")
-	if !cache.WaitForCacheSync(ctx.Done(), c.cachesToSync...) {
-		return
-	}
-
-	// doesn't matter what workers say, only start one.
-	go wait.Until(c.runWorker, time.Second, ctx.Done())
-
-	<-ctx.Done()
-}
-
-func (c *PruneController) runWorker() {
-	for c.processNextWorkItem() {
-	}
-}
-
-func (c *PruneController) processNextWorkItem() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(key)
-
-	err := c.sync()
-	if err == nil {
-		c.queue.Forget(key)
-		return true
-	}
-
-	utilruntime.HandleError(fmt.Errorf("%v failed with : %v", key, err))
-	c.queue.AddRateLimited(key)
-
-	return true
-}
-
-// eventHandler queues the operator to check spec and status
-func (c *PruneController) eventHandler() cache.ResourceEventHandler {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { c.queue.Add(pruneControllerWorkQueueKey) },
-		UpdateFunc: func(old, new interface{}) { c.queue.Add(pruneControllerWorkQueueKey) },
-		DeleteFunc: func(obj interface{}) { c.queue.Add(pruneControllerWorkQueueKey) },
-	}
 }

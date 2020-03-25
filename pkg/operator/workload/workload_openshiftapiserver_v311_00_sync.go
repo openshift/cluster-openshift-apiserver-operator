@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"context"
 	"fmt"
 	"k8s.io/klog"
 	"regexp"
@@ -104,7 +105,8 @@ func NewOpenShiftAPIServerWorkload(
 
 // PreconditionFulfilled is a function that indicates whether all prerequisites are met and we can Sync.
 func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled() (bool, error) {
-	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+	ctx := context.TODO() // needs support in library-go
+	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -121,7 +123,7 @@ func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled() (bool, error) {
 	// in the future we need to change upstream code to be more dynamic
 	// see https://bugzilla.redhat.com/show_bug.cgi?id=1795163#c19 for more details.
 	if !c.haveObservedExtensionConfigMap {
-		authConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
+		authConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
 		if apierrors.IsNotFound(err) {
 			klog.Infof("Waiting for %q configmap in %q namespace to be available", "extension-apiserver-authentication", metav1.NamespaceSystem)
 			return false, nil
@@ -144,9 +146,10 @@ func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled() (bool, error) {
 // Sync takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
 func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) {
+	ctx := context.TODO() // needs support in library-go
 	errors := []error{}
 
-	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get("cluster", metav1.GetOptions{})
+	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		errors = append(errors, err)
 		return nil, false, errors
@@ -158,7 +161,7 @@ func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) 
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
 
-	_, _, err = manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
+	_, _, err = manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx, c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "image-import-ca", err))
 	}
@@ -206,11 +209,11 @@ func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) 
 // trusted CAs for Image Registries. The first one is the default CA bundle for
 // OpenShift internal registry access, the latter is a custom config map that may
 // be configured by the user on image.config.openshift.io/cluster.
-func mergeImageRegistryCertificates(cfgCli openshiftconfigclientv1.ConfigV1Interface, cli coreclientv1.CoreV1Interface) (map[string]string, error) {
+func mergeImageRegistryCertificates(ctx context.Context, cfgCli openshiftconfigclientv1.ConfigV1Interface, cli coreclientv1.CoreV1Interface) (map[string]string, error) {
 	cas := make(map[string]string)
 
 	internalRegistryCAs, err := cli.ConfigMaps("openshift-image-registry").Get(
-		"image-registry-certificates", metav1.GetOptions{},
+		ctx, "image-registry-certificates", metav1.GetOptions{},
 	)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
@@ -221,7 +224,7 @@ func mergeImageRegistryCertificates(cfgCli openshiftconfigclientv1.ConfigV1Inter
 	}
 
 	imageConfig, err := cfgCli.Images().Get(
-		"cluster", metav1.GetOptions{},
+		ctx, "cluster", metav1.GetOptions{},
 	)
 	if err != nil {
 		return nil, err
@@ -235,6 +238,7 @@ func mergeImageRegistryCertificates(cfgCli openshiftconfigclientv1.ConfigV1Inter
 	additionalImageRegistryCAs, err := cli.ConfigMaps(
 		operatorclient.GlobalUserSpecifiedConfigNamespace,
 	).Get(
+		ctx,
 		imageConfig.Spec.AdditionalTrustedCA.Name,
 		metav1.GetOptions{},
 	)
@@ -250,8 +254,8 @@ func mergeImageRegistryCertificates(cfgCli openshiftconfigclientv1.ConfigV1Inter
 
 // manageOpenShiftAPIServerImageImportCA_v311_00_to_latest synchronizes image import ca-bundle. Returns the modified
 // ca-bundle ConfigMap.
-func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
-	mergedCAs, err := mergeImageRegistryCertificates(openshiftConfigClient, client)
+func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx context.Context, openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface, client coreclientv1.CoreV1Interface, recorder events.Recorder) (*corev1.ConfigMap, bool, error) {
+	mergedCAs, err := mergeImageRegistryCertificates(ctx, openshiftConfigClient, client)
 	if err != nil {
 		return nil, false, err
 	}
