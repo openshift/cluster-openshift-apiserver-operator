@@ -19,7 +19,6 @@ import (
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -94,20 +93,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
-
-	revisionController := revisioncontroller.NewRevisionController(
-		operatorclient.TargetNamespace,
-		nil,
-		[]revision.RevisionResource{{
-			Name:     "encryption-config",
-			Optional: true,
-		}},
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
-		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		controllerConfig.EventRecorder,
-	)
 
 	// don't change any versions until we sync
 	versionRecorder := status.NewVersionGetter()
@@ -199,6 +184,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		},
 		kubeInformersForNamespaces,
 		kubeClient,
+	).WithRevisionController(
+		operatorclient.TargetNamespace,
+		nil,
+		[]revision.RevisionResource{{
+			Name:     "encryption-config",
+			Optional: true,
+		}},
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
+		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
+		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 	).WithConfigUpgradableController().
 		WithLogLevelController()
 
@@ -291,7 +287,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
-	go revisionController.Run(ctx, 1)
 	go encryptionControllers.Run(ctx, 1)
 	go pruneController.Run(ctx, 1)
 	go runnableAPIServerControllers.Run(ctx)
