@@ -19,7 +19,6 @@ import (
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
-	"github.com/openshift/library-go/pkg/operator/revisioncontroller"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
@@ -95,23 +94,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		return err
 	}
 
-	revisionController := revisioncontroller.NewRevisionController(
-		operatorclient.TargetNamespace,
-		nil,
-		[]revision.RevisionResource{{
-			Name:     "encryption-config",
-			Optional: true,
-		}},
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
-		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
-		controllerConfig.EventRecorder,
-	)
-
 	// don't change any versions until we sync
 	versionRecorder := status.NewVersionGetter()
-	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get("openshift-apiserver", metav1.GetOptions{})
+	clusterOperator, err := configClient.ConfigV1().ClusterOperators().Get(ctx, "openshift-apiserver", metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -199,6 +184,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		},
 		kubeInformersForNamespaces,
 		kubeClient,
+	).WithRevisionController(
+		operatorclient.TargetNamespace,
+		nil,
+		[]revision.RevisionResource{{
+			Name:     "encryption-config",
+			Optional: true,
+		}},
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
+		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
+		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 	).WithConfigUpgradableController().
 		WithLogLevelController()
 
@@ -280,7 +276,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
-	ensureDaemonSetCleanup(kubeClient, ctx, controllerConfig.EventRecorder)
+	ensureDaemonSetCleanup(ctx, kubeClient, controllerConfig.EventRecorder)
 
 	operatorConfigInformers.Start(ctx.Done())
 	kubeInformersForNamespaces.Start(ctx.Done())
@@ -291,9 +287,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
-	go revisionController.Run(ctx, 1)
-	go encryptionControllers.Run(ctx.Done())
-	go pruneController.Run(ctx)
+	go encryptionControllers.Run(ctx, 1)
+	go pruneController.Run(ctx, 1)
 	go runnableAPIServerControllers.Run(ctx)
 	go staleConditions.Run(ctx, 1)
 
@@ -356,7 +351,7 @@ func apiServicesReferences() []configv1.ObjectReference {
 // used to manage apiserver pods in releases prior to 4.5. The daemonset is
 // removed once the deployment now managing apiserver pods reports at least
 // one pod available.
-func ensureDaemonSetCleanup(kubeClient *kubernetes.Clientset, ctx context.Context, eventRecorder events.Recorder) {
+func ensureDaemonSetCleanup(ctx context.Context, kubeClient *kubernetes.Clientset, eventRecorder events.Recorder) {
 	// daemonset and deployment both use the same name
 	resourceName := "apiserver"
 
@@ -369,7 +364,7 @@ func ensureDaemonSetCleanup(kubeClient *kubernetes.Clientset, ctx context.Contex
 		// checking.
 
 		// Check whether the legacy daemonset exists and is not marked for deletion
-		ds, err := dsClient.Get(resourceName, metav1.GetOptions{})
+		ds, err := dsClient.Get(ctx, resourceName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			// Done - daemonset does not exist
 			return
@@ -384,7 +379,7 @@ func ensureDaemonSetCleanup(kubeClient *kubernetes.Clientset, ctx context.Contex
 		}
 
 		// Check that the deployment managing the apiserver pods has at last one available replica
-		deploy, err := deployClient.Get(resourceName, metav1.GetOptions{})
+		deploy, err := deployClient.Get(ctx, resourceName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			// No available replicas if the deployment doesn't exist
 			return
@@ -399,7 +394,7 @@ func ensureDaemonSetCleanup(kubeClient *kubernetes.Clientset, ctx context.Contex
 		}
 
 		// Safe to remove legacy daemonset since the deployment has at least one available replica
-		err = dsClient.Delete(resourceName, &metav1.DeleteOptions{})
+		err = dsClient.Delete(ctx, resourceName, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			klog.Warningf("Failed to delete legacy daemonset: %v", err)
 			return

@@ -1,6 +1,7 @@
 package e2e_encryption
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -48,7 +49,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 			AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, namespace string) runtime.Object {
-			return operatorencryption.CreateAndStoreTokenOfLife(t, operatorencryption.GetClients(t))
+			return operatorencryption.CreateAndStoreTokenOfLife(context.TODO(), t, operatorencryption.GetClients(t))
 		},
 		AssertResourceEncryptedFunc:    operatorencryption.AssertTokenOfLifeEncrypted,
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertTokenOfLifeNotEncrypted,
@@ -60,6 +61,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 // TestEncryptionRotation first encrypts data with aescbc key
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
 func TestEncryptionRotation(t *testing.T) {
+	ctx := context.TODO()
 	library.TestEncryptionRotation(t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -71,19 +73,19 @@ func TestEncryptionRotation(t *testing.T) {
 			AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, _ string) runtime.Object {
-			return operatorencryption.CreateAndStoreTokenOfLife(t, operatorencryption.GetClients(t))
+			return operatorencryption.CreateAndStoreTokenOfLife(ctx, t, operatorencryption.GetClients(t))
 		},
 		GetRawResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) string {
 			return operatorencryption.GetRawTokenOfLife(t, clientSet)
 		},
 		UnsupportedConfigFunc: func(raw []byte) error {
 			cs := operatorencryption.GetClients(t)
-			apiServerOperator, err := cs.OperatorClient.Get("cluster", metav1.GetOptions{})
+			apiServerOperator, err := cs.OperatorClient.Get(ctx, "cluster", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
-			_, err = cs.OperatorClient.Update(apiServerOperator)
+			_, err = cs.OperatorClient.Update(ctx, apiServerOperator, metav1.UpdateOptions{})
 			return err
 		},
 	})
