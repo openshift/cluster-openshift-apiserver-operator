@@ -14,7 +14,6 @@ import (
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
-	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -106,6 +105,18 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
 	nodeInformer := kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes()
+	nodeProvider := DeploymentNodeProvider{
+		TargetNamespaceDeploymentInformer: kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Apps().V1().Deployments(),
+		NodeInformer:                      nodeInformer,
+	}
+	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), nodeProvider)
+	if err != nil {
+		return err
+	}
+
+	migrationClient := kubemigratorclient.NewForConfigOrDie(controllerConfig.KubeConfig)
+	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
+	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
 
 	openShiftAPIServerWorkload := operatorworkload.NewOpenShiftAPIServerWorkload(
 		operatorClient,
@@ -195,6 +206,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
 		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
+	).WithEncryptionControllers(
+		operatorclient.TargetNamespace,
+		deployer,
+		migrator,
+		kubeClient.CoreV1(),
+		configClient.ConfigV1().APIServers(),
+		configInformers.Config().V1().APIServers(),
+		kubeInformersForNamespaces,
+		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
+		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
+		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
 	).WithConfigUpgradableController().
 		WithLogLevelController()
 
@@ -212,38 +234,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configInformers,
 		controllerConfig.EventRecorder,
 	)
-
-	nodeProvider := DeploymentNodeProvider{
-		TargetNamespaceDeploymentInformer: kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Apps().V1().Deployments(),
-		NodeInformer:                      nodeInformer,
-	}
-
-	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), nodeProvider)
-	if err != nil {
-		return err
-	}
-
-	migrationClient := kubemigratorclient.NewForConfigOrDie(controllerConfig.KubeConfig)
-	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
-	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
-
-	encryptionControllers, err := encryption.NewControllers(
-		operatorclient.TargetNamespace,
-		deployer,
-		migrator,
-		operatorClient,
-		configClient.ConfigV1().APIServers(),
-		configInformers.Config().V1().APIServers(),
-		kubeInformersForNamespaces,
-		kubeClient.CoreV1(),
-		controllerConfig.EventRecorder,
-		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
-		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
-		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
-	)
-	if err != nil {
-		return err
-	}
 
 	pruneController := prune.NewPruneController(
 		operatorclient.TargetNamespace,
@@ -284,10 +274,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
+	migrationInformer.Start(ctx.Done())
 
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
-	go encryptionControllers.Run(ctx, 1)
 	go pruneController.Run(ctx, 1)
 	go runnableAPIServerControllers.Run(ctx)
 	go staleConditions.Run(ctx, 1)
