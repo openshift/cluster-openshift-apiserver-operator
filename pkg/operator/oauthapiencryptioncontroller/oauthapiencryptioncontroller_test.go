@@ -138,7 +138,6 @@ func TestOAuthAPIServerController(t *testing.T) {
 			fakeKubeClient := fake.NewSimpleClientset(rawSecrets...)
 
 			target := oauthAPIServerController{
-				targetNamespace:               "openshift-apiserver",
 				oauthAPIServerTargetNamespace: "oauth-apiserver",
 				secretLister:                  fakeSecretsLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
 				secretClient:                  fakeKubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
@@ -171,7 +170,7 @@ func defaultSecret(name string) *corev1.Secret {
 			Name:      name,
 			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			Annotations: map[string]string{
-				encryptionConfigManagedBy:                encryptionConfigManagedByValue,
+				EncryptionConfigManagedBy:                encryptionConfigManagedByValue,
 				encryptionstate.KubernetesDescriptionKey: encryptionstate.KubernetesDescriptionScaryValue,
 			},
 			Finalizers: []string{encryptionsecret.EncryptionSecretFinalizer},
