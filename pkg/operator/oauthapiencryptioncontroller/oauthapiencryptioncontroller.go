@@ -21,13 +21,12 @@ import (
 )
 
 const (
-	encryptionConfigManagedBy      = "encryption.apiserver.operator.openshift.io/managed-by"
+	EncryptionConfigManagedBy      = "encryption.apiserver.operator.openshift.io/managed-by"
 	encryptionConfigManagedByValue = `WARNING: DO NOT REMOVE.
 This annotation indicates that OAS-O manages this secret.`
 )
 
 type oauthAPIServerController struct {
-	targetNamespace               string
 	oauthAPIServerTargetNamespace string
 
 	secretLister corev1listers.SecretNamespaceLister
@@ -38,7 +37,6 @@ type oauthAPIServerController struct {
 // Note that this code will be removed in the future release (4.6)
 func New(
 	name string,
-	targetNamespace string,
 	oauthAPIServerTargetNamespace string,
 	secretClient corev1client.SecretsGetter,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
@@ -46,7 +44,6 @@ func New(
 
 	controllerFactory := factory.New()
 	target := &oauthAPIServerController{
-		targetNamespace:               targetNamespace,
 		oauthAPIServerTargetNamespace: oauthAPIServerTargetNamespace,
 		secretLister:                  kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
 		secretClient:                  secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
@@ -72,7 +69,7 @@ func New(
 // - it will not recover when the annotation was manually removed by a user,
 //   to recover we would have to put a value in the annotation instead and coordinate OAS-A and CAO but then we would have to remember to add it in CAO (4.6) as well
 func (c *oauthAPIServerController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	openshiftAPIServerEncryptionCfg, err := c.secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.targetNamespace))
+	openshiftAPIServerEncryptionCfg, err := c.secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, operatorclient.TargetNamespace))
 	if apierrors.IsNotFound(err) {
 		return nil // case 4: encryption off
 	}
@@ -95,7 +92,7 @@ func (c *oauthAPIServerController) sync(ctx context.Context, controllerContext f
 				Name:      oauthAPIServerEncryptionCfgName,
 				Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 				Annotations: map[string]string{
-					encryptionConfigManagedBy:                encryptionConfigManagedByValue,
+					EncryptionConfigManagedBy:                encryptionConfigManagedByValue,
 					encryptionstate.KubernetesDescriptionKey: encryptionstate.KubernetesDescriptionScaryValue,
 				},
 				Finalizers: []string{encryptionsecret.EncryptionSecretFinalizer},
@@ -111,7 +108,7 @@ func (c *oauthAPIServerController) sync(ctx context.Context, controllerContext f
 		controllerContext.Recorder().Eventf("SecretCreated", "Created %s in %s namespace because it was missing", oauthAPIServerEncryptionCfgName, operatorclient.GlobalMachineSpecifiedConfigNamespace)
 		return nil
 	}
-	if _, exist := oauthAPIServerEncryptionCfg.Annotations[encryptionConfigManagedBy]; exist {
+	if _, exist := oauthAPIServerEncryptionCfg.Annotations[EncryptionConfigManagedBy]; exist {
 		// case 2: exists and it is annotated
 		oauthEncryptionCfgData := oauthAPIServerEncryptionCfg.Data[encryptionconfig.EncryptionConfSecretKey]
 		oasEncryptionCfgData := openshiftAPIServerEncryptionCfg.Data[encryptionconfig.EncryptionConfSecretKey]

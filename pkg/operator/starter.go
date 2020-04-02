@@ -37,6 +37,8 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservice"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdobserver"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/encryptionprovider"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/oauthapiencryptioncontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
@@ -104,11 +106,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	}
 	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
-	nodeInformer := kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes()
-	nodeProvider := DeploymentNodeProvider{
-		TargetNamespaceDeploymentInformer: kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Apps().V1().Deployments(),
-		NodeInformer:                      nodeInformer,
-	}
+	nodeProvider := encryptiondeployer.NewDeploymentNodeProvider(operatorclient.TargetNamespace, kubeInformersForNamespaces)
 	deployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), nodeProvider)
 	if err != nil {
 		return err
@@ -117,6 +115,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	migrationClient := kubemigratorclient.NewForConfigOrDie(controllerConfig.KubeConfig)
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
 	migrator := migrators.NewKubeStorageVersionMigrator(migrationClient, migrationInformer.Migration().V1alpha1(), kubeClient.Discovery())
+	encryptionProvider := encryptionprovider.New(
+		"openshift-oauth-apiserver",
+		oauthapiencryptioncontroller.EncryptionConfigManagedBy,
+		[]schema.GroupResource{
+			{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
+			{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
+			{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
+		},
+		sets.NewString("oauthaccesstokens.oauth.openshift.io", "oauthauthorizetokens.oauth.openshift.io"),
+		kubeInformersForNamespaces,
+	)
 
 	openShiftAPIServerWorkload := operatorworkload.NewOpenShiftAPIServerWorkload(
 		operatorClient,
@@ -208,15 +217,13 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 	).WithEncryptionControllers(
 		operatorclient.TargetNamespace,
+		encryptionProvider,
 		deployer,
 		migrator,
 		kubeClient.CoreV1(),
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
-		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
-		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
-		schema.GroupResource{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
 	).WithConfigUpgradableController().
 		WithLogLevelController()
 
