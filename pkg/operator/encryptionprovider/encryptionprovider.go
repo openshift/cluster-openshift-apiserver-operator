@@ -14,13 +14,10 @@ import (
 )
 
 type encryptionProvider struct {
-	oauthAPIServerTargetNamespace   string
-	oauthEncryptionCfgAnnotationKey string
-
 	allEncryptedGRs                     []schema.GroupResource
 	encryptedGRsManagedByExternalServer sets.String
 
-	secretLister corev1listers.SecretNamespaceLister
+	isOAuthEncryptionConfigManagedByThisOperator func() bool
 }
 
 var _ controllers.Provider = &encryptionProvider{}
@@ -32,11 +29,13 @@ func New(
 	encryptedGRsManagedByExternalServer sets.String,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces) *encryptionProvider {
 	return &encryptionProvider{
-		oauthAPIServerTargetNamespace:       oauthAPIServerTargetNamespace,
-		oauthEncryptionCfgAnnotationKey:     oauthEncryptionCfgAnnotationKey,
 		allEncryptedGRs:                     allEncryptedGRs,
 		encryptedGRsManagedByExternalServer: encryptedGRsManagedByExternalServer,
-		secretLister:                        kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+		isOAuthEncryptionConfigManagedByThisOperator: IsOAuthEncryptionConfigManagedByThisOperator(
+			kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+			oauthAPIServerTargetNamespace,
+			oauthEncryptionCfgAnnotationKey,
+		),
 	}
 }
 
@@ -47,18 +46,11 @@ func New(
 // case 2 otherwise reduce the authoritative list and let CAO manage its own encryption configuration
 //
 // TODO:
-// - change the code in 4.6 so that it only returns a static list (https://bugzilla.redhat.com/show_bug.cgi?id=1819723)
+// - change the code in 4.7 so that it only returns a static list (https://bugzilla.redhat.com/show_bug.cgi?id=1819723)
 func (p *encryptionProvider) EncryptedGRs() []schema.GroupResource {
-	oauthAPIServerEncryptionCfg, err := p.secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, p.oauthAPIServerTargetNamespace))
-	if err != nil {
-		// note that it's okay to return the authoritative list on an error because:
-		// - the list is static most of the time it only changes on a downgrade (4.6 -> 4.5)
-		// - the only type of error we can get here (cache) is NotFound which means that the encryption is off
-		return p.allEncryptedGRs // case 1 - we are in charge
-	}
-
-	if _, exist := oauthAPIServerEncryptionCfg.Annotations[p.oauthEncryptionCfgAnnotationKey]; exist {
-		return p.allEncryptedGRs // case 1 - we are in charge
+	// case 1 - we are in charge
+	if p.isOAuthEncryptionConfigManagedByThisOperator() {
+		return p.allEncryptedGRs
 	}
 
 	// case 2 - CAO is in charge, reduce the list
@@ -75,4 +67,26 @@ func (p *encryptionProvider) EncryptedGRs() []schema.GroupResource {
 // ShouldRunEncryptionControllers indicates whether external preconditions are satisfied so that encryption controllers can start synchronizing
 func (p *encryptionProvider) ShouldRunEncryptionControllers() (bool, error) {
 	return true, nil // always ready
+}
+
+// IsOAuthEncryptionConfigManagedByThisOperator determines whether this operator is in charge of encryption-config-openshift-oauth-apiserver
+//
+// case 1 encryption off or the secret was annotated - we are in charge
+// case 2 otherwise let CAO manage its own encryption configuration
+// TODO:
+// - change case 1 in in 4.7 so that this operator doesn't manage CAO's encryption config when encryption is off
+func IsOAuthEncryptionConfigManagedByThisOperator(secretLister corev1listers.SecretNamespaceLister, oauthAPIServerTargetNamespace string, oauthEncryptionCfgAnnotationKey string) func() bool {
+	return func() bool {
+		oauthAPIServerEncryptionCfg, err := secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, oauthAPIServerTargetNamespace))
+		if err != nil {
+			// note that it's okay to return true on an error because:
+			// - the only type of error we can get here (cache) is NotFound which means that the encryption is off
+			return true // case 1 - we are in charge
+		}
+
+		if _, exist := oauthAPIServerEncryptionCfg.Annotations[oauthEncryptionCfgAnnotationKey]; exist {
+			return true // case 1 - we are in charge
+		}
+		return false // case 2 - CAO is in charge
+	}
 }

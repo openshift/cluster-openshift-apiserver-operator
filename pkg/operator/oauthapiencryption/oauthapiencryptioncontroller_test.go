@@ -1,4 +1,4 @@
-package oauthapiencryptioncontroller
+package oauthapiencryption
 
 import (
 	"context"
@@ -137,7 +137,7 @@ func TestOAuthAPIServerController(t *testing.T) {
 			}
 			fakeKubeClient := fake.NewSimpleClientset(rawSecrets...)
 
-			target := oauthAPIServerController{
+			target := oauthEncryptionConfigSyncController{
 				oauthAPIServerTargetNamespace: "oauth-apiserver",
 				secretLister:                  fakeSecretsLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
 				secretClient:                  fakeKubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),

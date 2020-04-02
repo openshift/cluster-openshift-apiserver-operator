@@ -1,4 +1,4 @@
-package oauthapiencryptioncontroller
+package oauthapiencryption
 
 import (
 	"context"
@@ -26,16 +26,16 @@ const (
 This annotation indicates that OAS-O manages this secret.`
 )
 
-type oauthAPIServerController struct {
+type oauthEncryptionConfigSyncController struct {
 	oauthAPIServerTargetNamespace string
 
 	secretLister corev1listers.SecretNamespaceLister
 	secretClient corev1client.SecretInterface
 }
 
-// New creates OAuthAPIServerController that will manage encryption-config-openshift-oauth-apiserver in openshift-config-managed namespace as described in https://github.com/openshift/enhancements/blob/master/enhancements/etcd/etcd-encryption-for-separate-oauth-apis.md
-// Note that this code will be removed in the future release (4.6)
-func New(
+// NewEncryptionConfigSyncController creates OAuthAPIServerController that will manage encryption-config-openshift-oauth-apiserver in openshift-config-managed namespace as described in https://github.com/openshift/enhancements/blob/master/enhancements/etcd/etcd-encryption-for-separate-oauth-apis.md
+// Note that this code will be removed in the future release (4.7)
+func NewEncryptionConfigSyncController(
 	name string,
 	oauthAPIServerTargetNamespace string,
 	secretClient corev1client.SecretsGetter,
@@ -43,7 +43,7 @@ func New(
 	eventRecorder events.Recorder) factory.Controller {
 
 	controllerFactory := factory.New()
-	target := &oauthAPIServerController{
+	target := &oauthEncryptionConfigSyncController{
 		oauthAPIServerTargetNamespace: oauthAPIServerTargetNamespace,
 		secretLister:                  kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
 		secretClient:                  secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
@@ -62,13 +62,13 @@ func New(
 // case 2: if the secret exists and it is annotated
 //         - it will simply start synchronisation
 //
-// case 3: no-op: when the secret exits but it doesn't have the annotation - that means it was created by CAO in 4.6 and this is downgrade
+// case 3: no-op: when the secret exits but it doesn't have the annotation - that means it was created by CAO in 4.7 and this is downgrade
 // case 4: no-op: when the secret doesn't exist and encryption is off
 //
 // drawbacks:
 // - it will not recover when the annotation was manually removed by a user,
 //   to recover we would have to put a value in the annotation instead and coordinate OAS-A and CAO but then we would have to remember to add it in CAO (4.6) as well
-func (c *oauthAPIServerController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
+func (c *oauthEncryptionConfigSyncController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
 	openshiftAPIServerEncryptionCfg, err := c.secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, operatorclient.TargetNamespace))
 	if apierrors.IsNotFound(err) {
 		return nil // case 4: encryption off
