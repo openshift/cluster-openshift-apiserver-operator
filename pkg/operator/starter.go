@@ -125,7 +125,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		},
 		sets.NewString("oauthaccesstokens.oauth.openshift.io", "oauthauthorizetokens.oauth.openshift.io"),
 		kubeInformersForNamespaces,
-		controllerConfig.EventRecorder,
 	)
 
 	openShiftAPIServerWorkload := operatorworkload.NewOpenShiftAPIServerWorkload(
