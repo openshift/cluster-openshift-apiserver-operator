@@ -9,3 +9,4 @@ approvers:
   - sttts
   - mfojtik
   - tnozicka
+component: openshift-apiserver
