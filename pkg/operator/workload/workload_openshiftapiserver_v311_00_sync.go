@@ -3,11 +3,12 @@ package workload
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	"k8s.io/klog"
 
 	"github.com/ghodss/yaml"
 
@@ -393,7 +394,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	// generation is up-to-date.
 	required.Annotations["openshiftapiservers.operator.openshift.io/replicas"] = fmt.Sprintf("%d", *masterNodeCount)
 
-	return resourceapply.ApplyDeployment(client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus), false)
+	return resourceapply.ApplyDeployment(client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
 }
 
 var openshiftScheme = runtime.NewScheme()
