@@ -281,7 +281,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
-	migrationInformer.Start(ctx.Done())
 
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
