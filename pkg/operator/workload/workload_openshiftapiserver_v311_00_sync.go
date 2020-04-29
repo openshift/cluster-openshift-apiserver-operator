@@ -388,11 +388,6 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 		return nil, false, fmt.Errorf("failed to determine number of master nodes: %v", err)
 	}
 	required.Spec.Replicas = masterNodeCount
-	// Set the replica count as an annotation to ensure that ApplyDeployment
-	// will update the deployment in the API when the replica count
-	// changes. Updates are otherwise skipped if the metadata matches and the
-	// generation is up-to-date.
-	required.Annotations["openshiftapiservers.operator.openshift.io/replicas"] = fmt.Sprintf("%d", *masterNodeCount)
 
 	return resourceapply.ApplyDeployment(client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
 }
