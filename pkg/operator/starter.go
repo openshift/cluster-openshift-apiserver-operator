@@ -76,7 +76,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
 		etcdobserver.EtcdEndpointNamespace,
-		metav1.NamespaceSystem,
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -147,7 +146,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
 		kubeInformersForNamespaces.InformersFor(operatorclient.GlobalUserSpecifiedConfigNamespace),
-		kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem),
 		apiregistrationInformers,
 		configInformers,
 		nodeInformer,
@@ -282,7 +280,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	migrationInformer.Start(ctx.Done())
 
 	go staticResourceController.Run(ctx, 1)
-	go workloadController.Run(ctx)
+	go workloadController.Run(ctx, 1)
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
 	go revisionController.Run(ctx, 1)
