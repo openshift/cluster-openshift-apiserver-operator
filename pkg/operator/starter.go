@@ -170,6 +170,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 				{Resource: "namespaces", Name: operatorclient.GlobalMachineSpecifiedConfigNamespace},
 				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 				{Resource: "namespaces", Name: operatorclient.TargetNamespace},
+				{Resource: "namespaces", Name: "openshift-etcd-operator"}, // Capture events from etcd operator
 				{Resource: "endpoints", Name: etcdobserver.EtcdEndpointName, Namespace: etcdobserver.EtcdEndpointNamespace},
 			},
 			apiServicesReferences()...,
