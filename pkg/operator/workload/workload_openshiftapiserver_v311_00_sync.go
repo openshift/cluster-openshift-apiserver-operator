@@ -70,9 +70,6 @@ type OpenShiftAPIServerWorkload struct {
 
 	eventRecorder   events.Recorder
 	versionRecorder status.VersionGetter
-
-	// haveObservedExtensionConfigMap preserves the state so that we don't ask the server on every sync
-	haveObservedExtensionConfigMap bool
 }
 
 // NewOpenShiftAPIServerWorkload creates new OpenShiftAPIServerWorkload struct
@@ -117,28 +114,6 @@ func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled() (bool, error) {
 	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
 		klog.Info("Waiting for observed configuration to be available")
 		return false, nil
-	}
-
-	// block until extension-apiserver-authentication configmap is fully populated to avoid
-	// that openshift-apiserver starts up with request header setting (which are not dynamically reloaded).
-	// in the future we need to change upstream code to be more dynamic
-	// see https://bugzilla.redhat.com/show_bug.cgi?id=1795163#c19 for more details.
-	if !c.haveObservedExtensionConfigMap {
-		authConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			klog.Infof("Waiting for %q configmap in %q namespace to be available", "extension-apiserver-authentication", metav1.NamespaceSystem)
-			return false, nil
-		}
-		if err != nil {
-			return false, err
-		}
-
-		if len(authConfigMap.Data["requestheader-client-ca-file"]) == 0 {
-			klog.V(2).Infof("waiting for requestheader-client-ca-file filed in %q configmap to be populated", "extension-apiserver-authentication")
-			// will be requeued by kubeInformersForKubeSystemNamespace informer
-			return false, nil
-		}
-		c.haveObservedExtensionConfigMap = true
 	}
 
 	return true, nil
