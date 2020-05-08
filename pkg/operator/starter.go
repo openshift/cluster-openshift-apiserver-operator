@@ -190,7 +190,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configClient.ConfigV1().ClusterOperators(),
 		versionRecorder,
 		kubeInformersForNamespaces,
-		kubeInformersForNamespaces.InformersFor(metav1.NamespaceSystem).Core().V1().ConfigMaps().Informer(),
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer(),
 		configInformers.Config().V1().Images().Informer(),
 	).WithStaticResourcesController(
