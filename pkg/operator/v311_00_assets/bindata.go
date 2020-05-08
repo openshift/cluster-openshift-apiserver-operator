@@ -223,7 +223,7 @@ spec:
         resources:
           requests:
             memory: 200Mi
-            cpu: 150m
+            cpu: 100m
         # we need to set this to privileged to be able to write audit to /var/log/openshift-apiserver
         securityContext:
           privileged: true
