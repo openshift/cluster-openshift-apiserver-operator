@@ -13,6 +13,7 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/rbaccontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
@@ -251,6 +252,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	)
 
+	rbacController := rbaccontroller.NewRBACController(kubeClient,
+		kubeInformersForNamespaces.InformersFor(""),
+		controllerConfig.EventRecorder)
+
 	staleConditions := staleconditions.NewRemoveStaleConditionsController(
 		[]string{
 			// in 4.1.0-4.3.0 this was used for indicating the apiserver daemonset was progressing
@@ -287,6 +292,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go pruneController.Run(ctx, 1)
 	go runnableAPIServerControllers.Run(ctx)
 	go staleConditions.Run(ctx, 1)
+	go rbacController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
