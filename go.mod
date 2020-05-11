@@ -20,6 +20,7 @@ require (
 	go.uber.org/multierr v1.1.1-0.20180122172545-ddea229ff1df // indirect
 	k8s.io/api v0.18.2
 	k8s.io/apimachinery v0.18.2
+	k8s.io/apiserver v0.18.2
 	k8s.io/client-go v0.18.2
 	k8s.io/component-base v0.18.2
 	k8s.io/klog v1.0.0
@@ -27,4 +28,7 @@ require (
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 )
 
-replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
+replace (
+	github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
+	github.com/openshift/library-go => github.com/mfojtik/library-go v0.0.0-20200511161500-a4b1c3e3a7a6
+)
