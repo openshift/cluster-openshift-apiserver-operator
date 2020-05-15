@@ -16,7 +16,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdobserver"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdendpoints"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/ingresses"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/project"
@@ -44,6 +44,7 @@ func NewConfigObserver(
 			ProxyLister_:        configInformers.Config().V1().Proxies().Lister(),
 			IngressConfigLister: configInformers.Config().V1().Ingresses().Lister(),
 			EndpointsLister:     kubeInformersForEtcdNamespace.Core().V1().Endpoints().Lister(),
+			ConfigmapLister:     kubeInformersForEtcdNamespace.Core().V1().ConfigMaps().Lister(),
 			SecretLister_:       kubeInformers.Core().V1().Secrets().Lister(),
 			PreRunCachesSynced: []cache.InformerSynced{
 				operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer().HasSynced,
@@ -54,6 +55,7 @@ func NewConfigObserver(
 				configInformers.Config().V1().Ingresses().Informer().HasSynced,
 				kubeInformersForEtcdNamespace.Core().V1().Endpoints().Informer().HasSynced,
 				kubeInformers.Core().V1().Secrets().Informer().HasSynced,
+				kubeInformersForEtcdNamespace.Core().V1().ConfigMaps().Informer().HasSynced,
 			},
 		},
 		[]factory.Informer{operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer()},
@@ -61,7 +63,7 @@ func NewConfigObserver(
 		images.ObserveExternalRegistryHostnames,
 		images.ObserveAllowedRegistriesForImport,
 		ingresses.ObserveIngressDomain,
-		etcdobserver.ObserveStorageURLs,
+		etcdendpoints.ObserveStorageURLs,
 		libgoapiserver.ObserveTLSSecurityProfile,
 		project.ObserveProjectRequestMessage,
 		project.ObserveProjectRequestTemplateName,

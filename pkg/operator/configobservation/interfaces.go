@@ -19,6 +19,7 @@ type Listers struct {
 	EndpointsLister     corelistersv1.EndpointsLister
 	PreRunCachesSynced  []cache.InformerSynced
 	SecretLister_       corelistersv1.SecretLister
+	ConfigmapLister     corelistersv1.ConfigMapLister
 }
 
 func (l Listers) ResourceSyncer() resourcesynccontroller.ResourceSyncer {
