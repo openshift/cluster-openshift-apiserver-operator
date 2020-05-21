@@ -1,6 +1,7 @@
 package operator
 
 import (
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -23,6 +24,9 @@ var (
 
 func (p DaemonSetNodeProvider) MasterNodeNames() ([]string, error) {
 	ds, err := p.TargetNamespaceDaemonSetInformer.Lister().DaemonSets(operatorclient.TargetNamespace).Get("apiserver")
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
