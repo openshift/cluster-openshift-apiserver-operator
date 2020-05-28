@@ -59,9 +59,6 @@ type OpenShiftAPIServerOperator struct {
 
 	// queue only ever has one item, but it has nice error handling backoff/retry semantics
 	queue workqueue.RateLimitingInterface
-
-	// haveObservedExtensionConfigMap preserves the state so that we don't ask the server on every sync
-	haveObservedExtensionConfigMap bool
 }
 
 func NewWorkloadController(
@@ -72,7 +69,6 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftAPIServerNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForEtcdNamespace kubeinformers.SharedInformerFactory,
 	kubeInformersForOpenShiftConfigNamespace kubeinformers.SharedInformerFactory,
-	kubeInformersForKubeSystemNamespace kubeinformers.SharedInformerFactory,
 	apiregistrationInformers apiregistrationinformers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
 	nodeInformer corev1informers.NodeInformer,
@@ -107,7 +103,6 @@ func NewWorkloadController(
 	kubeInformersForOpenShiftAPIServerNamespace.Core().V1().Services().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftAPIServerNamespace.Apps().V1().Deployments().Informer().AddEventHandler(c.eventHandler())
 	kubeInformersForOpenShiftConfigNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
-	kubeInformersForKubeSystemNamespace.Core().V1().ConfigMaps().Informer().AddEventHandler(c.eventHandler())
 	configInformers.Config().V1().Images().Informer().AddEventHandler(c.eventHandler())
 	apiregistrationInformers.Apiregistration().V1().APIServices().Informer().AddEventHandler(c.eventHandler())
 
@@ -162,33 +157,11 @@ func (c OpenShiftAPIServerOperator) sync() error {
 		return nil
 	}
 
-	// block until extension-apiserver-authentication configmap is fully populated to avoid
-	// that openshift-apiserver starts up with request header setting (which are not dynamically reloaded).
-	// in the future we need to change upstream code to be more dynamic
-	// see https://bugzilla.redhat.com/show_bug.cgi?id=1795163#c19 for more details.
-	if !c.haveObservedExtensionConfigMap {
-		authConfigMap, err := c.kubeClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
-		if apierrors.IsNotFound(err) {
-			klog.Infof("Waiting for %q configmap in %q namespace to be available", "extension-apiserver-authentication", metav1.NamespaceSystem)
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		if len(authConfigMap.Data["requestheader-client-ca-file"]) == 0 {
-			klog.V(2).Infof("waiting for requestheader-client-ca-file filed in %q configmap to be populated", "extension-apiserver-authentication")
-			// will be requeued by kubeInformersForKubeSystemNamespace informer
-			return nil
-		}
-		c.haveObservedExtensionConfigMap = true
-	}
-
 	return syncOpenShiftAPIServer_v311_00_to_latest(c, operatorConfig)
 }
 
 // Run starts the openshift-apiserver and blocks until stopCh is closed.
-func (c *OpenShiftAPIServerOperator) Run(ctx context.Context) {
+func (c *OpenShiftAPIServerOperator) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
