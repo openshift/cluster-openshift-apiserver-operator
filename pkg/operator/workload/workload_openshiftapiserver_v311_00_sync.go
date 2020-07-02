@@ -3,6 +3,7 @@ package workload
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -299,6 +300,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 		"${OPERATOR_IMAGE}", operatorImagePullSpec,
 		"${REVISION}", strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision)),
 		"${VERBOSITY}", loglevelToKlog(operatorConfig.Spec.LogLevel),
+		"${KUBE_APISERVER_OPERATOR_IMAGE}", os.Getenv("KUBE_APISERVER_OPERATOR_IMAGE"),
 	)
 	tmpl = []byte(r.Replace(string(tmpl)))
 
