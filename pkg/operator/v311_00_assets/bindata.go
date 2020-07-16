@@ -290,6 +290,37 @@ spec:
             scheme: HTTPS
             port: 8443
             path: healthz
+      - name: openshift-apiserver-check-endpoints
+        image: ${KUBE_APISERVER_OPERATOR_IMAGE}
+        imagePullPolicy: IfNotPresent
+        terminationMessagePolicy: FallbackToLogsOnError
+        command:
+          - cluster-kube-apiserver-operator
+          - check-endpoints
+        args:
+          - --listen
+          - 0.0.0.0:17698
+          - --namespace
+          - $(POD_NAMESPACE)
+          - --v
+          - '2'
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        ports:
+          - name: check-endpoints
+            containerPort: 17698
+            protocol: TCP
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 10m
       terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
       volumes:
       - name: node-pullsecrets

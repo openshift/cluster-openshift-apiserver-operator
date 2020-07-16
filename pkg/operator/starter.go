@@ -13,6 +13,8 @@ import (
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
+	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
@@ -65,6 +67,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if err != nil {
 		return err
 	}
+	operatorcontrolplaneClient, err := operatorcontrolplaneclient.NewForConfig(controllerConfig.KubeConfig)
+	if err != nil {
+		return err
+	}
 
 	operatorConfigInformers := operatorv1informers.NewSharedInformerFactory(operatorConfigClient, 10*time.Minute)
 	kubeInformersForNamespaces := v1helpers.NewKubeInformersForNamespaces(kubeClient,
@@ -75,6 +81,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorclient.TargetNamespace,
 		etcdobserver.EtcdEndpointNamespace,
 		metav1.NamespaceSystem,
+		"openshift-kube-apiserver",
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
@@ -172,6 +179,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 				{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 				{Resource: "namespaces", Name: "openshift-etcd-operator"}, // Capture events from etcd operator
 				{Resource: "endpoints", Name: etcdobserver.EtcdEndpointName, Namespace: etcdobserver.EtcdEndpointNamespace},
+				{Group: "controlplane.operator.openshift.io", Resource: "podnetworkconnectivitychecks", Namespace: "openshift-apiserver"},
 			},
 			apiServicesReferences()...,
 		),
@@ -273,6 +281,14 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
+	connectivityCheckController := connectivitycheckcontroller.NewConnectivityCheckController(
+		kubeClient,
+		operatorClient,
+		kubeInformersForNamespaces,
+		operatorcontrolplaneClient,
+		controllerConfig.EventRecorder,
+	)
+
 	ensureDaemonSetCleanup(ctx, kubeClient, controllerConfig.EventRecorder)
 
 	operatorConfigInformers.Start(ctx.Done())
@@ -287,6 +303,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go pruneController.Run(ctx, 1)
 	go runnableAPIServerControllers.Run(ctx)
 	go staleConditions.Run(ctx, 1)
+	go connectivityCheckController.Run(ctx, 1)
 
 	<-ctx.Done()
 	return nil
