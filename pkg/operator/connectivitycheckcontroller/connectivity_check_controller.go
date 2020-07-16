@@ -197,7 +197,7 @@ func listAddressesForKubeAPIServerServiceEndpoints(endpointsLister corev1listers
 func getTemplatesForStorageEndpoints(operatorSpec *operatorv1.OperatorSpec, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	for _, address := range listAddressesForStorageEndpoints(operatorSpec, recorder) {
-		templates = append(templates, newPodNetworkProductivityCheck("storage-endpoint", address, withTlsClientCert("etcd-client")))
+		templates = append(templates, newPodNetworkProductivityCheck("storage-endpoint", address, withTLSClientCert("etcd-client")))
 	}
 	return templates
 }
@@ -243,7 +243,7 @@ func newPodNetworkProductivityCheck(label, address string, options ...func(*v1al
 	return check
 }
 
-func withTlsClientCert(secretName string) func(*v1alpha1.PodNetworkConnectivityCheck) {
+func withTLSClientCert(secretName string) func(*v1alpha1.PodNetworkConnectivityCheck) {
 	return func(check *v1alpha1.PodNetworkConnectivityCheck) {
 		if len(secretName) > 0 {
 			check.Spec.TLSClientCert = v1.SecretNameReference{Name: secretName}
