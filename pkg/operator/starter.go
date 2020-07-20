@@ -38,7 +38,6 @@ import (
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservice"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/etcdobserver"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/encryptionprovider"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/oauthapiencryptioncontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
@@ -48,6 +47,7 @@ import (
 	operatorworkload "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workload"
 	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
+	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 )
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
@@ -79,7 +79,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		operatorclient.OperatorNamespace,
 		operatorclient.TargetNamespace,
-		etcdobserver.EtcdEndpointNamespace,
+		libgoetcd.EtcdEndpointNamespace,
 		metav1.NamespaceSystem,
 		"openshift-kube-apiserver",
 	)
@@ -178,7 +178,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 				{Resource: "namespaces", Name: operatorclient.OperatorNamespace},
 				{Resource: "namespaces", Name: operatorclient.TargetNamespace},
 				{Resource: "namespaces", Name: "openshift-etcd-operator"}, // Capture events from etcd operator
-				{Resource: "endpoints", Name: etcdobserver.EtcdEndpointName, Namespace: etcdobserver.EtcdEndpointNamespace},
+				{Resource: "endpoints", Name: libgoetcd.EtcdEndpointName, Namespace: libgoetcd.EtcdEndpointNamespace},
 				{Group: "controlplane.operator.openshift.io", Resource: "podnetworkconnectivitychecks", Namespace: "openshift-apiserver"},
 			},
 			apiServicesReferences()...,
@@ -242,7 +242,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 
 	configObserver := configobservercontroller.NewConfigObserver(
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		kubeInformersForNamespaces.InformersFor(etcdobserver.EtcdEndpointNamespace),
+		kubeInformersForNamespaces.InformersFor(libgoetcd.EtcdEndpointNamespace),
 		operatorClient,
 		resourceSyncController,
 		operatorConfigInformers,
