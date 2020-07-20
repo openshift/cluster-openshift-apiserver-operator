@@ -94,11 +94,11 @@ func (c *connectivityCheckController) managePodNetworkConnectivityChecks(ctx con
 	// each storage endpoint
 	templates = append(templates, getTemplatesForStorageEndpoints(operatorSpec, recorder)...)
 	// kas service IP
-	templates = append(templates, getTemplatesForKubeAPIServerService(c.serviceLister, recorder)...)
+	templates = append(templates, getTemplatesForKubernetesServiceMonitorService(c.serviceLister, recorder)...)
 	// kas default service IP
-	templates = append(templates, getTemplatesForKubernetesService(recorder)...)
+	templates = append(templates, getTemplatesForKubernetesDefaultService(recorder)...)
 	// each kas endpoint IP
-	templates = append(templates, getTemplatesForKubeAPIServerServiceEndpoints(c.endpointsLister, recorder)...)
+	templates = append(templates, getTemplatesForKubernetesEndpoints(c.endpointsLister, recorder)...)
 
 	pods, err := c.podLister.List(labels.Set{"apiserver": "true"}.AsSelector())
 	if err != nil {
@@ -135,7 +135,7 @@ func (c *connectivityCheckController) managePodNetworkConnectivityChecks(ctx con
 	}
 }
 
-func getTemplatesForKubernetesService(recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+func getTemplatesForKubernetesDefaultService(recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	host := os.Getenv("KUBERNETES_SERVICE_HOST")
 	port := os.Getenv("KUBERNETES_SERVICE_PORT")
@@ -143,18 +143,18 @@ func getTemplatesForKubernetesService(recorder events.Recorder) []*v1alpha1.PodN
 		recorder.Warningf("EndpointDetectionFailure", "unable to determine kubernetes service endpoint: in-cluster configuration not found")
 		return templates
 	}
-	return append(templates, newPodNetworkProductivityCheck("kubernetes-service", net.JoinHostPort(host, port)))
+	return append(templates, newPodNetworkProductivityCheck("kubernetes-default-service", net.JoinHostPort(host, port)))
 }
 
-func getTemplatesForKubeAPIServerService(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+func getTemplatesForKubernetesServiceMonitorService(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
-	for _, address := range listAddressesForKubeAPIServerService(serviceLister, recorder) {
-		templates = append(templates, newPodNetworkProductivityCheck("kube-apiserver-service", address))
+	for _, address := range listAddressesForKubernetesServiceMonitorService(serviceLister, recorder) {
+		templates = append(templates, newPodNetworkProductivityCheck("kubernetes-apiserver-service", address))
 	}
 	return templates
 }
 
-func listAddressesForKubeAPIServerService(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []string {
+func listAddressesForKubernetesServiceMonitorService(serviceLister corev1listers.ServiceLister, recorder events.Recorder) []string {
 	service, err := serviceLister.Services("openshift-kube-apiserver").Get("apiserver")
 	if err != nil {
 		recorder.Warningf("EndpointDetectionFailure", "unable to determine openshift-kube-apiserver apiserver service endpoint: %v", err)
@@ -168,10 +168,10 @@ func listAddressesForKubeAPIServerService(serviceLister corev1listers.ServiceLis
 	return []string{net.JoinHostPort(service.Spec.ClusterIP, "443")}
 }
 
-func getTemplatesForKubeAPIServerServiceEndpoints(endpointsLister corev1listers.EndpointsLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+func getTemplatesForKubernetesEndpoints(endpointsLister corev1listers.EndpointsLister, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	for _, address := range listAddressesForKubeAPIServerServiceEndpoints(endpointsLister, recorder) {
-		templates = append(templates, newPodNetworkProductivityCheck("kube-apiserver-service-endpoint", address))
+		templates = append(templates, newPodNetworkProductivityCheck("kubernetes-apiserver-endpoint", address))
 	}
 	return templates
 }
