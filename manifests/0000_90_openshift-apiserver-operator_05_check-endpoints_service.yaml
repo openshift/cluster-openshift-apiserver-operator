@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: check-endpoints
+  namespace: openshift-apiserver
+spec:
+  ports:
+  - name: check-endpoints
+    port: 17698
+    targetPort: 17698
+  selector:
+    apiserver: "true"
+  type: ClusterIP
+
