@@ -13,7 +13,7 @@ require (
 	github.com/openshift/api v0.0.0-20200714125145-93040c6967eb
 	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
 	github.com/openshift/client-go v0.0.0-20200623090625-83993cebb5ae
-	github.com/openshift/library-go v0.0.0-20200427130628-9b02543ac833
+	github.com/openshift/library-go v0.0.0-20200722204747-e3f2c82ff290
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
