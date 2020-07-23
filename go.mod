@@ -26,4 +26,8 @@ require (
 	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
 )
 
-replace github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
+replace (
+	github.com/coreos/etcd => github.com/coreos/etcd v3.3.17+incompatible // Pinned for openshift
+	github.com/kubernetes-sigs/kube-storage-version-migrator => github.com/openshift/kubernetes-kube-storage-version-migrator v0.0.3-0.20200312103335-32e07ea4f8ca
+	google.golang.org/grpc => google.golang.org/grpc v1.26.0
+)
