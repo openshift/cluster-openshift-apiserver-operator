@@ -12,7 +12,7 @@ github.com/blang/semver
 github.com/certifi/gocertifi
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
-# github.com/coreos/etcd v3.3.15+incompatible
+# github.com/coreos/etcd v3.3.15+incompatible => github.com/coreos/etcd v3.3.17+incompatible
 github.com/coreos/etcd/auth/authpb
 github.com/coreos/etcd/clientv3
 github.com/coreos/etcd/clientv3/balancer
@@ -409,7 +409,7 @@ google.golang.org/appengine/urlfetch
 # google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.27.0
+# google.golang.org/grpc v1.27.0 => google.golang.org/grpc v1.26.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
