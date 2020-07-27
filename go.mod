@@ -19,6 +19,7 @@ require (
 	go.uber.org/multierr v1.1.1-0.20180122172545-ddea229ff1df // indirect
 	k8s.io/api v0.19.0-rc.2
 	k8s.io/apimachinery v0.19.0-rc.2
+	k8s.io/apiserver v0.19.0-rc.2
 	k8s.io/client-go v0.19.0-rc.2
 	k8s.io/component-base v0.19.0-rc.2
 	k8s.io/klog v1.0.0
