@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/google/uuid"
-
+	
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	clusteroperatorv1helpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
@@ -404,8 +402,8 @@ func (c *Controller) updateOperatorStatus(workload *appsv1.Deployment, operatorC
 // don't match, the uuid should only be updated in the API when a new
 // replicaset is created.
 func EnsureAtMostOnePodPerNode(spec *appsv1.DeploymentSpec) error {
-	uuidKey := "anti-affinity-uuid"
-	uuidValue := uuid.New().String()
+	uuidKey := "openshift-apiserver-anti-affinity"
+	uuidValue := "true"
 
 	// Label the pod template with the template hash
 	spec.Template.Labels[uuidKey] = uuidValue
