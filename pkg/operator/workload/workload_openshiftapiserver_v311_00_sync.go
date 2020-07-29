@@ -49,7 +49,7 @@ type nodeCountFunc func(nodeSelector map[string]string) (*int32, error)
 
 // ensureAtMostOnePodPerNode a function that updates the deployment spec to prevent more than
 // one pod of a given replicaset from landing on a node.
-type ensureAtMostOnePodPerNodeFunc func(spec *appsv1.DeploymentSpec) error
+type ensureAtMostOnePodPerNodeFunc func(spec *appsv1.DeploymentSpec, component string) error
 
 // OpenShiftAPIServerWorkload is a struct that holds necessary data to install OpenShiftAPIServer
 type OpenShiftAPIServerWorkload struct {
