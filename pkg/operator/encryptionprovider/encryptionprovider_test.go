@@ -70,11 +70,13 @@ func TestEncryptionProvider(t *testing.T) {
 
 			// act
 			target := encryptionProvider{
-				oauthAPIServerTargetNamespace:       "openshift-apiserver",
-				oauthEncryptionCfgAnnotationKey:     encryptionCfgAnnotationKey,
 				allEncryptedGRs:                     scenario.defaultEncryptedGRs,
 				encryptedGRsManagedByExternalServer: grsManagedByExternalServer,
-				secretLister:                        fakeSecretsLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+				isOAuthEncryptionConfigManagedByThisOperator: IsOAuthEncryptionConfigManagedByThisOperator(
+					fakeSecretsLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+					"openshift-apiserver",
+					encryptionCfgAnnotationKey,
+				),
 			}
 
 			actualEncryptedGRs := target.EncryptedGRs()
