@@ -246,7 +246,14 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
-	).WithConfigUpgradableController().
+	).WithSecretRevisionPruneController(
+		operatorclient.TargetNamespace,
+		[]string{"encryption-config-"},
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		kubeInformersForNamespaces,
+	).
+		WithConfigUpgradableController().
 		WithLogLevelController()
 
 	runnableAPIServerControllers, err := apiServerControllers.PrepareRun()
@@ -269,15 +276,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		resourceSyncController,
 		operatorConfigInformers,
 		configInformers,
-		controllerConfig.EventRecorder,
-	)
-
-	pruneController := prune.NewPruneController(
-		operatorclient.TargetNamespace,
-		[]string{"encryption-config-"},
-		kubeClient.CoreV1(),
-		kubeClient.CoreV1(),
-		kubeInformersForNamespaces,
 		controllerConfig.EventRecorder,
 	)
 
@@ -323,7 +321,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go oauthEncryptionController.Run(ctx, 1)
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
-	go pruneController.Run(ctx, 1)
 	go runnableAPIServerControllers.Run(ctx)
 	go staleConditions.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
