@@ -95,13 +95,14 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
 
 			target := OpenShiftAPIServerWorkload{
-				kubeClient:            kubeClient,
-				eventRecorder:         events.NewInMemoryRecorder(""),
-				operatorClient:        fakeOperatorClient,
-				operatorConfigClient:  apiServiceOperatorClient.OperatorV1(),
-				openshiftConfigClient: openshiftConfigClient.ConfigV1(),
-				versionRecorder:       status.NewVersionGetter(),
-				countNodes:            fakeCountNodes,
+				kubeClient:                kubeClient,
+				eventRecorder:             events.NewInMemoryRecorder(""),
+				operatorClient:            fakeOperatorClient,
+				operatorConfigClient:      apiServiceOperatorClient.OperatorV1(),
+				openshiftConfigClient:     openshiftConfigClient.ConfigV1(),
+				versionRecorder:           status.NewVersionGetter(),
+				countNodes:                fakeCountNodes,
+				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
 			}
 
 			if _, _, err := target.Sync(); len(err) > 0 {

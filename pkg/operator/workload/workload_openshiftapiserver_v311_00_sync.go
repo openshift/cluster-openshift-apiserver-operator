@@ -145,7 +145,16 @@ func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) 
 
 	// our configmaps and secrets are in order, now it is time to create the deployment
 	// TODO check basic preconditions here
-	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(c.kubeClient, c.kubeClient.AppsV1(), c.countNodes, c.eventRecorder, c.targetImagePullSpec, c.operatorImagePullSpec, operatorConfig, operatorConfig.Status.Generations)
+	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(
+		c.kubeClient,
+		c.kubeClient.AppsV1(),
+		c.countNodes,
+		c.eventRecorder,
+		c.targetImagePullSpec,
+		c.operatorImagePullSpec,
+		operatorConfig,
+		operatorConfig.Status.Generations,
+		c.ensureAtMostOnePodPerNode)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "deployments", err))
 	}
@@ -292,6 +301,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	operatorImagePullSpec string,
 	operatorConfig *operatorv1.OpenShiftAPIServer,
 	generationStatus []operatorv1.GenerationStatus,
+	ensureAtMostOnePodPerNodeFn ensureAtMostOnePodPerNodeFunc,
 ) (*appsv1.Deployment, bool, error) {
 	tmpl := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/deploy.yaml")
 
@@ -357,6 +367,11 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 			required.Spec.Template.Annotations = map[string]string{}
 		}
 		required.Spec.Template.Annotations[annotationKey] = v
+	}
+
+	err = ensureAtMostOnePodPerNodeFn(&required.Spec, operatorclient.TargetNamespace)
+	if err != nil {
+		return nil, false, fmt.Errorf("unable to ensure at most one pod per node: %v", err)
 	}
 
 	// Set the replica count to the number of master nodes.
