@@ -41,11 +41,11 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/encryptionprovider"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/oauthapiencryption"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	prune "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/prunecontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/revisionpoddeployer"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	operatorworkload "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workload"
+	libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
@@ -216,23 +216,30 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configInformers.Config().V1().Images().Informer(),
 	).WithStaticResourcesController(
 		"APIServerStaticResources",
-		v311_00_assets.Asset,
+		libgoassets.WithAuditPolicies(operatorclient.TargetNamespace, v311_00_assets.Asset),
 		[]string{
 			"v3.11.0/openshift-apiserver/ns.yaml",
 			"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
 			"v3.11.0/openshift-apiserver/svc.yaml",
 			"v3.11.0/openshift-apiserver/sa.yaml",
 			"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
+			libgoassets.AuditPoliciesConfigMapFileName,
 		},
 		kubeInformersForNamespaces,
 		kubeClient,
 	).WithRevisionController(
 		operatorclient.TargetNamespace,
-		nil,
-		[]revision.RevisionResource{{
-			Name:     "encryption-config",
-			Optional: true,
-		}},
+		[]revision.RevisionResource{
+			{
+				Name: "audit",
+			},
+		},
+		[]revision.RevisionResource{
+			{
+				Name:     "encryption-config",
+				Optional: true,
+			},
+		},
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
 		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
@@ -268,6 +275,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces,
 		controllerConfig.EventRecorder,
 	)
+	auditPolicyPahGetter, err := libgoassets.NewAuditPolicyPathGetter()
+	if err != nil {
+		return err
+	}
 
 	configObserver := configobservercontroller.NewConfigObserver(
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
@@ -276,6 +287,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		resourceSyncController,
 		operatorConfigInformers,
 		configInformers,
+		auditPolicyPahGetter,
 		controllerConfig.EventRecorder,
 	)
 
