@@ -63,53 +63,20 @@ func (fi bindataFileInfo) Sys() interface{} {
 
 var _v3110ConfigDefaultconfigYaml = []byte(`apiVersion: openshiftcontrolplane.config.openshift.io/v1
 kind: OpenShiftAPIServerConfig
-auditConfig:
-  auditFilePath: "/var/log/openshift-apiserver/audit.log"
-  enabled: true
-  logFormat: "json"
-  maximumFileSizeMegabytes: 100
-  maximumRetainedFiles: 10
-  policyConfiguration:
-    apiVersion: audit.k8s.io/v1beta1
-    kind: Policy
-    # Don't generate audit events for all requests in RequestReceived stage.
-    omitStages:
-      - "RequestReceived"
-    rules:
-      # Don't log requests for events
-      - level: None
-        resources:
-          - group: ""
-            resources: ["events"]
-      # Don't log oauth tokens as metadata.name is the secret
-      - level: None
-        resources:
-        - group: "oauth.openshift.io"
-          resources: ["oauthaccesstokens", "oauthauthorizetokens"]
-      # Don't log authenticated requests to certain non-resource URL paths.
-      - level: None
-        userGroups: ["system:authenticated", "system:unauthenticated"]
-        nonResourceURLs:
-          - "/api*" # Wildcard matching.
-          - "/version"
-          - "/healthz"
-      # Log the full Identity API resource object so that the audit trail
-      # allows us to match the username with the IDP identity.
-      - level: RequestResponse
-        verbs: ["create", "update", "patch"]
-        resources:
-          - group: "user.openshift.io"
-            resources: ["identities"]
-      # A catch-all rule to log all other requests at the Metadata level.
-      - level: Metadata
-        # Long-running requests like watches that fall under this rule will not
-        # generate an audit event in RequestReceived.
-        omitStages:
-          - "RequestReceived"
 storageConfig:
   urls:
-    - https://etcd.openshift-etcd.svc:2379
+  - https://etcd.openshift-etcd.svc:2379
 apiServerArguments:
+  audit-log-format:
+  - json
+  audit-log-maxbackup:
+  - "10"
+  audit-log-maxsize:
+  - "100"
+  audit-log-path:
+  - /var/log/openshift-apiserver/audit.log
+  audit-policy-file:
+  - /var/run/configmaps/audit/default.yaml
   shutdown-delay-duration:
   - 3s # give SDN some time to converge
 servingInfo:
@@ -264,6 +231,8 @@ spec:
           readOnly: true
         - mountPath: /var/run/configmaps/config
           name: config
+        - mountPath: /var/run/configmaps/audit
+          name: audit
         - mountPath: /var/run/secrets/etcd-client
           name: etcd-client
         - mountPath: /var/run/configmaps/etcd-serving-ca
@@ -330,6 +299,9 @@ spec:
       - name: config
         configMap:
           name: config
+      - name: audit
+        configMap:
+          name: audit-${REVISION}
       - name: etcd-client
         secret:
           secretName: etcd-client

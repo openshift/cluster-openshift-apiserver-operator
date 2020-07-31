@@ -31,6 +31,7 @@ func NewConfigObserver(
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	operatorConfigInformers operatorv1informers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
+	auditPolicypathGetter libgoapiserver.AuditPolicyPathGetterFunc,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := configobserver.NewConfigObserver(
@@ -65,6 +66,7 @@ func NewConfigObserver(
 		ingresses.ObserveIngressDomain,
 		libgoetcd.ObserveStorageURLs,
 		libgoapiserver.ObserveTLSSecurityProfile,
+		libgoapiserver.NewAuditObserver(auditPolicypathGetter),
 		project.ObserveProjectRequestMessage,
 		project.ObserveProjectRequestTemplateName,
 		proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),

@@ -80,6 +80,8 @@ spec:
           readOnly: true
         - mountPath: /var/run/configmaps/config
           name: config
+        - mountPath: /var/run/configmaps/audit
+          name: audit
         - mountPath: /var/run/secrets/etcd-client
           name: etcd-client
         - mountPath: /var/run/configmaps/etcd-serving-ca
@@ -146,6 +148,9 @@ spec:
       - name: config
         configMap:
           name: config
+      - name: audit
+        configMap:
+          name: audit-${REVISION}
       - name: etcd-client
         secret:
           secretName: etcd-client
