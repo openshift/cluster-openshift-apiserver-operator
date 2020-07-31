@@ -3,19 +3,19 @@ module github.com/openshift/cluster-openshift-apiserver-operator
 go 1.13
 
 require (
-	github.com/coreos/etcd v3.3.15+incompatible
 	github.com/getsentry/raven-go v0.2.1-0.20190513200303-c977f96e1095 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
 	github.com/kubernetes-sigs/kube-storage-version-migrator v0.0.0-20191127225502-51849bc15f17
-	github.com/openshift/api v0.0.0-20200722170803-0ba2c3658da6
+	github.com/openshift/api v0.0.0-20200723134351-89de68875e7c
 	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
 	github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15
 	github.com/openshift/library-go v0.0.0-20200731053141-ff55255233e3
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20200716221620-18dfb9cca345
 	go.uber.org/multierr v1.1.1-0.20180122172545-ddea229ff1df // indirect
 	k8s.io/api v0.19.0-rc.2
 	k8s.io/apimachinery v0.19.0-rc.2
