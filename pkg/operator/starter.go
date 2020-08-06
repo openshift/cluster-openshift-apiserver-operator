@@ -317,6 +317,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeClient,
 		operatorClient,
 		kubeInformersForNamespaces,
+		configInformers,
 		operatorcontrolplaneClient,
 		controllerConfig.EventRecorder,
 	)
