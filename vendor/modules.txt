@@ -222,7 +222,7 @@ github.com/openshift/client-go/operator/listers/operator/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/scheme
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/typed/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20200731053141-ff55255233e3
+# github.com/openshift/library-go v0.0.0-20200807122248-f5cb4d19a4fe
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/config/client
 github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers
@@ -245,6 +245,7 @@ github.com/openshift/library-go/pkg/operator/configobserver
 github.com/openshift/library-go/pkg/operator/configobserver/apiserver
 github.com/openshift/library-go/pkg/operator/configobserver/etcd
 github.com/openshift/library-go/pkg/operator/configobserver/proxy
+github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller
 github.com/openshift/library-go/pkg/operator/encryption
 github.com/openshift/library-go/pkg/operator/encryption/controllers
 github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators
