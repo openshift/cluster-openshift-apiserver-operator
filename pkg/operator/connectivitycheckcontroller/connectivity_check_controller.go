@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/ghodss/yaml"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -20,6 +19,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -126,9 +126,13 @@ func (c *connectivityCheckTemplateProvider) getPodNetworkConnectivityChecks(ctx 
 	// create each check per static pod
 	var checks []*v1alpha1.PodNetworkConnectivityCheck
 	for _, pod := range pods {
+		if len(pod.Spec.NodeName) == 0 {
+			// apiserver pod hasn't been assigned a node yet, skip
+			continue
+		}
 		for _, template := range templates {
 			check := template.DeepCopy()
-			check.Name = strings.Replace(check.Name, "$(SOURCE)", pod.Name, -1)
+			WithSource("apiserver-" + pod.Spec.NodeName)(check)
 			check.Spec.SourcePod = pod.Name
 			checks = append(checks, check)
 		}
@@ -136,10 +140,20 @@ func (c *connectivityCheckTemplateProvider) getPodNetworkConnectivityChecks(ctx 
 
 	pnccClient := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(operatorclient.TargetNamespace)
 	for _, check := range checks {
-		_, err := pnccClient.Get(ctx, check.Name, metav1.GetOptions{})
+		existing, err := pnccClient.Get(ctx, check.Name, metav1.GetOptions{})
 		if err == nil {
-			// already exists, skip
-			continue
+			if equality.Semantic.DeepEqual(existing.Spec, check.Spec) {
+				// already exists, no changes, skip
+				continue
+			}
+			updated := existing.DeepCopy()
+			updated.Spec = *check.Spec.DeepCopy()
+			_, err := pnccClient.Update(ctx, updated, metav1.UpdateOptions{})
+			if err != nil {
+				recorder.Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(check), err)
+				continue
+			}
+			recorder.Eventf("EndpointCheckUpdated", "Updated %s because it changed.", resourcehelper.FormatResourceForCLIWithNamespace(check))
 		}
 		if apierrors.IsNotFound(err) {
 			_, err = pnccClient.Create(ctx, check, metav1.CreateOptions{})
