@@ -304,7 +304,7 @@ func (c *connectivityCheckTemplateProvider) getTemplatesForApiLoadBalancerChecks
 		recorder.Warningf("EndpointDetectionFailure", "error detecting external api load balancer endpoint: %v", err)
 
 	} else {
-		templates = append(templates, NewPodNetworkConnectivityCheckTemplate(apiUrl.Host, operatorclient.TargetNamespace, withTarget("load-balancer", "api")))
+		templates = append(templates, NewPodNetworkConnectivityCheckTemplate(apiUrl.Host, operatorclient.TargetNamespace, withTarget("load-balancer", "api-external")))
 	}
 
 	apiInternalUrl, err := url.Parse(infrastructure.Status.APIServerInternalURL)
