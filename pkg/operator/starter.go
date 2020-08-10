@@ -313,7 +313,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
-	connectivityCheckController := connectivitycheckcontroller.NewConnectivityCheckController(
+	connectivityCheckController := connectivitycheckcontroller.NewOpenshiftAPIServerConnectivityCheckController(
 		kubeClient,
 		operatorClient,
 		kubeInformersForNamespaces,

@@ -15,6 +15,7 @@ import (
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -30,71 +31,52 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 )
 
-type ConnectivityCheckController interface {
-	factory.Controller
+type OpenshiftAPIServerConnectivityCheckController interface {
+	connectivitycheckcontroller.ConnectivityCheckController
 }
 
-func NewConnectivityCheckController(
+func NewOpenshiftAPIServerConnectivityCheckController(
 	kubeClient kubernetes.Interface,
 	operatorClient v1helpers.OperatorClient,
 	kubeInformersForNamespaces v1helpers.KubeInformersForNamespaces,
 	configInformers configinformers.SharedInformerFactory,
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset,
 	recorder events.Recorder,
-) ConnectivityCheckController {
-	c := &connectivityCheckController{
-		kubeClient:     kubeClient,
-		operatorClient: operatorClient,
-		connectivityCheckGenerator: connectivityCheckTemplateProvider{
-			operatorcontrolplaneClient: operatorcontrolplaneClient,
-			endpointsLister:            kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Endpoints().Lister(),
-			serviceLister:              kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Services().Lister(),
-			podLister:                  kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Pods().Lister(),
-			nodeLister:                 kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister(),
-			infrastructureLister:       configInformers.Config().V1().Infrastructures().Lister(),
-		},
+) OpenshiftAPIServerConnectivityCheckController {
+	c := openshiftAPIServerConnectivityCheckController{
+		ConnectivityCheckController: connectivitycheckcontroller.NewConnectivityCheckController(
+			operatorclient.TargetNamespace,
+			operatorClient,
+			operatorcontrolplaneClient,
+			[]factory.Informer{
+				operatorClient.Informer(),
+				kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Pods().Informer(),
+				kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Endpoints().Informer(),
+				kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Services().Informer(),
+				kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Informer(),
+				configInformers.Config().V1().Infrastructures().Informer(),
+			},
+			recorder,
+		),
 	}
-	c.Controller = factory.New().
-		WithSync(c.Sync).
-		WithInformers(
-			operatorClient.Informer(),
-			kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Pods().Informer(),
-			kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Endpoints().Informer(),
-			kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Services().Informer(),
-			kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Informer(),
-			configInformers.Config().V1().Infrastructures().Informer(),
-		).
-		ToController("ConnectivityCheckController", recorder.WithComponentSuffix("connectivity-check-controller"))
-	return c
+	generator := &connectivityCheckTemplateProvider{
+		operatorClient:             operatorClient,
+		operatorcontrolplaneClient: operatorcontrolplaneClient,
+		endpointsLister:            kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Endpoints().Lister(),
+		serviceLister:              kubeInformersForNamespaces.InformersFor("openshift-kube-apiserver").Core().V1().Services().Lister(),
+		podLister:                  kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Pods().Lister(),
+		nodeLister:                 kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister(),
+		infrastructureLister:       configInformers.Config().V1().Infrastructures().Lister(),
+	}
+	return c.WithPodNetworkConnectivityCheckFn(generator.generate)
 }
 
-type connectivityCheckController struct {
-	factory.Controller
-	kubeClient                 kubernetes.Interface
-	operatorClient             v1helpers.OperatorClient
-	connectivityCheckGenerator connectivityCheckTemplateProvider
-}
-
-func (c *connectivityCheckController) Sync(ctx context.Context, syncContext factory.SyncContext) error {
-	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
-	if err != nil {
-		return err
-	}
-	switch operatorSpec.ManagementState {
-	case operatorv1.Managed:
-	case operatorv1.Unmanaged:
-		return nil
-	case operatorv1.Removed:
-		return nil
-	default:
-		syncContext.Recorder().Warningf("ManagementStateUnknown", "Unrecognized operator management state %q", operatorSpec.ManagementState)
-		return nil
-	}
-	c.connectivityCheckGenerator.getPodNetworkConnectivityChecks(ctx, operatorSpec, syncContext.Recorder())
-	return nil
+type openshiftAPIServerConnectivityCheckController struct {
+	connectivitycheckcontroller.ConnectivityCheckController
 }
 
 type connectivityCheckTemplateProvider struct {
+	operatorClient             v1helpers.OperatorClient
 	operatorcontrolplaneClient *operatorcontrolplaneclient.Clientset
 	endpointsLister            corev1listers.EndpointsLister
 	serviceLister              corev1listers.ServiceLister
@@ -103,11 +85,15 @@ type connectivityCheckTemplateProvider struct {
 	infrastructureLister       configv1listers.InfrastructureLister
 }
 
+func (c *connectivityCheckTemplateProvider) generate(ctx context.Context, syncContext factory.SyncContext) ([]*v1alpha1.PodNetworkConnectivityCheck, error) {
+	return nil, nil
+}
+
 func (c *connectivityCheckTemplateProvider) getPodNetworkConnectivityChecks(ctx context.Context, operatorSpec *operatorv1.OperatorSpec, recorder events.Recorder) {
 
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	// each storage endpoint
-	templates = append(templates, c.getTemplatesForStorageChecks(operatorSpec, recorder)...)
+	templates = append(templates, c.getTemplatesForStorageChecks(recorder)...)
 	// kas service IP
 	templates = append(templates, c.getTemplatesForKubernetesServiceMonitorService(recorder)...)
 	// kas default service IP
@@ -234,7 +220,12 @@ func (c *connectivityCheckTemplateProvider) listAddressesForKubeAPIServerService
 	return results, nil
 }
 
-func (c *connectivityCheckTemplateProvider) getTemplatesForStorageChecks(operatorSpec *operatorv1.OperatorSpec, recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+func (c *connectivityCheckTemplateProvider) getTemplatesForStorageChecks(recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
+	if err != nil {
+		recorder.Warningf("EndpointDetectionFailure", "unable to determine storage endpoints: %v", err)
+		return nil
+	}
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	for _, endpointInfo := range c.listAddressesForStorageEndpoints(operatorSpec, recorder) {
 		templates = append(templates, NewPodNetworkConnectivityCheckTemplate(
