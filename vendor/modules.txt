@@ -222,7 +222,7 @@ github.com/openshift/client-go/operator/listers/operator/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/scheme
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/typed/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20200731053141-ff55255233e3
+# github.com/openshift/library-go v0.0.0-20200807122248-f5cb4d19a4fe
 github.com/openshift/library-go/pkg/assets
 github.com/openshift/library-go/pkg/config/client
 github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers
@@ -245,6 +245,7 @@ github.com/openshift/library-go/pkg/operator/configobserver
 github.com/openshift/library-go/pkg/operator/configobserver/apiserver
 github.com/openshift/library-go/pkg/operator/configobserver/etcd
 github.com/openshift/library-go/pkg/operator/configobserver/proxy
+github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller
 github.com/openshift/library-go/pkg/operator/encryption
 github.com/openshift/library-go/pkg/operator/encryption/controllers
 github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators
@@ -923,8 +924,6 @@ k8s.io/component-base/metrics
 k8s.io/component-base/metrics/legacyregistry
 k8s.io/component-base/metrics/testutil
 k8s.io/component-base/version
-# k8s.io/klog v1.0.0
-k8s.io/klog
 # k8s.io/klog/v2 v2.2.0
 k8s.io/klog/v2
 # k8s.io/kube-aggregator v0.19.0-rc.2

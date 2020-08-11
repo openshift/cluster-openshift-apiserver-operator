@@ -11,7 +11,7 @@ require (
 	github.com/openshift/api v0.0.0-20200723134351-89de68875e7c
 	github.com/openshift/build-machinery-go v0.0.0-20200713135615-1f43d26dccc7
 	github.com/openshift/client-go v0.0.0-20200722173614-5a1b0aaeff15
-	github.com/openshift/library-go v0.0.0-20200731053141-ff55255233e3
+	github.com/openshift/library-go v0.0.0-20200807122248-f5cb4d19a4fe
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
@@ -22,7 +22,7 @@ require (
 	k8s.io/apiserver v0.19.0-rc.2
 	k8s.io/client-go v0.19.0-rc.2
 	k8s.io/component-base v0.19.0-rc.2
-	k8s.io/klog v1.0.0
+	k8s.io/klog/v2 v2.2.0
 	k8s.io/kube-aggregator v0.19.0-rc.2
 	k8s.io/utils v0.0.0-20200720150651-0bdb4ca86cbc
 )
