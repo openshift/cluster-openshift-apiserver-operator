@@ -216,7 +216,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configInformers.Config().V1().Images().Informer(),
 	).WithStaticResourcesController(
 		"APIServerStaticResources",
-		libgoassets.WithAuditPolicies(operatorclient.TargetNamespace, v311_00_assets.Asset),
+		libgoassets.WithAuditPolicies("audit", operatorclient.TargetNamespace, v311_00_assets.Asset),
 		[]string{
 			"v3.11.0/openshift-apiserver/ns.yaml",
 			"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
@@ -275,7 +275,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces,
 		controllerConfig.EventRecorder,
 	)
-	auditPolicyPahGetter, err := libgoassets.NewAuditPolicyPathGetter()
+	auditPolicyPahGetter, err := libgoassets.NewAuditPolicyPathGetter("/var/run/configmaps/audit")
 	if err != nil {
 		return err
 	}
@@ -313,7 +313,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
-	connectivityCheckController := connectivitycheckcontroller.NewConnectivityCheckController(
+	connectivityCheckController := connectivitycheckcontroller.NewOpenshiftAPIServerConnectivityCheckController(
 		kubeClient,
 		operatorClient,
 		kubeInformersForNamespaces,
