@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationv1lister "k8s.io/kube-aggregator/pkg/client/listers/apiregistration/v1"
 
