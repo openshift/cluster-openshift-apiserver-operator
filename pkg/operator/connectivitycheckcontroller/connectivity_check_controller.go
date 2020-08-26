@@ -17,12 +17,8 @@ import (
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcehelper"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -86,27 +82,22 @@ type connectivityCheckTemplateProvider struct {
 }
 
 func (c *connectivityCheckTemplateProvider) generate(ctx context.Context, syncContext factory.SyncContext) ([]*v1alpha1.PodNetworkConnectivityCheck, error) {
-	return nil, nil
-}
-
-func (c *connectivityCheckTemplateProvider) getPodNetworkConnectivityChecks(ctx context.Context, operatorSpec *operatorv1.OperatorSpec, recorder events.Recorder) {
-
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
 	// each storage endpoint
-	templates = append(templates, c.getTemplatesForStorageChecks(recorder)...)
+	templates = append(templates, c.getTemplatesForEtcdChecks(syncContext.Recorder())...)
 	// kas service IP
-	templates = append(templates, c.getTemplatesForKubernetesServiceMonitorService(recorder)...)
+	templates = append(templates, c.getTemplatesForKubernetesServiceMonitorService(syncContext.Recorder())...)
 	// kas default service IP
-	templates = append(templates, c.getTemplatesForKubernetesDefaultServiceCheck(recorder)...)
+	templates = append(templates, c.getTemplatesForKubernetesDefaultServiceCheck(syncContext.Recorder())...)
 	// each kas endpoint IP
-	templates = append(templates, c.getTemplatesForKubernetesServiceEndpointsChecks(recorder)...)
+	templates = append(templates, c.getTemplatesForKubernetesServiceEndpointsChecks(syncContext.Recorder())...)
 	// each api load balancer hostname
-	templates = append(templates, c.getTemplatesForApiLoadBalancerChecks(recorder)...)
+	templates = append(templates, c.getTemplatesForApiLoadBalancerChecks(syncContext.Recorder())...)
 
 	pods, err := c.podLister.List(labels.Set{"apiserver": "true"}.AsSelector())
 	if err != nil {
-		recorder.Warningf("EndpointDetectionFailure", "failed to list openshift-apiserver pods: %v", err)
-		return
+		syncContext.Recorder().Warningf("EndpointDetectionFailure", "failed to list openshift-apiserver pods: %v", err)
+		return nil, nil
 	}
 
 	// create each check per static pod
@@ -123,33 +114,7 @@ func (c *connectivityCheckTemplateProvider) getPodNetworkConnectivityChecks(ctx 
 			checks = append(checks, check)
 		}
 	}
-
-	pnccClient := c.operatorcontrolplaneClient.ControlplaneV1alpha1().PodNetworkConnectivityChecks(operatorclient.TargetNamespace)
-	for _, check := range checks {
-		existing, err := pnccClient.Get(ctx, check.Name, metav1.GetOptions{})
-		if err == nil {
-			if equality.Semantic.DeepEqual(existing.Spec, check.Spec) {
-				// already exists, no changes, skip
-				continue
-			}
-			updated := existing.DeepCopy()
-			updated.Spec = *check.Spec.DeepCopy()
-			_, err := pnccClient.Update(ctx, updated, metav1.UpdateOptions{})
-			if err != nil {
-				recorder.Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(check), err)
-				continue
-			}
-			recorder.Eventf("EndpointCheckUpdated", "Updated %s because it changed.", resourcehelper.FormatResourceForCLIWithNamespace(check))
-		}
-		if apierrors.IsNotFound(err) {
-			_, err = pnccClient.Create(ctx, check, metav1.CreateOptions{})
-		}
-		if err != nil {
-			recorder.Warningf("EndpointDetectionFailure", "%s: %v", resourcehelper.FormatResourceForCLIWithNamespace(check), err)
-			continue
-		}
-		recorder.Eventf("EndpointCheckCreated", "Created %s because it was missing.", resourcehelper.FormatResourceForCLIWithNamespace(check))
-	}
+	return checks, nil
 }
 
 func (c *connectivityCheckTemplateProvider) getTemplatesForKubernetesDefaultServiceCheck(recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
@@ -220,10 +185,10 @@ func (c *connectivityCheckTemplateProvider) listAddressesForKubeAPIServerService
 	return results, nil
 }
 
-func (c *connectivityCheckTemplateProvider) getTemplatesForStorageChecks(recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
+func (c *connectivityCheckTemplateProvider) getTemplatesForEtcdChecks(recorder events.Recorder) []*v1alpha1.PodNetworkConnectivityCheck {
 	operatorSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
-		recorder.Warningf("EndpointDetectionFailure", "unable to determine storage endpoints: %v", err)
+		recorder.Warningf("EndpointDetectionFailure", "unable to determine etcd server endpoints: %v", err)
 		return nil
 	}
 	var templates []*v1alpha1.PodNetworkConnectivityCheck
@@ -231,7 +196,7 @@ func (c *connectivityCheckTemplateProvider) getTemplatesForStorageChecks(recorde
 		templates = append(templates, NewPodNetworkConnectivityCheckTemplate(
 			net.JoinHostPort(endpointInfo.hostName, endpointInfo.port),
 			operatorclient.TargetNamespace,
-			withTarget("storage-endpoint", endpointInfo.nodeName),
+			withTarget("etcd-server", endpointInfo.nodeName),
 			WithTlsClientCert("etcd-client")))
 	}
 	return templates
