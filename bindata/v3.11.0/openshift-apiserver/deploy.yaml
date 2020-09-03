@@ -64,6 +64,8 @@ spec:
               echo "Copying system trust bundle"
               cp -f /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
             fi
+            export GRPC_GO_LOG_VERBOSITY_LEVEL=99
+            export GRPC_GO_LOG_SEVERITY_LEVEL=info
             exec openshift-apiserver start --config=/var/run/configmaps/config/config.yaml -v=${VERBOSITY}
         resources:
           requests:
@@ -123,6 +125,10 @@ spec:
           - --v
           - '2'
         env:
+          - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+            value: 99
+          - name: GRPC_GO_LOG_SEVERITY_LEVEL
+            value: info
           - name: POD_NAME
             valueFrom:
               fieldRef:
