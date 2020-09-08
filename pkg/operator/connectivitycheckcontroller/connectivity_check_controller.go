@@ -9,11 +9,13 @@ import (
 	"strconv"
 
 	"github.com/ghodss/yaml"
+	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/openshift/api/operatorcontrolplane/v1alpha1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/connectivitycheckcontroller"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -23,8 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 )
 
 type OpenshiftAPIServerConnectivityCheckController interface {
@@ -267,6 +267,10 @@ func (c *connectivityCheckTemplateProvider) getTemplatesForApiLoadBalancerChecks
 	if err != nil {
 		recorder.Warningf("EndpointDetectionFailure", "error detecting api load balancer endpoints: %v", err)
 		return nil
+	}
+	// TODO re-enable on azure, but right now it's super buggy: https://bugzilla.redhat.com/show_bug.cgi?id=1868158
+	if infrastructure.Status.PlatformStatus.Type == configv1.AzurePlatformType {
+		return []*v1alpha1.PodNetworkConnectivityCheck{}
 	}
 
 	apiUrl, err := url.Parse(infrastructure.Status.APIServerURL)
