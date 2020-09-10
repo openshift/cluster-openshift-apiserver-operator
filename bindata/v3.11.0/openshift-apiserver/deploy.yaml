@@ -57,6 +57,11 @@ spec:
         terminationMessagePolicy: FallbackToLogsOnError
         image: ${IMAGE}
         imagePullPolicy: IfNotPresent
+        env:
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "99"
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: "info"
         command: ["/bin/bash", "-ec"]
         args:
           - |
