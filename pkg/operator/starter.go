@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	kubemigratorclient "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/clientset"
-	migrationv1alpha1informer "github.com/kubernetes-sigs/kube-storage-version-migrator/pkg/clients/informer"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
@@ -35,6 +33,8 @@ import (
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 	utilpointer "k8s.io/utils/pointer"
+	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
+	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservice"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
