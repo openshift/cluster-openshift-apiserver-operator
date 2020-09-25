@@ -18,12 +18,12 @@ require (
 	github.com/stretchr/testify v1.4.0
 	go.uber.org/atomic v1.3.3-0.20181018215023-8dc6146f7569 // indirect
 	go.uber.org/multierr v1.1.1-0.20180122172545-ddea229ff1df // indirect
-	k8s.io/api v0.18.2
-	k8s.io/apimachinery v0.18.2
-	k8s.io/client-go v0.18.2
-	k8s.io/component-base v0.18.2
+	k8s.io/api v0.18.6
+	k8s.io/apimachinery v0.18.6
+	k8s.io/client-go v0.18.6
+	k8s.io/component-base v0.18.6
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.18.2
+	k8s.io/kube-aggregator v0.18.6
 	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 )
 
