@@ -22,6 +22,8 @@ import (
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -73,6 +75,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		return err
 	}
 	operatorcontrolplaneClient, err := operatorcontrolplaneclient.NewForConfig(controllerConfig.KubeConfig)
+	if err != nil {
+		return err
+	}
+	apiextensionsClient, err := apiextensionsclient.NewForConfig(controllerConfig.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -329,12 +335,15 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.Server.Handler.NonGoRestfulMux.Handle("/debug/controllers/resourcesync", debugHandler)
 	}
 
+	apiextensionsInformers := apiextensionsinformers.NewSharedInformerFactory(apiextensionsClient, 10*time.Minute)
 	connectivityCheckController := connectivitycheckcontroller.NewOpenshiftAPIServerConnectivityCheckController(
 		kubeClient,
 		operatorClient,
+		operatorcontrolplaneClient,
+		apiextensionsClient,
 		kubeInformersForNamespaces,
 		configInformers,
-		operatorcontrolplaneClient,
+		apiextensionsInformers,
 		controllerConfig.EventRecorder,
 	)
 
@@ -346,6 +355,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	configInformers.Start(ctx.Done())
 	dynamicInformers.Start(ctx.Done())
 	migrationInformer.Start(ctx.Done())
+	apiextensionsInformers.Start(ctx.Done())
 
 	go oauthEncryptionController.Run(ctx, 1)
 	go configObserver.Run(ctx, 1)
