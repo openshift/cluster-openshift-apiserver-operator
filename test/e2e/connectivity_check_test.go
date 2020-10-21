@@ -14,6 +14,7 @@ import (
 )
 
 func TestConnectivityChecksCreated(t *testing.T) {
+	t.Skip("Connectivity Checks disabled.")
 	kubeConfig, err := test.NewClientConfigForTest()
 	require.NoError(t, err)
 	operatorControlPlaneClient, err := operatorcontrolplaneclient.NewForConfig(kubeConfig)
