@@ -40,6 +40,9 @@ func ObserveIngressDomain(genericListers configobserver.Listers, recorder events
 	}
 
 	routingDomain := configIngress.Spec.Domain
+	if len(configIngress.Spec.AppsDomain) > 0 {
+		routingDomain = configIngress.Spec.AppsDomain
+	}
 	if len(routingDomain) > 0 {
 		err = unstructured.SetNestedField(observedConfig, routingDomain, routingConfigSubdomainPath...)
 		if err != nil {
