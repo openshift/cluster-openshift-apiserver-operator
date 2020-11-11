@@ -305,6 +305,7 @@ spec:
       - name: etcd-client
         secret:
           secretName: etcd-client
+          defaultMode: 0600
       - name: etcd-serving-ca
         configMap:
           name: etcd-serving-ca
@@ -315,6 +316,7 @@ spec:
       - name: serving-cert
         secret:
           secretName: serving-cert
+          defaultMode: 0600
       - name: trusted-ca-bundle
         configMap:
           name: trusted-ca-bundle
@@ -326,6 +328,7 @@ spec:
         secret:
           secretName: encryption-config-${REVISION}
           optional: true
+          defaultMode: 0600
       - hostPath:
           path: /var/log/openshift-apiserver
         name: audit-dir
