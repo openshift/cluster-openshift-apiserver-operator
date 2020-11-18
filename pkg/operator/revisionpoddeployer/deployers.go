@@ -122,7 +122,7 @@ var _ MaybeDisabledDeployer = &disabledByPredicateDeployer{}
 
 // NewDisabledByPredicateDeployer returns a deployer used by the encryption controllers.
 // Whether this deployer is on/off is determined by enabled
-// TODO: remove this deployer in 4.7
+// TODO: remove this deployer in 4.8
 func NewDisabledByPredicateDeployer(
 	enabled func() bool,
 	delegate statemachine.Deployer) *disabledByPredicateDeployer {

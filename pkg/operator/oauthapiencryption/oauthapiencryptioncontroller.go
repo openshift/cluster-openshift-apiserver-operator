@@ -4,18 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
-	encryptionsecret "github.com/openshift/library-go/pkg/operator/encryption/secrets"
-	encryptionstate "github.com/openshift/library-go/pkg/operator/encryption/state"
+	"github.com/openshift/library-go/pkg/operator/encryption/statemachine"
 	"github.com/openshift/library-go/pkg/operator/events"
+
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -29,24 +27,32 @@ This annotation indicates that OAS-O manages this secret.`
 type oauthEncryptionConfigSyncController struct {
 	oauthAPIServerTargetNamespace string
 
-	secretLister corev1listers.SecretNamespaceLister
-	secretClient corev1client.SecretInterface
+	secretListerConfigManaged           corev1listers.SecretNamespaceLister
+	secretListerForOAuthTargetNamespace corev1listers.SecretNamespaceLister
+	secretClient                        corev1client.SecretsGetter
+
+	deployer statemachine.Deployer
 }
 
-// NewEncryptionConfigSyncController creates OAuthAPIServerController that will manage encryption-config-openshift-oauth-apiserver in openshift-config-managed namespace as described in https://github.com/openshift/enhancements/blob/master/enhancements/etcd/etcd-encryption-for-separate-oauth-apis.md
-// Note that this code will be removed in the future release (4.7)
+// NewEncryptionConfigSyncController creates OAuthAPIServerController that will clean up the encryption configuration for oauth-apiserver as described in https://github.com/openshift/enhancements/blob/master/enhancements/etcd/etcd-encryption-for-separate-oauth-apis.md
+// TODO: remove it in 4.8
 func NewEncryptionConfigSyncController(
 	name string,
 	oauthAPIServerTargetNamespace string,
 	secretClient corev1client.SecretsGetter,
 	kubeInformersForNamespaces operatorv1helpers.KubeInformersForNamespaces,
+	deployer statemachine.Deployer,
 	eventRecorder events.Recorder) factory.Controller {
 
 	controllerFactory := factory.New()
 	target := &oauthEncryptionConfigSyncController{
 		oauthAPIServerTargetNamespace: oauthAPIServerTargetNamespace,
-		secretLister:                  kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
-		secretClient:                  secretClient.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+
+		secretListerConfigManaged:           kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+		secretListerForOAuthTargetNamespace: kubeInformersForNamespaces.InformersFor(oauthAPIServerTargetNamespace).Core().V1().Secrets().Lister().Secrets(oauthAPIServerTargetNamespace),
+
+		secretClient: secretClient,
+		deployer:     deployer,
 	}
 
 	controllerFactory.WithSync(target.sync)
@@ -54,77 +60,61 @@ func NewEncryptionConfigSyncController(
 	return controllerFactory.ToController(name, eventRecorder.WithComponentSuffix("oauth-apiserver-encryption-cfg-sync-controller"))
 }
 
-// sync starts managing oauth-apiserver encryption config (encryption-config-openshift-oauth-apiserver in openshift-config-managed namespace) as described in https://github.com/openshift/enhancements/blob/master/enhancements/etcd/etcd-encryption-for-separate-oauth-apis.md
+// sync starts cleaning up oauth-apiserver encryption config (encryption-config-openshift-oauth-apiserver in openshift-config-managed namespace AND encryption-config in openshift-oauth-apiserver)
 //
-// case 1: if the secret doesn't exist and encryption is on then:
-//         - it will add the secret with the annotation (must be atomic operation) because CAO will start managing its own config iff the secret exist without the annotation
+// case 1: no-op: when the encryption config (oauth-apiserver) doesn't exist in the global namespace and the encryption is off, let CAO manage its own encryption config
 //
-// case 2: if the secret exists and it is annotated
-//         - it will simply start synchronisation
+// case 2: remove the annotation from the encryption configs
+//      a: if the encryption config (oauth-apiserver) in the global namespace exists and it is annotated (an upgrade from 4.6)
+//      b: if the encryption config (oauth-apiserver) in the target namespace also exists and it is annotated (an upgrade from 4.6)
 //
-// case 3: no-op: when the secret exits but it doesn't have the annotation - that means it was created by CAO in 4.7 and this is downgrade
-// case 4: no-op: when the secret doesn't exist and encryption is off
-//
-// drawbacks:
-// - it will not recover when the annotation was manually removed by a user,
-//   to recover we would have to put a value in the annotation instead and coordinate OAS-A and CAO but then we would have to remember to add it in CAO (4.6) as well
+// case 3: no-op: when both encryption configs exit but don't have the annotation - that means they were created by CAO in 4.7 OR this is downgrade
 func (c *oauthEncryptionConfigSyncController) sync(ctx context.Context, controllerContext factory.SyncContext) error {
-	openshiftAPIServerEncryptionCfg, err := c.secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, operatorclient.TargetNamespace))
-	if apierrors.IsNotFound(err) {
-		return nil // case 4: encryption off
-	}
-	if err != nil {
-		return err
-	}
-
 	oauthAPIServerEncryptionCfgName := fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, c.oauthAPIServerTargetNamespace)
-	oauthAPIServerEncryptionCfg, err := c.secretLister.Get(oauthAPIServerEncryptionCfgName)
+	oauthAPIGlobalConfig, err := c.secretListerConfigManaged.Get(oauthAPIServerEncryptionCfgName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	if apierrors.IsNotFound(err) {
-		// case 1: create with annotation
-		if _, exists := openshiftAPIServerEncryptionCfg.Data[encryptionconfig.EncryptionConfSecretKey]; !exists {
-			return fmt.Errorf("%s/%s doesn't contain the required key %q", openshiftAPIServerEncryptionCfg.Namespace, openshiftAPIServerEncryptionCfg.Name, encryptionconfig.EncryptionConfSecretKey)
-		}
-		encryptionCfg := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      oauthAPIServerEncryptionCfgName,
-				Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-				Annotations: map[string]string{
-					EncryptionConfigManagedBy:                encryptionConfigManagedByValue,
-					encryptionstate.KubernetesDescriptionKey: encryptionstate.KubernetesDescriptionScaryValue,
-				},
-				Finalizers: []string{encryptionsecret.EncryptionSecretFinalizer},
-			},
-			Data: map[string][]byte{},
-		}
-		encryptionCfg.Data[encryptionconfig.EncryptionConfSecretKey] = openshiftAPIServerEncryptionCfg.Data[encryptionconfig.EncryptionConfSecretKey]
+		// case 1: no-op let CAO manage its own encryption config
+		return nil
+	}
 
-		_, err := c.secretClient.Create(ctx, encryptionCfg, metav1.CreateOptions{})
-		if err != nil {
+	// before messing with the encryption configs wait for stability
+	_, converged, err := c.deployer.DeployedEncryptionConfigSecret()
+	if err != nil || !converged {
+		return err
+	}
+
+	if _, exist := oauthAPIGlobalConfig.Annotations[EncryptionConfigManagedBy]; exist {
+		// case 2a: the encryptionCfg exists and it is annotated in the global namespace, we need to remove the annotation
+		if err := c.removeAnnotationAndRecordEvent(ctx, operatorclient.GlobalMachineSpecifiedConfigNamespace, oauthAPIGlobalConfig.DeepCopy(), controllerContext.Recorder()); err != nil {
 			return err
 		}
-		controllerContext.Recorder().Eventf("SecretCreated", "Created %s in %s namespace because it was missing", oauthAPIServerEncryptionCfgName, operatorclient.GlobalMachineSpecifiedConfigNamespace)
-		return nil
-	}
-	if _, exist := oauthAPIServerEncryptionCfg.Annotations[EncryptionConfigManagedBy]; exist {
-		// case 2: exists and it is annotated
-		oauthEncryptionCfgData := oauthAPIServerEncryptionCfg.Data[encryptionconfig.EncryptionConfSecretKey]
-		oasEncryptionCfgData := openshiftAPIServerEncryptionCfg.Data[encryptionconfig.EncryptionConfSecretKey]
-		if !equality.Semantic.DeepEqual(oauthEncryptionCfgData, oasEncryptionCfgData) {
-			encryptionCfg := oauthAPIServerEncryptionCfg.DeepCopy()
-			encryptionCfg.Data[encryptionconfig.EncryptionConfSecretName] = oasEncryptionCfgData
-			_, err := c.secretClient.Update(ctx, encryptionCfg, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-			controllerContext.Recorder().Eventf("SecretUpdated", "Updates %s in %s namespace because it was out of date with %s ", oauthAPIServerEncryptionCfgName, operatorclient.GlobalMachineSpecifiedConfigNamespace, openshiftAPIServerEncryptionCfg.Name)
-			return nil
-		}
-		return nil
 	}
 
-	// case 3: no-op the secret is managed by CAO
+	oauthAPIConfig, err := c.secretListerForOAuthTargetNamespace.Get(encryptionconfig.EncryptionConfSecretName)
+	if err != nil {
+		// this probably means that the encryption cfg hasn't been synced to the target namespace
+		return err
+	}
+	if _, exist := oauthAPIConfig.Annotations[EncryptionConfigManagedBy]; exist {
+		// case 2b: the encryptionCfg exists and it is annotated in the target (oauthAPIServerTargetNamespace) namespace, we need to remove the annotation
+		//
+		// note: this is nice to have since both operators watch the encryption config in the global namespace
+		return c.removeAnnotationAndRecordEvent(ctx, c.oauthAPIServerTargetNamespace, oauthAPIConfig.DeepCopy(), controllerContext.Recorder())
+	}
+
+	// case 3: no-op the encryption config is already managed by CAO
+	return nil
+}
+
+func (c *oauthEncryptionConfigSyncController) removeAnnotationAndRecordEvent(ctx context.Context, ns string, encryptionCfg *corev1.Secret, recorder events.Recorder) error {
+	delete(encryptionCfg.Annotations, EncryptionConfigManagedBy)
+	_, err := c.secretClient.Secrets(ns).Update(ctx, encryptionCfg, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	recorder.Eventf("EncryptionConfigUpdated", "Removed the %q annotation from %s in %s namespace", EncryptionConfigManagedBy, encryptionCfg.Name, ns)
 	return nil
 }

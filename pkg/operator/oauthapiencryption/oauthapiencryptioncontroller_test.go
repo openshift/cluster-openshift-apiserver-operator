@@ -25,98 +25,86 @@ import (
 )
 
 func TestOAuthAPIServerController(t *testing.T) {
+	oAuthAPIServerTargetNamespace := "openshift-oauth-apiserver"
+
 	scenarios := []struct {
-		name           string
-		initialSecrets []*corev1.Secret
-		validateFunc   func(ts *testing.T, actions []clientgotesting.Action)
+		name                      string
+		fakeDeployer              *fakeDeployer
+		initialSecretsGlobal      []*corev1.Secret
+		initialSecretsOAuthTarget []*corev1.Secret
+		validateFunc              func(ts *testing.T, actions []clientgotesting.Action)
 
 		expectedActions []string
 		expectedEvents  []string
 	}{
 		{
-			name:            "test case 1 - the secret doesn't exist and encryption is on",
-			initialSecrets:  []*corev1.Secret{defaultSecret(fmt.Sprintf("%s-openshift-apiserver", encryptionconfig.EncryptionConfSecretName))},
-			expectedActions: []string{"create:secrets:openshift-config-managed:encryption-config-oauth-apiserver"},
-			expectedEvents:  []string{"SecretCreated"},
-			validateFunc: func(ts *testing.T, actions []clientgotesting.Action) {
-				wasSecretValidated := false
-				for _, action := range actions {
-					if action.Matches("create", "secrets") {
-						createAction := action.(clientgotesting.UpdateAction)
-						actualSecret := createAction.GetObject().(*corev1.Secret)
-
-						expectedSecret := defaultSecret(fmt.Sprintf("%s-oauth-apiserver", encryptionconfig.EncryptionConfSecretName))
-
-						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
-							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
-						}
-						wasSecretValidated = true
-						break
-					}
-				}
-				if !wasSecretValidated {
-					ts.Errorf("the secret wasn't validated")
-				}
-			},
+			name: "test cases 1,4 - the encryption config in the global ns doesn't exist, encryption is off",
 		},
 		{
-			name: "test case 2 - the secret exists, is annotated and it's up to date",
-			initialSecrets: []*corev1.Secret{
-				defaultSecret(fmt.Sprintf("%s-openshift-apiserver", encryptionconfig.EncryptionConfSecretName)),
-				func() *corev1.Secret {
-					s := defaultSecret(fmt.Sprintf("%s-oauth-apiserver", encryptionconfig.EncryptionConfSecretName))
-					s.Annotations["encryption.apiserver.operator.openshift.io/managed-by"] = encryptionConfigManagedByValue
-					return s
-				}(),
+			name:         "test cases 2, 2.1 - the encryption configs for oauth-apiserver in the global and target ns exists and are annotated",
+			fakeDeployer: newFakeDeployer(true, nil),
+			initialSecretsGlobal: []*corev1.Secret{
+				defaultSecret(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, oAuthAPIServerTargetNamespace), operatorclient.GlobalMachineSpecifiedConfigNamespace),
 			},
-		},
-		{
-			name: "test case 2 - the secret exists, is annotated but it's out of date",
-			initialSecrets: []*corev1.Secret{
-				func() *corev1.Secret {
-					s := defaultSecret(fmt.Sprintf("%s-openshift-apiserver", encryptionconfig.EncryptionConfSecretName))
-					s.Data["encryption-config"] = []byte{0xAA}
-					return s
-				}(),
-				func() *corev1.Secret {
-					s := defaultSecret(fmt.Sprintf("%s-oauth-apiserver", encryptionconfig.EncryptionConfSecretName))
-					s.Annotations["encryption.apiserver.operator.openshift.io/managed-by"] = encryptionConfigManagedByValue
-					return s
-				}(),
+			initialSecretsOAuthTarget: []*corev1.Secret{
+				defaultSecret("encryption-config", oAuthAPIServerTargetNamespace),
 			},
-			expectedActions: []string{"update:secrets:openshift-config-managed:encryption-config-oauth-apiserver"},
-			expectedEvents:  []string{"SecretUpdated"},
+			expectedActions: []string{"update:secrets:openshift-config-managed:encryption-config-openshift-oauth-apiserver", "update:secrets:openshift-oauth-apiserver:encryption-config"},
+			expectedEvents:  []string{"EncryptionConfigUpdated", "EncryptionConfigUpdated"},
 			validateFunc: func(ts *testing.T, actions []clientgotesting.Action) {
-				wasSecretValidated := false
+				validatedSecrets := []bool{}
 				for _, action := range actions {
 					if action.Matches("update", "secrets") {
+						var expectedSecret *corev1.Secret
 						updateAction := action.(clientgotesting.UpdateAction)
 						actualSecret := updateAction.GetObject().(*corev1.Secret)
 
-						expectedSecret := defaultSecret(fmt.Sprintf("%s-oauth-apiserver", encryptionconfig.EncryptionConfSecretName))
-						expectedSecret.Data["encryption-config"] = []byte{0xAA}
+						if actualSecret.Namespace == operatorclient.GlobalMachineSpecifiedConfigNamespace {
+							expectedSecret = defaultSecret(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, oAuthAPIServerTargetNamespace), operatorclient.GlobalMachineSpecifiedConfigNamespace)
+						} else {
+							expectedSecret = defaultSecret(encryptionconfig.EncryptionConfSecretName, oAuthAPIServerTargetNamespace)
+						}
+						delete(expectedSecret.Annotations, EncryptionConfigManagedBy)
 
 						if !equality.Semantic.DeepEqual(actualSecret, expectedSecret) {
 							ts.Errorf(diff.ObjectDiff(actualSecret, expectedSecret))
 						}
-						wasSecretValidated = true
-						break
+						validatedSecrets = append(validatedSecrets, true)
 					}
 				}
-				if !wasSecretValidated {
-					ts.Errorf("the secret wasn't validated")
+				if len(validatedSecrets) != 2 {
+					ts.Errorf("unexpected secrets were validate, expected 2, got %d", len(validatedSecrets))
 				}
 			},
 		},
 		{
-			name: "test case 3 - no-op the secret was created by CAO in 4.6 and this is downgrade",
-			initialSecrets: []*corev1.Secret{
-				defaultSecret(fmt.Sprintf("%s-openshift-apiserver", encryptionconfig.EncryptionConfSecretName)),
-				defaultSecret(fmt.Sprintf("%s-oauth-apiserver", encryptionconfig.EncryptionConfSecretName)),
+			name:         "test case 3 - no-op the secret was created by CAO in 4.8 OR this is downgrade",
+			fakeDeployer: newFakeDeployer(true, nil),
+			initialSecretsGlobal: []*corev1.Secret{
+				func() *corev1.Secret {
+					s := defaultSecret(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, oAuthAPIServerTargetNamespace), operatorclient.GlobalMachineSpecifiedConfigNamespace)
+					delete(s.Annotations, EncryptionConfigManagedBy)
+					return s
+				}(),
+			},
+			initialSecretsOAuthTarget: []*corev1.Secret{
+				func() *corev1.Secret {
+					s := defaultSecret("encryption-config", oAuthAPIServerTargetNamespace)
+					delete(s.Annotations, EncryptionConfigManagedBy)
+					return s
+				}(),
 			},
 		},
+
 		{
-			name: "test case 4 - no-op encryption off",
+			name:         "no-op if the encryption is in progress",
+			fakeDeployer: newFakeDeployer(false, nil),
+			initialSecretsGlobal: []*corev1.Secret{
+				defaultSecret(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, oAuthAPIServerTargetNamespace), operatorclient.GlobalMachineSpecifiedConfigNamespace),
+			},
+			initialSecretsOAuthTarget: []*corev1.Secret{
+				defaultSecret("encryption-config", oAuthAPIServerTargetNamespace),
+			},
 		},
 	}
 
@@ -125,22 +113,33 @@ func TestOAuthAPIServerController(t *testing.T) {
 			// test data
 			eventRecorder := events.NewInMemoryRecorder("")
 			syncContext := factory.NewSyncContext("", eventRecorder)
-			fakeSecretsIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-			for _, secret := range scenario.initialSecrets {
-				fakeSecretsIndexer.Add(secret)
+			fakeSecretsIndexerGlobal := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			for _, secret := range scenario.initialSecretsGlobal {
+				fakeSecretsIndexerGlobal.Add(secret)
 			}
-			fakeSecretsLister := corev1listers.NewSecretLister(fakeSecretsIndexer)
+			fakeSecretsListerGlobal := corev1listers.NewSecretLister(fakeSecretsIndexerGlobal)
+
+			fakeSecretsIndexerOAuthTarget := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			for _, secret := range scenario.initialSecretsOAuthTarget {
+				fakeSecretsIndexerOAuthTarget.Add(secret)
+			}
+			fakeSecretsListerOAuthTarget := corev1listers.NewSecretLister(fakeSecretsIndexerOAuthTarget)
 
 			rawSecrets := []runtime.Object{}
-			for _, secret := range scenario.initialSecrets {
+			for _, secret := range scenario.initialSecretsGlobal {
+				rawSecrets = append(rawSecrets, secret)
+			}
+			for _, secret := range scenario.initialSecretsOAuthTarget {
 				rawSecrets = append(rawSecrets, secret)
 			}
 			fakeKubeClient := fake.NewSimpleClientset(rawSecrets...)
 
 			target := oauthEncryptionConfigSyncController{
-				oauthAPIServerTargetNamespace: "oauth-apiserver",
-				secretLister:                  fakeSecretsLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
-				secretClient:                  fakeKubeClient.CoreV1().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+				oauthAPIServerTargetNamespace:       "openshift-oauth-apiserver",
+				secretListerConfigManaged:           fakeSecretsListerGlobal.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
+				secretListerForOAuthTargetNamespace: fakeSecretsListerOAuthTarget.Secrets("openshift-oauth-apiserver"),
+				secretClient:                        fakeKubeClient.CoreV1(),
+				deployer:                            scenario.fakeDeployer,
 			}
 
 			// act
@@ -164,11 +163,11 @@ func TestOAuthAPIServerController(t *testing.T) {
 	}
 }
 
-func defaultSecret(name string) *corev1.Secret {
+func defaultSecret(name, ns string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
-			Namespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
+			Namespace: ns,
 			Annotations: map[string]string{
 				EncryptionConfigManagedBy:                encryptionConfigManagedByValue,
 				encryptionstate.KubernetesDescriptionKey: encryptionstate.KubernetesDescriptionScaryValue,
@@ -238,4 +237,23 @@ func eventReasons(events []*corev1.Event) []string {
 		ret = append(ret, ev.Reason)
 	}
 	return ret
+}
+
+type fakeDeployer struct {
+	converged bool
+	err       error
+}
+
+func newFakeDeployer(converged bool, err error) *fakeDeployer {
+	return &fakeDeployer{converged: converged, err: err}
+}
+
+func (d *fakeDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+	return nil, d.converged, d.err
+}
+
+func (d *fakeDeployer) AddEventHandler(handler cache.ResourceEventHandler) {}
+
+func (d *fakeDeployer) HasSynced() bool {
+	return true
 }

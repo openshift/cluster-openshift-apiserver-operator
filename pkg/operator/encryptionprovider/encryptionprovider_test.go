@@ -19,26 +19,31 @@ import (
 
 func TestEncryptionProvider(t *testing.T) {
 	encryptionCfgAnnotationKey := "ec-key"
-	defaultGRs := []schema.GroupResource{
+	allGRs := []schema.GroupResource{
 		{Group: "route.openshift.io", Resource: "routes"},
 		{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
 		{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
+	}
+	grsServedByOAS := []schema.GroupResource{
+		{Group: "route.openshift.io", Resource: "routes"},
 	}
 	grsManagedByExternalServer := sets.NewString("oauthaccesstokens.oauth.openshift.io", "oauthauthorizetokens.oauth.openshift.io")
 
 	scenarios := []struct {
 		name                 string
 		initialSecrets       []*corev1.Secret
-		defaultEncryptedGRs  []schema.GroupResource
+		allEncryptedGRs      []schema.GroupResource
 		expectedEncryptedGRs []schema.GroupResource
 	}{
 		{
-			name:                 "encryption off, default GRs returned",
-			defaultEncryptedGRs:  defaultGRs,
-			expectedEncryptedGRs: defaultGRs,
+			// this is default in 4.7
+			name:                 "encryption off, only OAS GRs are returned",
+			allEncryptedGRs:      allGRs,
+			expectedEncryptedGRs: grsServedByOAS,
 		},
 		{
-			name: "encryption on, secret without the annotation, reduced GRs returned",
+			// it means that encryption was of in 4.6 and this operator removed the annotation
+			name: "encryption on, secret without the annotation, OAS GRs are returned",
 			initialSecrets: []*corev1.Secret{
 				func() *corev1.Secret {
 					s := defaultSecret("openshift-apiserver", encryptionCfgAnnotationKey)
@@ -46,16 +51,15 @@ func TestEncryptionProvider(t *testing.T) {
 					return s
 				}(),
 			},
-			defaultEncryptedGRs: defaultGRs,
-			expectedEncryptedGRs: []schema.GroupResource{
-				{Group: "route.openshift.io", Resource: "routes"},
-			},
+			allEncryptedGRs:      allGRs,
+			expectedEncryptedGRs: grsServedByOAS,
 		},
 		{
-			name:                 "encryption on, secret with the annotation, default GRs returned",
+			// it means that encryption was of in 4.6 and this operator haven't removed the annotation yet
+			name:                 "encryption on, secret with the annotation, all GRs returned",
 			initialSecrets:       []*corev1.Secret{defaultSecret("openshift-apiserver", encryptionCfgAnnotationKey)},
-			defaultEncryptedGRs:  defaultGRs,
-			expectedEncryptedGRs: defaultGRs,
+			allEncryptedGRs:      allGRs,
+			expectedEncryptedGRs: allGRs,
 		},
 	}
 
@@ -70,7 +74,7 @@ func TestEncryptionProvider(t *testing.T) {
 
 			// act
 			target := encryptionProvider{
-				allEncryptedGRs:                     scenario.defaultEncryptedGRs,
+				allEncryptedGRs:                     scenario.allEncryptedGRs,
 				encryptedGRsManagedByExternalServer: grsManagedByExternalServer,
 				isOAuthEncryptionConfigManagedByThisOperator: IsOAuthEncryptionConfigManagedByThisOperator(
 					fakeSecretsLister.Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace),
