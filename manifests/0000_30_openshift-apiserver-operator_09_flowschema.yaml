@@ -3,6 +3,7 @@ kind: FlowSchema
 metadata:
   name: openshift-apiserver-sar
   annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   distinguisherMethod:
@@ -41,6 +42,7 @@ kind: FlowSchema
 metadata:
   name: openshift-apiserver
   annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   distinguisherMethod:
@@ -70,6 +72,7 @@ kind: FlowSchema
 metadata:
   name: openshift-apiserver-operator
   annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
     include.release.openshift.io/self-managed-high-availability: "true"
 spec:
   distinguisherMethod:
