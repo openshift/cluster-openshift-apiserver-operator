@@ -26,7 +26,9 @@ func NewE(t *testing.T, options ...func(*E)) *E {
 	// that means we don't have any visibility when running the tests from a local machine
 	//
 	// thus std logger will be used when the test are run from a local machine to give instant feedback
-	if len(os.Getenv("OPENSHIFT_BUILD_COMMIT")) == 0 {
+	if len(os.Getenv("OPENSHIFT_BUILD_COMMIT")) == 0 &&
+		len(os.Getenv("PROW_JOB_ID")) == 0 &&
+		len(os.Getenv("CI")) == 0 {
 		e.local = true
 	}
 
