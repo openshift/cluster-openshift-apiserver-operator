@@ -38,7 +38,6 @@ import (
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/apiservice"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/encryptionprovider"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/oauthapiencryption"
@@ -172,14 +171,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	).WithAPIServiceController(
 		"openshift-apiserver",
-		apiservice.NewAPIServicesToManage(
-			apiregistrationInformers.Apiregistration().V1().APIServices().Lister(),
-			operatorConfigInformers.Operator().V1().Authentications().Lister(),
-			apiServices(),
-			controllerConfig.EventRecorder,
-			sets.NewString("v1.oauth.openshift.io", "v1.user.openshift.io"),
-			"authentication.operator.openshift.io/managed",
-		).GetAPIServicesToManage,
+		func() ([]*apiregistrationv1.APIService, error) { return apiServices(), nil },
 		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
@@ -375,13 +367,11 @@ func apiServices() []*apiregistrationv1.APIService {
 		{Group: "authorization.openshift.io", Version: "v1"},
 		{Group: "build.openshift.io", Version: "v1"},
 		{Group: "image.openshift.io", Version: "v1"},
-		{Group: "oauth.openshift.io", Version: "v1"},
 		{Group: "project.openshift.io", Version: "v1"},
 		{Group: "quota.openshift.io", Version: "v1"},
 		{Group: "route.openshift.io", Version: "v1"},
 		{Group: "security.openshift.io", Version: "v1"},
 		{Group: "template.openshift.io", Version: "v1"},
-		{Group: "user.openshift.io", Version: "v1"},
 	}
 
 	ret := []*apiregistrationv1.APIService{}
