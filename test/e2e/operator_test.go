@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	test "github.com/openshift/cluster-openshift-apiserver-operator/test/library"
 	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
+	libraryapi "github.com/openshift/library-go/test/library/apiserver"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
@@ -41,6 +42,10 @@ func TestRedeployOnConfigChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// make sure that deployment is not in progress before and after the test
+	libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods(operatorclient.TargetNamespace))
+	defer libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, kubeClient.CoreV1().Pods(operatorclient.TargetNamespace))
 
 	deployment, err := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace).Get(ctx, "apiserver", metav1.GetOptions{})
 	if err != nil {
@@ -81,6 +86,11 @@ func TestRedeployOnConfigChange(t *testing.T) {
 }
 
 func TestEncryptionTypeAESCBC(t *testing.T) {
+	// make sure that deployment is not in progress before and after the test
+	cs := library.GetClients(t)
+	libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, cs.Kube.CoreV1().Pods(operatorclient.TargetNamespace))
+	defer libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, cs.Kube.CoreV1().Pods(operatorclient.TargetNamespace))
+
 	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
