@@ -56,6 +56,7 @@ test-e2e-encryption-perf: test-unit
 
 .PHONY: test-e2e
 test-e2e: GO_TEST_PACKAGES :=./test/e2e/...
+test-e2e: GO_TEST_FLAGS += -timeout 1h
 test-e2e: test-unit
 
 # Configure the 'telepresence' target
