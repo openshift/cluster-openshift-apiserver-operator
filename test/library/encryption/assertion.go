@@ -10,39 +10,35 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	configv1 "github.com/openshift/api/config/v1"
-	oauthapiv1 "github.com/openshift/api/oauth/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
 var DefaultTargetGRs = []schema.GroupResource{
 	{Group: "route.openshift.io", Resource: "routes"},
-	{Group: "oauth.openshift.io", Resource: "oauthaccesstokens"},
-	{Group: "oauth.openshift.io", Resource: "oauthauthorizetokens"},
 }
 
-func AssertTokenOfLifeEncrypted(t testing.TB, clientSet library.ClientSet, rawTokenOfLife runtime.Object) {
+func AssertRouteOfLifeEncrypted(t testing.TB, clientSet library.ClientSet, rawRouteOfLife runtime.Object) {
 	t.Helper()
-	tokenOfLife := rawTokenOfLife.(*oauthapiv1.OAuthAccessToken)
-	rawTokenValue := GetRawTokenOfLife(t, clientSet)
-	if strings.Contains(rawTokenValue, tokenOfLife.RefreshToken) {
-		t.Errorf("access token not encrypted, token received from etcd have %q (plain text), raw content in etcd is %s", tokenOfLife.RefreshToken, rawTokenValue)
+	routeOfLife := rawRouteOfLife.(*routev1.Route)
+	rawRouteValue := GetRawRouteOfLife(t, clientSet, routeOfLife.Namespace)
+	if strings.Contains(rawRouteValue, routeOfLife.Spec.To.Name) {
+		t.Errorf("route not encrypted, route received from etcd have %q (plain text), raw content in etcd is %s", routeOfLife.Spec.To.Name, rawRouteValue)
 	}
 }
 
-func AssertTokenOfLifeNotEncrypted(t testing.TB, clientSet library.ClientSet, rawTokenOfLife runtime.Object) {
+func AssertRouteOfLifeNotEncrypted(t testing.TB, clientSet library.ClientSet, rawRouteOfLife runtime.Object) {
 	t.Helper()
-	tokenOfLife := rawTokenOfLife.(*oauthapiv1.OAuthAccessToken)
-	rawTokenValue := GetRawTokenOfLife(t, clientSet)
-	if !strings.Contains(rawTokenValue, tokenOfLife.RefreshToken) {
-		t.Errorf("access token received from etcd doesnt have %q (plain text), raw content in etcd is %s", tokenOfLife.RefreshToken, rawTokenValue)
+	routeOfLife := rawRouteOfLife.(*routev1.Route)
+	rawRouteValue := GetRawRouteOfLife(t, clientSet, routeOfLife.Namespace)
+	if !strings.Contains(rawRouteValue, routeOfLife.Spec.To.Name) {
+		t.Errorf("route received from etcd doesnt have %q (plain text), raw content in etcd is %s", routeOfLife.Spec.TLS, rawRouteValue)
 	}
 }
 
-func AssertRoutesAndTokens(t testing.TB, clientSet library.ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string) {
+func AssertRoutes(t testing.TB, clientSet library.ClientSet, expectedMode configv1.EncryptionType, namespace, labelSelector string) {
 	t.Helper()
 	assertRoutes(t, clientSet.Etcd, string(expectedMode))
-	assertAccessTokens(t, clientSet.Etcd, string(expectedMode))
-	assertAuthTokens(t, clientSet.Etcd, string(expectedMode))
 	library.AssertLastMigratedKey(t, clientSet.Kube, DefaultTargetGRs, namespace, labelSelector)
 }
 
@@ -50,19 +46,5 @@ func assertRoutes(t testing.TB, etcdClient library.EtcdClient, expectedMode stri
 	t.Logf("Checking if all Routes where encrypted/decrypted for %q mode", expectedMode)
 	totalRoutes, err := library.VerifyResources(t, etcdClient, "/openshift.io/routes/", expectedMode, false)
 	t.Logf("Verified %d Routes", totalRoutes)
-	require.NoError(t, err)
-}
-
-func assertAccessTokens(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
-	t.Logf("Checking if all OauthAccessTokens where encrypted/decrypted for %q mode", expectedMode)
-	totalAccessTokens, err := library.VerifyResources(t, etcdClient, "/openshift.io/oauth/accesstokens/", expectedMode, true)
-	t.Logf("Verified %d OauthAccessTokens", totalAccessTokens)
-	require.NoError(t, err)
-}
-
-func assertAuthTokens(t testing.TB, etcdClient library.EtcdClient, expectedMode string) {
-	t.Logf("Checking if all OAuthAuthorizeTokens where encrypted/decrypted for %q mode", expectedMode)
-	totalAuthTokens, err := library.VerifyResources(t, etcdClient, "/openshift.io/oauth/authorizetokens/", expectedMode, true)
-	t.Logf("Verified %d OAuthAuthorizeTokens", totalAuthTokens)
 	require.NoError(t, err)
 }

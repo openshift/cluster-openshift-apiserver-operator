@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
@@ -21,7 +25,7 @@ func TestEncryptionTypeIdentity(t *testing.T) {
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
 		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
+		AssertFunc:                      operatorencryption.AssertRoutes,
 	})
 }
 
@@ -33,11 +37,19 @@ func TestEncryptionTypeUnset(t *testing.T) {
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
 		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
+		AssertFunc:                      operatorencryption.AssertRoutes,
 	})
 }
 
 func TestEncryptionTurnOnAndOff(t *testing.T) {
+	ctx := context.TODO()
+	cs := operatorencryption.GetClients(t)
+
+	ns := fmt.Sprintf("test-encryption-on-off-%s", rand.String(4))
+	_, err := cs.KubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+
 	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -46,15 +58,15 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
 			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
+			AssertFunc:                      operatorencryption.AssertRoutes,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, namespace string) runtime.Object {
-			return operatorencryption.CreateAndStoreTokenOfLife(context.TODO(), t, operatorencryption.GetClients(t))
+			return operatorencryption.CreateAndStoreRouteOfLife(context.TODO(), t, operatorencryption.GetClients(t), ns)
 		},
-		AssertResourceEncryptedFunc:    operatorencryption.AssertTokenOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: operatorencryption.AssertTokenOfLifeNotEncrypted,
-		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.TokenOfLife(t) },
-		ResourceName:                   "TokenOfLife",
+		AssertResourceEncryptedFunc:    operatorencryption.AssertRouteOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
+		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
+		ResourceName:                   "RouteOfLife",
 	})
 }
 
@@ -62,6 +74,13 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 // then it forces a key rotation by setting the "encyrption.Reason" in the operator's configuration file
 func TestEncryptionRotation(t *testing.T) {
 	ctx := context.TODO()
+	cs := operatorencryption.GetClients(t)
+
+	ns := fmt.Sprintf("test-encryption-on-off-%s", rand.String(4))
+	_, err := cs.KubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+
 	library.TestEncryptionRotation(t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -70,13 +89,13 @@ func TestEncryptionRotation(t *testing.T) {
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
 			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
+			AssertFunc:                      operatorencryption.AssertRoutes,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, _ string) runtime.Object {
-			return operatorencryption.CreateAndStoreTokenOfLife(ctx, t, operatorencryption.GetClients(t))
+			return operatorencryption.CreateAndStoreRouteOfLife(ctx, t, operatorencryption.GetClients(t), ns)
 		},
 		GetRawResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) string {
-			return operatorencryption.GetRawTokenOfLife(t, clientSet)
+			return operatorencryption.GetRawRouteOfLife(t, clientSet, ns)
 		},
 		UnsupportedConfigFunc: func(raw []byte) error {
 			cs := operatorencryption.GetClients(t)
