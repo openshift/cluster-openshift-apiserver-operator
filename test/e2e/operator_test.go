@@ -98,6 +98,6 @@ func TestEncryptionTypeAESCBC(t *testing.T) {
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
 		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertRoutesAndTokens,
+		AssertFunc:                      operatorencryption.AssertRoutes,
 	})
 }

@@ -271,6 +271,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		oauthAPIServerTargetNamespace,
 		kubeClient.CoreV1(),
 		kubeInformersForNamespaces,
+		deployer,
 		controllerConfig.EventRecorder,
 	)
 	auditPolicyPahGetter, err := libgoassets.NewAuditPolicyPathGetter("/var/run/configmaps/audit")

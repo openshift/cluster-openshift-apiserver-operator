@@ -42,11 +42,11 @@ func New(
 // EncryptedGRs returns resources that need to be encrypted
 // Note: the list can change depending on the existence and attached annotations of encryption-config-openshift-oauth-apiserver in openshift-config-managed namespace as described in https://github.com/openshift/enhancements/blob/master/enhancements/etcd/etcd-encryption-for-separate-oauth-apis.md
 //
-// case 1 encryption off or the secret was annotated - return authoritative list of EncryptedGRs
-// case 2 otherwise reduce the authoritative list and let CAO manage its own encryption configuration
+// case 1 encryption off or the secret wasn't annotated - reduce the authoritative list and let CAO manage its own encryption configuration
+// case 2 encryption is on and the secret was annotated - return the authoritative list of EncryptedGRs - we are in charge of CAO's encryption configuration
 //
-// TODO:
-// - change the code in 4.7 so that it only returns a static list (https://bugzilla.redhat.com/show_bug.cgi?id=1819723)
+// TODO in 4.8
+// this encryption provided won't be needed and can be removed
 func (p *encryptionProvider) EncryptedGRs() []schema.GroupResource {
 	// case 1 - we are in charge
 	if p.isOAuthEncryptionConfigManagedByThisOperator() {
@@ -71,22 +71,23 @@ func (p *encryptionProvider) ShouldRunEncryptionControllers() (bool, error) {
 
 // IsOAuthEncryptionConfigManagedByThisOperator determines whether this operator is in charge of encryption-config-openshift-oauth-apiserver
 //
-// case 1 encryption off or the secret was annotated - we are in charge
-// case 2 otherwise let CAO manage its own encryption configuration
-// TODO:
-// - change case 1 in in 4.7 so that this operator doesn't manage CAO's encryption config when encryption is off
+// case 1 encryption off or the secret wasn't annotated - CAO is in charge
+// case 2 encryption is on and the secret was annotated - we are in charge of the encryption configuration
+//
+// TODO in 4.8
+// this encryption provided won't be needed and can be removed
 func IsOAuthEncryptionConfigManagedByThisOperator(secretLister corev1listers.SecretNamespaceLister, oauthAPIServerTargetNamespace string, oauthEncryptionCfgAnnotationKey string) func() bool {
 	return func() bool {
 		oauthAPIServerEncryptionCfg, err := secretLister.Get(fmt.Sprintf("%s-%s", encryptionconfig.EncryptionConfSecretName, oauthAPIServerTargetNamespace))
 		if err != nil {
 			// note that it's okay to return true on an error because:
 			// - the only type of error we can get here (cache) is NotFound which means that the encryption is off
-			return true // case 1 - we are in charge
+			return false // case 1 - CAO is in charge
 		}
 
 		if _, exist := oauthAPIServerEncryptionCfg.Annotations[oauthEncryptionCfgAnnotationKey]; exist {
-			return true // case 1 - we are in charge
+			return true // case 2 - we are in charge
 		}
-		return false // case 2 - CAO is in charge
+		return false // case 1 - CAO is in charge
 	}
 }
