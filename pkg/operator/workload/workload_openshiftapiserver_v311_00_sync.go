@@ -2,14 +2,14 @@ package workload
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-
-	"k8s.io/klog/v2"
 
 	"github.com/ghodss/yaml"
 
@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/klog/v2"
 
 	openshiftapi "github.com/openshift/api"
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
@@ -105,16 +106,33 @@ func NewOpenShiftAPIServerWorkload(
 // PreconditionFulfilled is a function that indicates whether all prerequisites are met and we can Sync.
 func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled() (bool, error) {
 	ctx := context.TODO() // needs support in library-go
-	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+	operatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
-	operatorConfig := originalOperatorConfig.DeepCopy()
+	return c.preconditionFulfilledInternal(operatorConfig)
+}
 
+func (c *OpenShiftAPIServerWorkload) preconditionFulfilledInternal(operator *operatorv1.OpenShiftAPIServer) (bool, error) {
 	// block until config is obvserved
-	if len(operatorConfig.Spec.ObservedConfig.Raw) == 0 {
+	if len(operator.Spec.ObservedConfig.Raw) == 0 {
 		klog.Info("Waiting for observed configuration to be available")
-		return false, nil
+		return false, errors.New("waiting for observed configuration to be available")
+	}
+
+	// specifying etcd servers list is mandatory, without it the pods will be crashlooping, so wait for it.
+	// TODO: once OAS moves to using args directly (not via the config)
+	//       we could have a helper function for checking mandatory args for oauth-apiserver and openshift-apiserver
+	//       alternatively we could change the generic workload ctrl to accept a list of common preconditions
+
+	var typedObservedConfig openshiftcontrolplanev1.OpenShiftAPIServerConfig
+	if err := json.Unmarshal(operator.Spec.ObservedConfig.Raw, &typedObservedConfig); err != nil {
+		return false, err
+	}
+
+	if len(typedObservedConfig.StorageConfig.URLs) == 0 {
+		klog.Info("Waiting for observed configuration to have mandatory StorageConfig.URLs")
+		return false, errors.New("waiting for observed configuration to have mandatory StorageConfig.URLs")
 	}
 
 	return true, nil

@@ -137,6 +137,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	}
 	weManageOauthConfig := encryptionprovider.IsOAuthEncryptionConfigManagedByThisOperator(kubeInformersForNamespaces.InformersFor(operatorclient.GlobalMachineSpecifiedConfigNamespace).Core().V1().Secrets().Lister().Secrets(operatorclient.GlobalMachineSpecifiedConfigNamespace), oauthAPIServerTargetNamespace, oauthapiencryption.EncryptionConfigManagedBy)
 	deployer, err := revisionpoddeployer.NewUnionDeployer(&revisionpoddeployer.AlwaysEnabledDeployer{Deployer: openshiftDeployer}, revisionpoddeployer.NewDisabledByPredicateDeployer(weManageOauthConfig, oauthDeployer))
+	if err != nil {
+		return err
+	}
 
 	migrationClient := kubemigratorclient.NewForConfigOrDie(controllerConfig.KubeConfig)
 	migrationInformer := migrationv1alpha1informer.NewSharedInformerFactory(migrationClient, time.Minute*30)
