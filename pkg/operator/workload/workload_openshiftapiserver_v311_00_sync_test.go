@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -140,5 +141,83 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 			}
 		})
 	}
+}
 
+var withETCDServerListJSON = `
+{
+  "storageConfig": {
+    "urls": [
+      "https://10.0.131.191:2379",
+      "https://10.0.159.206:2379"
+    ]
+  }
+}
+`
+
+var withSomeDataJSON = `
+{
+  "cloudProviderFile": "path"
+}
+`
+
+func TestPreconditionFulfilled(t *testing.T) {
+	scenarios := []struct {
+		name            string
+		operator        *operatorv1.OpenShiftAPIServer
+		expectError     bool
+		preconditionMet bool
+	}{
+		// scenario 1
+		{
+			name: "mandatory etcd-servers are specified",
+			operator: &operatorv1.OpenShiftAPIServer{
+				Spec: operatorv1.OpenShiftAPIServerSpec{OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{Raw: []byte(withETCDServerListJSON)},
+				}},
+			},
+			preconditionMet: true,
+		},
+
+		// scenario 2
+		{
+			name: "no etcd-servers were specified",
+			operator: &operatorv1.OpenShiftAPIServer{
+				Spec: operatorv1.OpenShiftAPIServerSpec{OperatorSpec: operatorv1.OperatorSpec{
+					ObservedConfig: runtime.RawExtension{Raw: []byte(withSomeDataJSON)},
+				}},
+			},
+			expectError: true,
+		},
+
+		// scenario 3
+		{
+			name:        "no cfg",
+			operator:    &operatorv1.OpenShiftAPIServer{},
+			expectError: true,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			// test data
+			eventRecorder := events.NewInMemoryRecorder("")
+			target := &OpenShiftAPIServerWorkload{
+				eventRecorder: eventRecorder,
+			}
+
+			// act
+			actualPreconditions, err := target.preconditionFulfilledInternal(scenario.operator)
+
+			// validate
+			if err != nil && !scenario.expectError {
+				t.Fatalf("unexpected error returned %v", err)
+			}
+			if err == nil && scenario.expectError {
+				t.Fatal("expected an error")
+			}
+			if scenario.preconditionMet != actualPreconditions {
+				t.Fatalf("unexpected precondtions = %v, expected = %v", actualPreconditions, scenario.preconditionMet)
+			}
+		})
+	}
 }
