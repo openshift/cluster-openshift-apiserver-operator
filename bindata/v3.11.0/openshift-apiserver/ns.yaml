@@ -5,5 +5,5 @@ metadata:
     openshift.io/node-selector: ""
   name: openshift-apiserver
   labels:
-    openshift.io/run-level: "1"
+    openshift.io/run-level-: "" # remove the label if previously set
     openshift.io/cluster-monitoring: "true"
