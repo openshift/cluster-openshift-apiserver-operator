@@ -9,28 +9,25 @@ require (
 	github.com/go-logr/logr v0.3.0 // indirect
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/openshift/api v0.0.0-20201117184740-859beeffd973
+	github.com/openshift/api v0.0.0-20201214114959-164a2fb63b5f
 	github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab
-	github.com/openshift/client-go v0.0.0-20201020074620-f8fd44879f7c
-	github.com/openshift/library-go v0.0.0-20201211095848-8399bf6288d6
-	github.com/spf13/cobra v1.0.0
+	github.com/openshift/client-go v0.0.0-20201214125552-e615e336eb49
+	github.com/openshift/library-go v0.0.0-20210105160312-42fe32ec6e0f
+	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.4.0
-	go.etcd.io/etcd v0.5.0-alpha.5.0.20200819165624-17cef6e3e9d5
+	github.com/stretchr/testify v1.6.1
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
 	go.uber.org/multierr v1.1.1-0.20180122172545-ddea229ff1df // indirect
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
-	golang.org/x/text v0.3.4 // indirect
-	k8s.io/api v0.19.4
-	k8s.io/apiextensions-apiserver v0.19.2
-	k8s.io/apimachinery v0.19.4
-	k8s.io/apiserver v0.19.2
-	k8s.io/client-go v0.19.2
-	k8s.io/component-base v0.19.2
+	k8s.io/api v0.20.1
+	k8s.io/apiextensions-apiserver v0.20.1
+	k8s.io/apimachinery v0.20.1
+	k8s.io/apiserver v0.20.1
+	k8s.io/client-go v0.20.1
+	k8s.io/component-base v0.20.1
 	k8s.io/klog/v2 v2.4.0
-	k8s.io/kube-aggregator v0.19.2
-	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
+	k8s.io/kube-aggregator v0.20.1
+	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	sigs.k8s.io/kube-storage-version-migrator v0.0.3
-	sigs.k8s.io/structured-merge-diff/v4 v4.0.2 // indirect
 )
 
 replace (
