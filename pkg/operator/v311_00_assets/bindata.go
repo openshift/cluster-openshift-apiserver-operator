@@ -200,6 +200,10 @@ spec:
           command: ['sh', '-c', 'chmod 0700 /var/log/openshift-apiserver && touch /var/log/openshift-apiserver/audit.log && chmod 0600 /var/log/openshift-apiserver/*']
           securityContext:
             privileged: true
+          resources:
+            requests:
+              cpu: 15m
+              memory: 50Mi
           volumeMounts:
             - mountPath: /var/log/openshift-apiserver
               name: audit-dir
