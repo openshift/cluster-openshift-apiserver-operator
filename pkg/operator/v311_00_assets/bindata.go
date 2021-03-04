@@ -200,6 +200,7 @@ spec:
           command: ['sh', '-c', 'chmod 0700 /var/log/openshift-apiserver && touch /var/log/openshift-apiserver/audit.log && chmod 0600 /var/log/openshift-apiserver/*']
           securityContext:
             privileged: true
+            allowPrivilegeEscalation: true
           resources:
             requests:
               cpu: 15m
@@ -227,6 +228,7 @@ spec:
         # we need to set this to privileged to be able to write audit to /var/log/openshift-apiserver
         securityContext:
           privileged: true
+          allowPrivilegeEscalation: true
         ports:
         - containerPort: 8443
         volumeMounts:
