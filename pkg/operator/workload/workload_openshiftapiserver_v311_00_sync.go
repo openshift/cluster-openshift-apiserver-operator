@@ -32,6 +32,7 @@ import (
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
@@ -70,7 +71,6 @@ type OpenShiftAPIServerWorkload struct {
 	targetImagePullSpec   string
 	operatorImagePullSpec string
 
-	eventRecorder   events.Recorder
 	versionRecorder status.VersionGetter
 }
 
@@ -85,7 +85,6 @@ func NewOpenShiftAPIServerWorkload(
 	targetImagePullSpec string,
 	operatorImagePullSpec string,
 	kubeClient kubernetes.Interface,
-	eventRecorder events.Recorder,
 	versionRecorder status.VersionGetter,
 ) *OpenShiftAPIServerWorkload {
 	return &OpenShiftAPIServerWorkload{
@@ -98,14 +97,12 @@ func NewOpenShiftAPIServerWorkload(
 		targetImagePullSpec:       targetImagePullSpec,
 		operatorImagePullSpec:     operatorImagePullSpec,
 		kubeClient:                kubeClient,
-		eventRecorder:             eventRecorder,
 		versionRecorder:           versionRecorder,
 	}
 }
 
 // PreconditionFulfilled is a function that indicates whether all prerequisites are met and we can Sync.
-func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled() (bool, error) {
-	ctx := context.TODO() // needs support in library-go
+func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled(ctx context.Context) (bool, error) {
 	operatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return false, err
@@ -140,8 +137,7 @@ func (c *OpenShiftAPIServerWorkload) preconditionFulfilledInternal(operator *ope
 
 // Sync takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) {
-	ctx := context.TODO() // needs support in library-go
+func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext factory.SyncContext) (*appsv1.Deployment, bool, []error) {
 	errors := []error{}
 
 	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
@@ -151,12 +147,12 @@ func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) 
 	}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
-	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), c.eventRecorder, operatorConfig)
+	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), syncContext.Recorder(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
 
-	_, _, err = manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx, c.openshiftConfigClient, c.kubeClient.CoreV1(), c.eventRecorder)
+	_, _, err = manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx, c.openshiftConfigClient, c.kubeClient.CoreV1(), syncContext.Recorder())
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "image-import-ca", err))
 	}
@@ -167,7 +163,7 @@ func (c *OpenShiftAPIServerWorkload) Sync() (*appsv1.Deployment, bool, []error) 
 		c.kubeClient,
 		c.kubeClient.AppsV1(),
 		c.countNodes,
-		c.eventRecorder,
+		syncContext.Recorder(),
 		c.targetImagePullSpec,
 		c.operatorImagePullSpec,
 		operatorConfig,

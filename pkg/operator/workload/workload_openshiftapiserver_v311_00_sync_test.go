@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"context"
 	"testing"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -8,6 +9,7 @@ import (
 	configfake "github.com/openshift/client-go/config/clientset/versioned/fake"
 	operatorfake "github.com/openshift/client-go/operator/clientset/versioned/fake"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/status"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -97,7 +99,6 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 
 			target := OpenShiftAPIServerWorkload{
 				kubeClient:                kubeClient,
-				eventRecorder:             events.NewInMemoryRecorder(""),
 				operatorClient:            fakeOperatorClient,
 				operatorConfigClient:      apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:     openshiftConfigClient.ConfigV1(),
@@ -106,7 +107,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
 			}
 
-			if _, _, err := target.Sync(); len(err) > 0 {
+			if _, _, err := target.Sync(context.Background(), factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder(""))); len(err) > 0 {
 				t.Fatal(err)
 			}
 
@@ -200,10 +201,7 @@ func TestPreconditionFulfilled(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			// test data
-			eventRecorder := events.NewInMemoryRecorder("")
-			target := &OpenShiftAPIServerWorkload{
-				eventRecorder: eventRecorder,
-			}
+			target := &OpenShiftAPIServerWorkload{}
 
 			// act
 			actualPreconditions, err := target.preconditionFulfilledInternal(scenario.operator)
