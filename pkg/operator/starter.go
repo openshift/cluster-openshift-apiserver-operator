@@ -140,7 +140,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
 		kubeClient,
-		controllerConfig.EventRecorder,
 		versionRecorder)
 
 	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
