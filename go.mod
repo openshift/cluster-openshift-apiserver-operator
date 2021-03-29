@@ -8,10 +8,10 @@ require (
 	github.com/go-logr/logr v0.3.0 // indirect
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/openshift/api v0.0.0-20201214114959-164a2fb63b5f
+	github.com/openshift/api v0.0.0-20210325044225-ef3741adfc31
 	github.com/openshift/build-machinery-go v0.0.0-20200917070002-f171684f77ab
 	github.com/openshift/client-go v0.0.0-20201214125552-e615e336eb49
-	github.com/openshift/library-go v0.0.0-20210318152630-323ad8a8f7d8
+	github.com/openshift/library-go v0.0.0-20210329144943-7b0fb0ed03f8
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
