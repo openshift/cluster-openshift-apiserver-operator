@@ -21,6 +21,8 @@ spec:
       name: openshift-apiserver-operator
       labels:
         app: openshift-apiserver-operator
+      annotations:
+        workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
     spec:
       serviceAccountName: openshift-apiserver-operator
       containers:

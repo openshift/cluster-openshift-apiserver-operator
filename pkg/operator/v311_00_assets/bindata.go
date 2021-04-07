@@ -189,6 +189,8 @@ spec:
       labels:
         app: openshift-apiserver-a
         apiserver: "true"
+      annotations:
+        workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
     spec:
       serviceAccountName: openshift-apiserver-sa
       priorityClassName: system-node-critical
@@ -394,6 +396,7 @@ kind: Namespace
 metadata:
   annotations:
     openshift.io/node-selector: ""
+    workload.openshift.io/allowed: "management"
   name: openshift-apiserver
   labels:
     openshift.io/run-level-: "" # remove the label if previously set
