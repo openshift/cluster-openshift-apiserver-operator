@@ -50,6 +50,7 @@ func NewOpenshiftAPIServerConnectivityCheckController(
 			operatorcontrolplaneClient,
 			apiextensionsClient,
 			apiextensionsInformers,
+			configInformers,
 			[]factory.Informer{
 				operatorClient.Informer(),
 				kubeInformersForNamespaces.InformersFor("openshift-apiserver").Core().V1().Pods().Informer(),
