@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   annotations:
     openshift.io/node-selector: ""
+    workload.openshift.io/allowed: "management"
   name: openshift-apiserver
   labels:
     openshift.io/run-level-: "" # remove the label if previously set
