@@ -34,6 +34,7 @@ $(call build-image,ocp-cluster-openshift-apiserver-operator,$(IMAGE_REGISTRY)/oc
 # and also hooked into {update,verify}-generated for broader integration.
 $(call add-bindata,v3.11.0,./bindata/v3.11.0/...,bindata,v311_00_assets,pkg/operator/v311_00_assets/bindata.go)
 
+$(call verify-golang-versions,Dockerfile)
 
 clean:
 	$(RM) ./cluster-openshift-apiserver-operator
