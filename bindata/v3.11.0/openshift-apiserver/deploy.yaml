@@ -39,7 +39,7 @@ spec:
         app: openshift-apiserver-a
         apiserver: "true"
       annotations:
-        workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
     spec:
       serviceAccountName: openshift-apiserver-sa
       priorityClassName: system-node-critical
