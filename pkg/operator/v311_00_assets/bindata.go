@@ -223,6 +223,7 @@ spec:
         # we need to set this to privileged to be able to write audit to /var/log/openshift-apiserver
         securityContext:
           privileged: true
+          readOnlyRootFilesystem: false
         ports:
         - containerPort: 8443
         volumeMounts:
