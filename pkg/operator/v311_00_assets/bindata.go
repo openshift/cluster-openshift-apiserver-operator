@@ -78,7 +78,7 @@ apiServerArguments:
   audit-policy-file:
   - /var/run/configmaps/audit/default.yaml
   shutdown-delay-duration:
-  - 3s # give SDN some time to converge
+  - 10s # give SDN some time to converge
 servingInfo:
   bindNetwork: "tcp"
 `)
