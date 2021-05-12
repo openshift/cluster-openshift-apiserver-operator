@@ -1,6 +1,9 @@
 all: build
 .PHONY: all
 
+# TODO: remove when we are on 1.16 through .ci-operator.yaml
+GO_REQUIRED_MIN_VERSION := 1.14.0
+
 # Include the library makefile
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
