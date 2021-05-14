@@ -1,9 +1,6 @@
 all: build
 .PHONY: all
 
-# TODO: remove when we are on 1.16 through .ci-operator.yaml
-GO_REQUIRED_MIN_VERSION := 1.14.0
-
 # Include the library makefile
 include $(addprefix ./vendor/github.com/openshift/build-machinery-go/make/, \
 	golang.mk \
@@ -34,6 +31,7 @@ $(call build-image,ocp-cluster-openshift-apiserver-operator,$(IMAGE_REGISTRY)/oc
 # and also hooked into {update,verify}-generated for broader integration.
 $(call add-bindata,v3.11.0,./bindata/v3.11.0/...,bindata,v311_00_assets,pkg/operator/v311_00_assets/bindata.go)
 
+$(call verify-golang-versions,Dockerfile)
 
 clean:
 	$(RM) ./cluster-openshift-apiserver-operator
