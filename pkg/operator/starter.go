@@ -244,25 +244,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		return err
 	}
 
-	auditPolicyPahGetter, err := libgoassets.NewAuditPolicyPathGetter("/var/run/configmaps/audit")
+	auditPolicyPathGetter, err := libgoassets.NewAuditPolicyPathGetter("/var/run/configmaps/audit")
 	if err != nil {
 		return err
-	}
-
-	// TODO(4.7): switch over to secure access-token logging by default and delete old non-sha256 tokens
-	auditPolicyPathGetterWithAccessTokenLogs := func(profile string) (string, error) {
-		apiServerConfig, err := configInformers.Config().V1().APIServers().Lister().Get("cluster")
-		if errors.IsNotFound(err) {
-			return auditPolicyPahGetter(profile)
-		}
-		if err != nil {
-			return "", err
-		}
-
-		if apiServerConfig.Annotations["oauth-apiserver.openshift.io/secure-token-storage"] == "true" {
-			return auditPolicyPahGetter("secure-oauth-storage-" + profile)
-		}
-		return auditPolicyPahGetter(profile)
 	}
 
 	configObserver := configobservercontroller.NewConfigObserver(
@@ -272,7 +256,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		resourceSyncController,
 		operatorConfigInformers,
 		configInformers,
-		auditPolicyPathGetterWithAccessTokenLogs,
+		auditPolicyPathGetter,
 		controllerConfig.EventRecorder,
 	)
 
