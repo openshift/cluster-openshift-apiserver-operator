@@ -7,25 +7,25 @@ require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/gonum/graph v0.0.0-20170401004347-50b27dea7ebb
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/openshift/api v0.0.0-20210331193751-3acddb19d360
+	github.com/openshift/api v0.0.0-20210521075222-e273a339932a
 	github.com/openshift/build-machinery-go v0.0.0-20210423112049-9415d7ebd33e
-	github.com/openshift/client-go v0.0.0-20210331195552-cf6c2669e01f
-	github.com/openshift/library-go v0.0.0-20210517095020-4f4c86ddf1a7
+	github.com/openshift/client-go v0.0.0-20210521082421-73d9475a9142
+	github.com/openshift/library-go v0.0.0-20210609085852-3ea492dfde03
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200910180754-dd1b699fc489
 	go.uber.org/multierr v1.1.1-0.20180122172545-ddea229ff1df // indirect
-	k8s.io/api v0.21.0
-	k8s.io/apiextensions-apiserver v0.21.0
-	k8s.io/apimachinery v0.21.0
-	k8s.io/apiserver v0.21.0
-	k8s.io/client-go v0.21.0
-	k8s.io/component-base v0.21.0
+	k8s.io/api v0.21.1
+	k8s.io/apiextensions-apiserver v0.21.1
+	k8s.io/apimachinery v0.21.1
+	k8s.io/apiserver v0.21.1
+	k8s.io/client-go v0.21.1
+	k8s.io/component-base v0.21.1
 	k8s.io/klog/v2 v2.8.0
-	k8s.io/kube-aggregator v0.21.0
+	k8s.io/kube-aggregator v0.21.1
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
-	sigs.k8s.io/kube-storage-version-migrator v0.0.3
+	sigs.k8s.io/kube-storage-version-migrator v0.0.4
 )
 
 replace (
