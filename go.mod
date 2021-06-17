@@ -30,6 +30,7 @@ require (
 
 replace (
 	github.com/coreos/etcd => github.com/coreos/etcd v3.3.17+incompatible // Pinned for openshift
+	github.com/openshift/library-go => /Users/lszaszki/go/src/github.com/openshift/library-go
 	google.golang.org/grpc => google.golang.org/grpc v1.26.0
 	k8s.io/apiserver => github.com/openshift/kubernetes-apiserver v0.0.0-20210419140141-620426e63a99 // points to temporary-watch-reduction-patch-1.21 to pick up k/k/pull/100959
 )
