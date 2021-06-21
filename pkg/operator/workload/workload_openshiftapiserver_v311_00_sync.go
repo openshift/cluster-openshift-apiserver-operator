@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -383,17 +384,39 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 		required.Spec.Template.Annotations[annotationKey] = v
 	}
 
-	err = ensureAtMostOnePodPerNodeFn(&required.Spec, operatorclient.TargetNamespace)
-	if err != nil {
-		return nil, false, fmt.Errorf("unable to ensure at most one pod per node: %v", err)
-	}
-
 	// Set the replica count to the number of master nodes.
 	masterNodeCount, err := countNodes(required.Spec.Template.Spec.NodeSelector)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to determine number of master nodes: %v", err)
 	}
 	required.Spec.Replicas = masterNodeCount
+
+	zero := intstr.FromInt(0)
+	one := intstr.FromInt(1)
+	if masterNodeCount != nil && *masterNodeCount == 1 {
+		// single-node
+		required.Spec.Strategy = appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateDeployment{
+				MaxUnavailable: &zero,
+				MaxSurge:       &one,
+			},
+		}
+	} else {
+		// HA mode
+		required.Spec.Strategy = appsv1.DeploymentStrategy{
+			Type: appsv1.RollingUpdateDeploymentStrategyType,
+			RollingUpdate: &appsv1.RollingUpdateDeployment{
+				MaxUnavailable: &one,
+				MaxSurge:       &zero,
+			},
+		}
+
+		err = ensureAtMostOnePodPerNodeFn(&required.Spec, operatorclient.TargetNamespace)
+		if err != nil {
+			return nil, false, fmt.Errorf("unable to ensure at most one pod per node: %v", err)
+		}
+	}
 
 	return resourceapply.ApplyDeployment(client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
 }

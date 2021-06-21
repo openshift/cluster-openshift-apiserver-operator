@@ -69,10 +69,10 @@ storageConfig:
 apiServerArguments:
   audit-log-format:
   - json
-  audit-log-maxbackup:
-  - "10"
   audit-log-maxsize:
   - "100"
+  audit-log-maxage:
+  - 3
   audit-log-path:
   - /var/log/openshift-apiserver/audit.log
   audit-policy-file:
@@ -158,17 +158,6 @@ metadata:
     app: openshift-apiserver
     apiserver: "true"
 spec:
-  # The number of replicas will be set in code to the number of master nodes.
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      # To ensure that only one pod at a time writes to the node's
-      # audit log, require the update strategy to proceed a node at a
-      # time. Only when a master node has its existing
-      # openshift-apiserver pod stopped will a new one be allowed to
-      # start.
-      maxUnavailable: 1
-      maxSurge: 0
   selector:
     matchLabels:
       # Need to vary the app label from that used by the legacy
@@ -221,6 +210,9 @@ spec:
               echo "Copying system trust bundle"
               cp -f /var/run/configmaps/trusted-ca-bundle/tls-ca-bundle.pem /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
             fi
+            echo -b "Rotating audit logs in /var/log/openshift-apiserver"
+            test -f /var/log/openshift-apiserver/audit.log && mv /var/log/openshift-apiserver/audit{,-$(date '+%Y-%m-%dT%H-%M-%S.%3N')}.log
+            echo
             exec openshift-apiserver start --config=/var/run/configmaps/config/config.yaml -v=${VERBOSITY}
         resources:
           requests:
