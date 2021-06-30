@@ -76,7 +76,7 @@ apiServerArguments:
   audit-log-path:
   - /var/log/openshift-apiserver/audit.log
   audit-policy-file:
-  - /var/run/configmaps/audit/default.yaml
+  - /var/run/configmaps/audit/policy.yaml
   shutdown-delay-duration:
   - 10s # give SDN some time to converge
 servingInfo:
