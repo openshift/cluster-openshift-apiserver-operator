@@ -147,7 +147,7 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 	}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
-	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(c.kubeClient.CoreV1(), syncContext.Recorder(), operatorConfig)
+	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx, c.kubeClient.CoreV1(), syncContext.Recorder(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -160,6 +160,7 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 	// our configmaps and secrets are in order, now it is time to create the deployment
 	// TODO check basic preconditions here
 	actualDeployment, _, err := manageOpenShiftAPIServerDeployment_v311_00_to_latest(
+		ctx,
 		c.kubeClient,
 		c.kubeClient.AppsV1(),
 		c.countNodes,
@@ -269,10 +270,10 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx context.Context
 
 	// this can leave configmaps mounted without any content, but that should not have an impact on functionality since empty and missing
 	// should logically be treated the same in the case of trust.
-	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
+func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/config/defaultconfig.yaml")
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
@@ -288,7 +289,7 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(client coreclientv1.Con
 		return nil, false, err
 	}
 
-	return resourceapply.ApplyConfigMap(client, recorder, requiredConfigMap)
+	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
 func loglevelToKlog(logLevel operatorv1.LogLevel) string {
@@ -307,6 +308,7 @@ func loglevelToKlog(logLevel operatorv1.LogLevel) string {
 }
 
 func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
+	ctx context.Context,
 	kubeClient kubernetes.Interface,
 	client appsclientv1.DeploymentsGetter,
 	countNodes nodeCountFunc,
@@ -395,7 +397,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	}
 	required.Spec.Replicas = masterNodeCount
 
-	return resourceapply.ApplyDeployment(client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
+	return resourceapply.ApplyDeployment(ctx, client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
 }
 
 var openshiftScheme = runtime.NewScheme()

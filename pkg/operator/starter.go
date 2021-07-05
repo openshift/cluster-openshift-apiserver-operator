@@ -197,7 +197,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			"v3.11.0/openshift-apiserver/svc.yaml",
 			"v3.11.0/openshift-apiserver/sa.yaml",
 			"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
-			libgoassets.AuditPoliciesConfigMapFileName,
 		},
 		kubeInformersForNamespaces,
 		kubeClient,
@@ -235,16 +234,18 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
 		kubeInformersForNamespaces,
+	).WithAuditPolicyController(
+		operatorclient.TargetNamespace,
+		"audit",
+		configInformers.Config().V1().APIServers().Lister(),
+		configInformers,
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeClient,
 	).
 		WithConfigUpgradableController().
 		WithLogLevelController()
 
 	runnableAPIServerControllers, err := apiServerControllers.PrepareRun()
-	if err != nil {
-		return err
-	}
-
-	auditPolicyPathGetter, err := libgoassets.NewAuditPolicyPathGetter("/var/run/configmaps/audit")
 	if err != nil {
 		return err
 	}
@@ -256,7 +257,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		resourceSyncController,
 		operatorConfigInformers,
 		configInformers,
-		auditPolicyPathGetter,
 		controllerConfig.EventRecorder,
 	)
 
