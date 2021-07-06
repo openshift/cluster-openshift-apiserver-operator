@@ -43,7 +43,6 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	operatorworkload "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workload"
-	libgoassets "github.com/openshift/library-go/pkg/operator/apiserver/audit"
 	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
 	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
@@ -190,7 +189,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configInformers.Config().V1().Images().Informer(),
 	).WithStaticResourcesController(
 		"APIServerStaticResources",
-		libgoassets.WithAuditPolicies("audit", operatorclient.TargetNamespace, v311_00_assets.Asset),
+		v311_00_assets.Asset,
 		[]string{
 			"v3.11.0/openshift-apiserver/ns.yaml",
 			"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
