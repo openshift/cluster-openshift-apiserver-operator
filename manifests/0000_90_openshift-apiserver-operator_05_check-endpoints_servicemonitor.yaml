@@ -15,6 +15,8 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+      certFile: /etc/prometheus/secrets/metrics-client-certs/tls.crt
+      keyFile: /etc/prometheus/secrets/metrics-client-certs/tls.key
   jobLabel: component
   namespaceSelector:
     matchNames:
