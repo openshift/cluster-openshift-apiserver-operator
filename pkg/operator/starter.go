@@ -197,6 +197,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			"v3.11.0/openshift-apiserver/svc.yaml",
 			"v3.11.0/openshift-apiserver/sa.yaml",
 			"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
+			"v3.11.0/openshift-apiserver/pdb.yaml",
 			libgoassets.AuditPoliciesConfigMapFileName,
 		},
 		kubeInformersForNamespaces,
