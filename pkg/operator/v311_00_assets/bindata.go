@@ -5,6 +5,7 @@
 // bindata/v3.11.0/openshift-apiserver/cm.yaml
 // bindata/v3.11.0/openshift-apiserver/deploy.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
+// bindata/v3.11.0/openshift-apiserver/pdb.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
 // bindata/v3.11.0/openshift-apiserver/svc.yaml
 // bindata/v3.11.0/openshift-apiserver/trusted_ca_cm.yaml
@@ -421,6 +422,34 @@ func v3110OpenshiftApiserverNsYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverPdbYaml = []byte(`apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openshift-apiserver-pdb
+  namespace: openshift-apiserver
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: openshift-apiserver-a
+      apiserver: "true"
+`)
+
+func v3110OpenshiftApiserverPdbYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverPdbYaml, nil
+}
+
+func v3110OpenshiftApiserverPdbYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverPdbYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/pdb.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110OpenshiftApiserverSaYaml = []byte(`apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -557,6 +586,7 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
 	"v3.11.0/openshift-apiserver/deploy.yaml":                       v3110OpenshiftApiserverDeployYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
+	"v3.11.0/openshift-apiserver/pdb.yaml":                          v3110OpenshiftApiserverPdbYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
 	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
 	"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml":                v3110OpenshiftApiserverTrusted_ca_cmYaml,
@@ -612,6 +642,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
 			"deploy.yaml":                       {v3110OpenshiftApiserverDeployYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
+			"pdb.yaml":                          {v3110OpenshiftApiserverPdbYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
 			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
 			"trusted_ca_cm.yaml":                {v3110OpenshiftApiserverTrusted_ca_cmYaml, map[string]*bintree{}},
