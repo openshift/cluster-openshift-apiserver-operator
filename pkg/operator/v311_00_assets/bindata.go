@@ -200,6 +200,7 @@ spec:
           command: ['sh', '-c', 'chmod 0700 /var/log/openshift-apiserver']
           securityContext:
             privileged: true
+            runAsUser: 0
           volumeMounts:
             - mountPath: /var/log/openshift-apiserver
               name: audit-dir
@@ -223,6 +224,7 @@ spec:
         # we need to set this to privileged to be able to write audit to /var/log/openshift-apiserver
         securityContext:
           privileged: true
+          runAsUser: 0
           readOnlyRootFilesystem: false
         ports:
         - containerPort: 8443
