@@ -405,6 +405,12 @@ metadata:
   labels:
     openshift.io/run-level-: "" # remove the label if previously set
     openshift.io/cluster-monitoring: "true"
+    # needs to be privileged because of:
+    # - hostPath volumes (volumes \"node-pullsecrets\", \"audit-dir\")
+    # - privileged (containers \"fix-audit-permissions\", \"openshift-apiserver\"
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
 `)
 
 func v3110OpenshiftApiserverNsYamlBytes() ([]byte, error) {
