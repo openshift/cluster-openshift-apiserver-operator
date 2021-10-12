@@ -173,6 +173,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configClient.ConfigV1(),
 		configInformers.Config().V1().ClusterOperators(),
 		versionRecorder,
+		apiservercontrollerset.WithStatusControllerPdbCompatibleHighInertia("APIServer"),
 	).WithWorkloadController(
 		"OpenShiftAPIServer",
 		operatorclient.OperatorNamespace,
