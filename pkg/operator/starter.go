@@ -141,6 +141,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeClient,
 		versionRecorder)
 
+	infra, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil && errors.IsNotFound(err) {
+		klog.Warningf("unexpectedly no infrastructure resource found, assuming controlPlaneTopology HighlyAvailableTopologyMode: %v", err)
+	} else if err != nil {
+		return err
+	}
+	var statusControllerOptions []func(*status.StatusSyncer) *status.StatusSyncer
+	if infra == nil || infra.Status.ControlPlaneTopology == configv1.HighlyAvailableTopologyMode {
+		statusControllerOptions = append(statusControllerOptions, apiservercontrollerset.WithStatusControllerPdbCompatibleHighInertia("APIServer"))
+	}
+
 	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
 		operatorClient,
 		controllerConfig.EventRecorder,
@@ -173,7 +184,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configClient.ConfigV1(),
 		configInformers.Config().V1().ClusterOperators(),
 		versionRecorder,
-		apiservercontrollerset.WithStatusControllerPdbCompatibleHighInertia("APIServer"),
+		statusControllerOptions...,
 	).WithWorkloadController(
 		"OpenShiftAPIServer",
 		operatorclient.OperatorNamespace,
