@@ -129,7 +129,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 github.com/munnerz/goautoneg
-# github.com/openshift/api v0.0.0-20210817132244-67c28690af52
+# github.com/openshift/api v0.0.0-20210924154557-a4f696157341
 ## explicit
 github.com/openshift/api
 github.com/openshift/api/apiserver
@@ -155,6 +155,8 @@ github.com/openshift/api/imageregistry/v1
 github.com/openshift/api/kubecontrolplane
 github.com/openshift/api/kubecontrolplane/v1
 github.com/openshift/api/legacyconfig/v1
+github.com/openshift/api/machine
+github.com/openshift/api/machine/v1beta1
 github.com/openshift/api/network
 github.com/openshift/api/network/v1
 github.com/openshift/api/networkoperator
@@ -197,7 +199,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20210730113412-1811c1b3fc0e
+# github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
 ## explicit
 github.com/openshift/client-go/config/clientset/versioned
 github.com/openshift/client-go/config/clientset/versioned/fake
@@ -228,7 +230,7 @@ github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/scheme
 github.com/openshift/client-go/operatorcontrolplane/clientset/versioned/typed/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/route/clientset/versioned/scheme
 github.com/openshift/client-go/route/clientset/versioned/typed/route/v1
-# github.com/openshift/library-go v0.0.0-20210826090705-4ea56ec9eeef
+# github.com/openshift/library-go v0.0.0-20211012180011-a3bb95c3668f
 ## explicit
 github.com/openshift/library-go/pkg/apps/deployment
 github.com/openshift/library-go/pkg/assets
