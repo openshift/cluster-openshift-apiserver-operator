@@ -1,6 +1,7 @@
 package revisionpoddeployer
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -37,14 +38,14 @@ func NewUnionDeployer(delegates ...MaybeDisabledDeployer) (*UnionDeployer, error
 }
 
 // DeployedEncryptionConfigSecret returns the actual encryption configuration across multiple deployers if they all agree.
-func (d *UnionDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+func (d *UnionDeployer) DeployedEncryptionConfigSecret(ctx context.Context) (secret *corev1.Secret, converged bool, err error) {
 	seenSecrets := []*corev1.Secret{}
 
 	for _, delegate := range d.delegates {
 		if delegate.Disabled() {
 			continue
 		}
-		secret, converged, err := delegate.DeployedEncryptionConfigSecret()
+		secret, converged, err := delegate.DeployedEncryptionConfigSecret(ctx)
 		if !converged || err != nil {
 			return nil, converged, err
 		}
