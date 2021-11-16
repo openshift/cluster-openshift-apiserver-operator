@@ -88,7 +88,7 @@ func (c *stateController) sync(ctx context.Context, syncCtx factory.SyncContext)
 		if degradedCondition == nil {
 			return
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
+		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, operatorv1helpers.UpdateConditionFn(*degradedCondition)); updateError != nil {
 			err = updateError
 		}
 	}()
@@ -115,7 +115,7 @@ type eventWithReason struct {
 }
 
 func (c *stateController) generateAndApplyCurrentEncryptionConfigSecret(ctx context.Context, queue workqueue.RateLimitingInterface, recorder events.Recorder, encryptedGRs []schema.GroupResource) error {
-	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredEncryptionState, encryptionSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil {
 		return err
 	}

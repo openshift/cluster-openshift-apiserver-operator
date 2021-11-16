@@ -63,13 +63,13 @@ func NewConditionController(
 	).ResyncEvery(time.Minute).WithSync(c.sync).ToController("EncryptionConditionController", eventRecorder.WithComponentSuffix("encryption-condition-controller"))
 }
 
-func (c *conditionController) sync(_ context.Context, _ factory.SyncContext) (err error) {
+func (c *conditionController) sync(ctx context.Context, _ factory.SyncContext) (err error) {
 	cond := &operatorv1.OperatorCondition{Type: "Encrypted", Status: operatorv1.ConditionFalse}
 	defer func() {
 		if cond == nil {
 			return
 		}
-		if _, _, updateError := operatorv1helpers.UpdateStatus(c.operatorClient, operatorv1helpers.UpdateConditionFn(*cond)); updateError != nil {
+		if _, _, updateError := operatorv1helpers.UpdateStatus(ctx, c.operatorClient, operatorv1helpers.UpdateConditionFn(*cond)); updateError != nil {
 			err = updateError
 		}
 	}()
@@ -82,7 +82,7 @@ func (c *conditionController) sync(_ context.Context, _ factory.SyncContext) (er
 	}
 
 	encryptedGRs := c.provider.EncryptedGRs()
-	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
+	currentConfig, desiredState, foundSecrets, transitioningReason, err := statemachine.GetEncryptionConfigAndState(ctx, c.deployer, c.secretClient, c.encryptionSecretSelector, encryptedGRs)
 	if err != nil || len(transitioningReason) > 0 {
 		// do not update the encryption condition (cond). Note: progressing is set elsewhere.
 		cond = nil
