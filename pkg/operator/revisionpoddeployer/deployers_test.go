@@ -1,6 +1,7 @@
 package revisionpoddeployer_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -131,7 +132,7 @@ func TestUnionRevisionLabelPodDeployer(t *testing.T) {
 			}
 
 			// act
-			actualSecret, actualConverged, actualErr := target.DeployedEncryptionConfigSecret()
+			actualSecret, actualConverged, actualErr := target.DeployedEncryptionConfigSecret(context.TODO())
 
 			// validate
 			checkError(actualErr, scenario.expectedErr)
@@ -192,7 +193,7 @@ func newFakeDeployer(secret *corev1.Secret, converged bool, disabled bool, err e
 	return &fakeDeployer{secret: secret, converged: converged, disabled: disabled, err: err}
 }
 
-func (d *fakeDeployer) DeployedEncryptionConfigSecret() (secret *corev1.Secret, converged bool, err error) {
+func (d *fakeDeployer) DeployedEncryptionConfigSecret(context.Context) (secret *corev1.Secret, converged bool, err error) {
 	return d.secret, d.converged, d.err
 }
 

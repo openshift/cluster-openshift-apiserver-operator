@@ -175,7 +175,7 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 	}
 
 	if operatorConfig.ObjectMeta.Generation != operatorConfig.Status.ObservedGeneration {
-		handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+		handleErrorForOperatorStatus(v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
 			Type:    "OperatorConfigProgressing",
 			Status:  operatorv1.ConditionTrue,
 			Reason:  "NewGeneration",
@@ -183,7 +183,7 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 		})),
 		)
 	} else {
-		handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
+		handleErrorForOperatorStatus(v1helpers.UpdateStatus(ctx, c.operatorClient, v1helpers.UpdateConditionFn(operatorv1.OperatorCondition{
 			Type:   "OperatorConfigProgressing",
 			Status: operatorv1.ConditionFalse,
 			Reason: "AsExpected",
@@ -192,12 +192,12 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 	}
 
 	// TODO this is changing too early and it was before too.
-	handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
+	handleErrorForOperatorStatus(v1helpers.UpdateStatus(ctx, c.operatorClient, func(status *operatorv1.OperatorStatus) error {
 		status.ObservedGeneration = operatorConfig.ObjectMeta.Generation
 		return nil
 	}),
 	)
-	handleErrorForOperatorStatus(v1helpers.UpdateStatus(c.operatorClient, func(status *operatorv1.OperatorStatus) error {
+	handleErrorForOperatorStatus(v1helpers.UpdateStatus(ctx, c.operatorClient, func(status *operatorv1.OperatorStatus) error {
 		resourcemerge.SetDeploymentGeneration(&status.Generations, actualDeployment)
 		return nil
 	}),
@@ -365,6 +365,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 
 	// we watch some resources so that our deployment will redeploy without explicitly and carefully ordered resource creation
 	inputHashes, err := resourcehash.MultipleObjectHashStringMapForObjectReferences(
+		ctx,
 		kubeClient,
 		resourcehash.NewObjectRef().ForConfigMap().InNamespace(operatorclient.TargetNamespace).Named("config"),
 		resourcehash.NewObjectRef().ForSecret().InNamespace(operatorclient.TargetNamespace).Named("etcd-client"),
