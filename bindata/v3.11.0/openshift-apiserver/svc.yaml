@@ -5,8 +5,8 @@ metadata:
   name: api
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: serving-cert
-    prometheus.io/scrape: "true"
-    prometheus.io/scheme: https
+  labels:
+    prometheus: openshift-apiserver
 spec:
   selector:
     apiserver: "true"

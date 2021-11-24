@@ -82,4 +82,6 @@ spec:
   namespaceSelector:
     matchNames:
     - openshift-apiserver
-  selector: {}
+  selector:
+    matchLabels:
+      prometheus: openshift-apiserver

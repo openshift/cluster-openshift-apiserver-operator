@@ -22,4 +22,5 @@ spec:
     matchNames:
     - openshift-apiserver
   selector:
-    matchLabels: {}
+    matchLabels:
+      prometheus: openshift-apiserver-check-endpoints
