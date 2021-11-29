@@ -245,7 +245,7 @@ spec:
         ports:
         - containerPort: 8443
         volumeMounts:
-        - mountPath: /var/lib/kubelet/config.json
+        - mountPath: /var/lib/kubelet/
           name: node-pullsecrets
           readOnly: true
         - mountPath: /var/run/configmaps/config
@@ -313,8 +313,8 @@ spec:
       volumes:
       - name: node-pullsecrets
         hostPath:
-          path: /var/lib/kubelet/config.json
-          type: File
+          path: /var/lib/kubelet/
+          type: Directory
       - name: config
         configMap:
           name: config
