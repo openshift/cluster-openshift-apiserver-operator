@@ -80,6 +80,8 @@ apiServerArguments:
   - /var/run/configmaps/audit/policy.yaml
   shutdown-delay-duration:
   - 10s # give SDN some time to converge
+  shutdown-send-retry-after:
+  - "true"
 servingInfo:
   bindNetwork: "tcp"
 `)
