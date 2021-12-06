@@ -121,7 +121,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	versionRecorder.SetVersion("operator", os.Getenv("OPERATOR_IMAGE_VERSION"))
 
 	openshiftNodeProvider := encryptiondeployer.NewDeploymentNodeProvider(operatorclient.TargetNamespace, kubeInformersForNamespaces)
-	openshiftDeployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, resourceSyncController, kubeClient.CoreV1(), kubeClient.CoreV1(), openshiftNodeProvider)
+	openshiftDeployer, err := encryptiondeployer.NewRevisionLabelPodDeployer("revision", operatorclient.TargetNamespace, kubeInformersForNamespaces, kubeClient.CoreV1(), kubeClient.CoreV1(), openshiftNodeProvider)
 	if err != nil {
 		return err
 	}
@@ -228,6 +228,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
+		resourceSyncController,
 	).WithSecretRevisionPruneController(
 		operatorclient.TargetNamespace,
 		[]string{"encryption-config-"},
