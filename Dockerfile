@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.16-openshift-4.9 AS builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.10 AS builder
 WORKDIR /go/src/github.com/openshift/cluster-openshift-apiserver-operator
 COPY . .
 RUN GODEBUG=tls13=1 go build ./cmd/cluster-openshift-apiserver-operator
