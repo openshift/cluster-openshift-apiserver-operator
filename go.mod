@@ -11,7 +11,6 @@ require (
 	github.com/openshift/client-go v0.0.0-20211209144617-7385dd6338e3
 	github.com/openshift/library-go v0.0.0-20211214183058-58531ccbde67
 	github.com/spf13/cobra v1.2.1
-	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	k8s.io/api v0.23.0
@@ -76,6 +75,7 @@ require (
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.0 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0 // indirect
 	go.opentelemetry.io/contrib v0.20.0 // indirect
