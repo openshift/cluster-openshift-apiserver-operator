@@ -202,13 +202,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).WithStaticResourcesController(
 		"APIServerStaticResources",
 		v311_00_assets.Asset,
-		[]string{
-			"v3.11.0/openshift-apiserver/ns.yaml",
-			"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
-			"v3.11.0/openshift-apiserver/svc.yaml",
-			"v3.11.0/openshift-apiserver/sa.yaml",
-			"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
-			"v3.11.0/openshift-apiserver/pdb.yaml",
+		[]apiservercontrollerset.ConditionalFiles{
+			{
+				Files: []string{
+					"v3.11.0/openshift-apiserver/ns.yaml",
+					"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
+					"v3.11.0/openshift-apiserver/svc.yaml",
+					"v3.11.0/openshift-apiserver/sa.yaml",
+					"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
+					"v3.11.0/openshift-apiserver/pdb.yaml",
+				},
+			},
 		},
 		kubeInformersForNamespaces,
 		kubeClient,
