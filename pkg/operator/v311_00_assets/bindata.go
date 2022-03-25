@@ -79,7 +79,9 @@ apiServerArguments:
   audit-policy-file:
   - /var/run/configmaps/audit/policy.yaml
   shutdown-delay-duration:
-  - 10s # give SDN some time to converge
+  - 15s # this gives SDN 5s to converge after the worst readyz=false delay
+  shutdown-send-retry-after:
+  - "true"
 servingInfo:
   bindNetwork: "tcp"
 `)
@@ -267,17 +269,35 @@ spec:
         - mountPath: /var/log/openshift-apiserver
           name: audit-dir
         livenessProbe:
-          initialDelaySeconds: 30
           httpGet:
             scheme: HTTPS
             port: 8443
             path: healthz
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 3
         readinessProbe:
-          failureThreshold: 10
+          httpGet:
+            scheme: HTTPS
+            port: 8443
+            path: readyz
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 1
+        startupProbe:
           httpGet:
             scheme: HTTPS
             port: 8443
             path: healthz
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 30
       - name: openshift-apiserver-check-endpoints
         image: ${KUBE_APISERVER_OPERATOR_IMAGE}
         imagePullPolicy: IfNotPresent
@@ -309,7 +329,7 @@ spec:
           requests:
             memory: 50Mi
             cpu: 10m
-      terminationGracePeriodSeconds: 70 # a bit more than the 60 seconds timeout of non-long-running requests
+      terminationGracePeriodSeconds: 90 # a bit more than the 60 seconds timeout of non-long-running requests + the shutdown delay
       volumes:
       - name: node-pullsecrets
         hostPath:
