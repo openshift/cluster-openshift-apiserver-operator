@@ -8,5 +8,6 @@ metadata:
     openshift.io/node-selector: ""
     workload.openshift.io/allowed: "management"
   labels:
+    openshift.io/run-level: "" # specify no run-level turns it off on install and upgrades
     openshift.io/cluster-monitoring: "true"
   name: openshift-apiserver-operator
