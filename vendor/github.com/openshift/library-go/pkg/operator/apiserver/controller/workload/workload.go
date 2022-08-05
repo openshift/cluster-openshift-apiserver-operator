@@ -123,8 +123,10 @@ func (c *Controller) sync(ctx context.Context, controllerContext factory.SyncCon
 		return err
 	}
 
-	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); !fulfilled || err != nil {
+	if fulfilled, err := c.delegate.PreconditionFulfilled(ctx); err != nil {
 		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, []error{err})
+	} else if !fulfilled {
+		return c.updateOperatorStatus(ctx, operatorStatus, nil, false, false, nil)
 	}
 
 	workload, operatorConfigAtHighestGeneration, errs := c.delegate.Sync(ctx, controllerContext)
@@ -270,9 +272,6 @@ func (c *Controller) updateOperatorStatus(ctx context.Context, previousStatus *o
 		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: observed generation is %d, desired generation is %d.", workload.Name, c.targetNamespace, workload.Status.ObservedGeneration, workload.ObjectMeta.Generation)
 	} else if workloadIsBeingUpdated {
 		deploymentProgressingCondition.Status = operatorv1.ConditionTrue
-		if workloadIsBeingUpdatedTooLong {
-			deploymentProgressingCondition.Status = operatorv1.ConditionFalse
-		}
 		deploymentProgressingCondition.Reason = "PodsUpdating"
 		deploymentProgressingCondition.Message = fmt.Sprintf("deployment/%s.%s: %d/%d pods have been updated to the latest generation", workload.Name, c.targetNamespace, workload.Status.UpdatedReplicas, desiredReplicas)
 	} else {

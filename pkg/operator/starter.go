@@ -20,7 +20,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/guard"
+	"github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/revision"
 	"github.com/openshift/library-go/pkg/operator/status"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -218,7 +218,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 					"v3.11.0/openshift-apiserver/pdb.yaml",
 				},
 				ShouldCreateFn: func() bool {
-					isSNO, precheckSucceeded, err := guard.IsSNOCheckFnc(configInformers.Config().V1().Infrastructures())()
+					isSNO, precheckSucceeded, err := common.NewIsSingleNodePlatformFn(configInformers.Config().V1().Infrastructures())()
 					if err != nil {
 						klog.Errorf("IsSNOCheckFnc failed: %v", err)
 						return false
@@ -230,7 +230,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 					return !isSNO
 				},
 				ShouldDeleteFn: func() bool {
-					isSNO, precheckSucceeded, err := guard.IsSNOCheckFnc(configInformers.Config().V1().Infrastructures())()
+					isSNO, precheckSucceeded, err := common.NewIsSingleNodePlatformFn(configInformers.Config().V1().Infrastructures())()
 					if err != nil {
 						klog.Errorf("IsSNOCheckFnc failed: %v", err)
 						return false
