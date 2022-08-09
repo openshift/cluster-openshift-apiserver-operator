@@ -1,0 +1,13 @@
+---
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        authorization.openshift.io/aggregate-to-basic-user: "true"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    openshift.io/description: A user that can get basic information about projects.
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: basic-user
+rules: null
