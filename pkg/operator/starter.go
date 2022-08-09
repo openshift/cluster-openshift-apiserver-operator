@@ -3,6 +3,8 @@ package operator
 import (
 	"context"
 	"os"
+	"path"
+	"sort"
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -205,13 +207,13 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		v311_00_assets.Asset,
 		[]apiservercontrollerset.ConditionalFiles{
 			{
-				Files: []string{
+				Files: append([]string{
 					"v3.11.0/openshift-apiserver/ns.yaml",
 					"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml",
 					"v3.11.0/openshift-apiserver/svc.yaml",
 					"v3.11.0/openshift-apiserver/sa.yaml",
 					"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
-				},
+				}, rbacManifestFiles()...),
 			},
 			{
 				Files: []string{
@@ -290,7 +292,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).
 		WithConfigUpgradableController().
 		WithLogLevelController()
-
 	runnableAPIServerControllers, err := apiServerControllers.PrepareRun()
 	if err != nil {
 		return err
@@ -463,4 +464,20 @@ func ensureDaemonSetCleanup(ctx context.Context, kubeClient *kubernetes.Clientse
 		}
 		eventRecorder.Event("LegacyDaemonSetCleanup", "legacy daemonset has been removed")
 	}, time.Minute)
+}
+
+func rbacManifestFiles() []string {
+	var result []string
+	for _, subDir := range []string{"rbac", "rbac-openshift-controller-manager"} {
+		root := "v3.11.0/openshift-apiserver"
+		files, err := v311_00_assets.AssetDir(path.Join(root, subDir))
+		if err != nil {
+			panic(err)
+		}
+		for _, file := range files {
+			result = append(result, path.Join(root, subDir, file))
+		}
+	}
+	sort.Strings(result)
+	return result
 }
