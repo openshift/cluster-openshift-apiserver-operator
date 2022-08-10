@@ -6,10 +6,6 @@
 // bindata/v3.11.0/openshift-apiserver/deploy.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/pdb.yaml
-// bindata/v3.11.0/openshift-apiserver/rbac/00_role-openshift-node_system-node-config-reader.yaml
-// bindata/v3.11.0/openshift-apiserver/rbac/00_role-openshift_shared-resource-viewer.yaml
-// bindata/v3.11.0/openshift-apiserver/rbac/10_rolebinding-openshift-node_system-node-config-reader.yaml
-// bindata/v3.11.0/openshift-apiserver/rbac/10_rolebinding-openshift_shared-resource-viewers.yaml
 // bindata/v3.11.0/openshift-apiserver/rbac/20_clusterrole-basic-user.yaml
 // bindata/v3.11.0/openshift-apiserver/rbac/20_clusterrole-cluster-debugger.yaml
 // bindata/v3.11.0/openshift-apiserver/rbac/20_clusterrole-cluster-reader.yaml
@@ -579,162 +575,6 @@ func v3110OpenshiftApiserverPdbYaml() (*asset, error) {
 	}
 
 	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/pdb.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _v3110OpenshiftApiserverRbac00_roleOpenshiftNode_systemNodeConfigReaderYaml = []byte(`---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: system:node-config-reader
-  namespace: openshift-node
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-`)
-
-func v3110OpenshiftApiserverRbac00_roleOpenshiftNode_systemNodeConfigReaderYamlBytes() ([]byte, error) {
-	return _v3110OpenshiftApiserverRbac00_roleOpenshiftNode_systemNodeConfigReaderYaml, nil
-}
-
-func v3110OpenshiftApiserverRbac00_roleOpenshiftNode_systemNodeConfigReaderYaml() (*asset, error) {
-	bytes, err := v3110OpenshiftApiserverRbac00_roleOpenshiftNode_systemNodeConfigReaderYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/rbac/00_role-openshift-node_system-node-config-reader.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _v3110OpenshiftApiserverRbac00_roleOpenshift_sharedResourceViewerYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: shared-resource-viewer
-  namespace: openshift
-rules:
-  - apiGroups:
-      - ""
-      - template.openshift.io
-    resources:
-      - templates
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-      - image.openshift.io
-    resources:
-      - imagestreamimages
-      - imagestreams
-      - imagestreamtags
-      - imagetags
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-      - image.openshift.io
-    resources:
-      - imagestreams/layers
-    verbs:
-      - get
-  - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-`)
-
-func v3110OpenshiftApiserverRbac00_roleOpenshift_sharedResourceViewerYamlBytes() ([]byte, error) {
-	return _v3110OpenshiftApiserverRbac00_roleOpenshift_sharedResourceViewerYaml, nil
-}
-
-func v3110OpenshiftApiserverRbac00_roleOpenshift_sharedResourceViewerYaml() (*asset, error) {
-	bytes, err := v3110OpenshiftApiserverRbac00_roleOpenshift_sharedResourceViewerYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/rbac/00_role-openshift_shared-resource-viewer.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _v3110OpenshiftApiserverRbac10_rolebindingOpenshiftNode_systemNodeConfigReaderYaml = []byte(`---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: system:node-config-reader
-  namespace: openshift-node
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: system:node-config-reader
-subjects:
-  - apiGroup: rbac.authorization.k8s.io
-    kind: Group
-    name: system:nodes
-`)
-
-func v3110OpenshiftApiserverRbac10_rolebindingOpenshiftNode_systemNodeConfigReaderYamlBytes() ([]byte, error) {
-	return _v3110OpenshiftApiserverRbac10_rolebindingOpenshiftNode_systemNodeConfigReaderYaml, nil
-}
-
-func v3110OpenshiftApiserverRbac10_rolebindingOpenshiftNode_systemNodeConfigReaderYaml() (*asset, error) {
-	bytes, err := v3110OpenshiftApiserverRbac10_rolebindingOpenshiftNode_systemNodeConfigReaderYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/rbac/10_rolebinding-openshift-node_system-node-config-reader.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
-	a := &asset{bytes: bytes, info: info}
-	return a, nil
-}
-
-var _v3110OpenshiftApiserverRbac10_rolebindingOpenshift_sharedResourceViewersYaml = []byte(`apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  annotations:
-    rbac.authorization.kubernetes.io/autoupdate: "true"
-  name: shared-resource-viewers
-  namespace: openshift
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: shared-resource-viewer
-subjects:
-  - apiGroup: rbac.authorization.k8s.io
-    kind: Group
-    name: system:authenticated
-`)
-
-func v3110OpenshiftApiserverRbac10_rolebindingOpenshift_sharedResourceViewersYamlBytes() ([]byte, error) {
-	return _v3110OpenshiftApiserverRbac10_rolebindingOpenshift_sharedResourceViewersYaml, nil
-}
-
-func v3110OpenshiftApiserverRbac10_rolebindingOpenshift_sharedResourceViewersYaml() (*asset, error) {
-	bytes, err := v3110OpenshiftApiserverRbac10_rolebindingOpenshift_sharedResourceViewersYamlBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/rbac/10_rolebinding-openshift_shared-resource-viewers.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -6431,10 +6271,6 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/deploy.yaml":                                                                                                                        v3110OpenshiftApiserverDeployYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                                                                                                                            v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/pdb.yaml":                                                                                                                           v3110OpenshiftApiserverPdbYaml,
-	"v3.11.0/openshift-apiserver/rbac/00_role-openshift-node_system-node-config-reader.yaml":                                                                         v3110OpenshiftApiserverRbac00_roleOpenshiftNode_systemNodeConfigReaderYaml,
-	"v3.11.0/openshift-apiserver/rbac/00_role-openshift_shared-resource-viewer.yaml":                                                                                 v3110OpenshiftApiserverRbac00_roleOpenshift_sharedResourceViewerYaml,
-	"v3.11.0/openshift-apiserver/rbac/10_rolebinding-openshift-node_system-node-config-reader.yaml":                                                                  v3110OpenshiftApiserverRbac10_rolebindingOpenshiftNode_systemNodeConfigReaderYaml,
-	"v3.11.0/openshift-apiserver/rbac/10_rolebinding-openshift_shared-resource-viewers.yaml":                                                                         v3110OpenshiftApiserverRbac10_rolebindingOpenshift_sharedResourceViewersYaml,
 	"v3.11.0/openshift-apiserver/rbac/20_clusterrole-basic-user.yaml":                                                                                                v3110OpenshiftApiserverRbac20_clusterroleBasicUserYaml,
 	"v3.11.0/openshift-apiserver/rbac/20_clusterrole-cluster-debugger.yaml":                                                                                          v3110OpenshiftApiserverRbac20_clusterroleClusterDebuggerYaml,
 	"v3.11.0/openshift-apiserver/rbac/20_clusterrole-cluster-reader.yaml":                                                                                            v3110OpenshiftApiserverRbac20_clusterroleClusterReaderYaml,
@@ -6595,10 +6431,6 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"pdb.yaml":                          {v3110OpenshiftApiserverPdbYaml, map[string]*bintree{}},
 			"rbac": {nil, map[string]*bintree{
-				"00_role-openshift-node_system-node-config-reader.yaml":                                          {v3110OpenshiftApiserverRbac00_roleOpenshiftNode_systemNodeConfigReaderYaml, map[string]*bintree{}},
-				"00_role-openshift_shared-resource-viewer.yaml":                                                  {v3110OpenshiftApiserverRbac00_roleOpenshift_sharedResourceViewerYaml, map[string]*bintree{}},
-				"10_rolebinding-openshift-node_system-node-config-reader.yaml":                                   {v3110OpenshiftApiserverRbac10_rolebindingOpenshiftNode_systemNodeConfigReaderYaml, map[string]*bintree{}},
-				"10_rolebinding-openshift_shared-resource-viewers.yaml":                                          {v3110OpenshiftApiserverRbac10_rolebindingOpenshift_sharedResourceViewersYaml, map[string]*bintree{}},
 				"20_clusterrole-basic-user.yaml":                                                                 {v3110OpenshiftApiserverRbac20_clusterroleBasicUserYaml, map[string]*bintree{}},
 				"20_clusterrole-cluster-debugger.yaml":                                                           {v3110OpenshiftApiserverRbac20_clusterroleClusterDebuggerYaml, map[string]*bintree{}},
 				"20_clusterrole-cluster-reader.yaml":                                                             {v3110OpenshiftApiserverRbac20_clusterroleClusterReaderYaml, map[string]*bintree{}},
