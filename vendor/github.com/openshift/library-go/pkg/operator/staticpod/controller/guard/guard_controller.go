@@ -2,9 +2,9 @@ package guard
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -22,13 +22,10 @@ import (
 	policylisterv1 "k8s.io/client-go/listers/policy/v1"
 	"k8s.io/klog/v2"
 
-	configv1 "github.com/openshift/api/config/v1"
-	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceread"
-	"github.com/openshift/library-go/pkg/operator/staticpod/controller/guard/bindata"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 )
 
@@ -64,7 +61,14 @@ func NewGuardController(
 	pdbGetter policyclientv1.PodDisruptionBudgetsGetter,
 	eventRecorder events.Recorder,
 	createConditionalFunc func() (bool, bool, error),
-) factory.Controller {
+) (factory.Controller, error) {
+	if operandPodLabelSelector == nil {
+		return nil, fmt.Errorf("GuardController: missing required operandPodLabelSelector")
+	}
+	if operandPodLabelSelector.Empty() {
+		return nil, fmt.Errorf("GuardController: operandPodLabelSelector cannot be empty")
+	}
+
 	c := &GuardController{
 		targetNamespace:         targetNamespace,
 		operandPodLabelSelector: operandPodLabelSelector,
@@ -83,7 +87,7 @@ func NewGuardController(
 	return factory.New().WithInformers(
 		kubeInformersForTargetNamespace.Core().V1().Pods().Informer(),
 		kubeInformersClusterScoped.Core().V1().Nodes().Informer(),
-	).WithSync(c.sync).WithSyncDegradedOnError(operatorClient).ToController("GuardController", eventRecorder)
+	).WithSync(c.sync).WithSyncDegradedOnError(operatorClient).ToController("GuardController", eventRecorder), nil
 }
 
 func getInstallerPodImageFromEnv() string {
@@ -117,6 +121,12 @@ func nodeHasUnschedulableTaint(node *corev1.Node) bool {
 	return false
 }
 
+//go:embed manifests/pdb.yaml
+var pdbTemplate []byte
+
+//go:embed manifests/guard-pod.yaml
+var podTemplate []byte
+
 func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	klog.V(5).Info("Syncing guards")
 
@@ -136,7 +146,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 	errs := []error{}
 	if !shouldCreate {
-		pdb := resourceread.ReadPodDisruptionBudgetV1OrDie(bindata.MustAsset(filepath.Join("pkg/operator/staticpod/controller/guard", "manifests/pdb.yaml")))
+		pdb := resourceread.ReadPodDisruptionBudgetV1OrDie(pdbTemplate)
 		pdb.ObjectMeta.Name = getGuardPDBName(c.podResourcePrefix)
 		pdb.ObjectMeta.Namespace = c.targetNamespace
 
@@ -188,7 +198,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 		klog.V(5).Infof("Rendering guard pdb")
 
-		pdb := resourceread.ReadPodDisruptionBudgetV1OrDie(bindata.MustAsset(filepath.Join("pkg/operator/staticpod/controller/guard", "manifests/pdb.yaml")))
+		pdb := resourceread.ReadPodDisruptionBudgetV1OrDie(pdbTemplate)
 		pdb.ObjectMeta.Name = getGuardPDBName(c.podResourcePrefix)
 		pdb.ObjectMeta.Namespace = c.targetNamespace
 		if len(nodes) > 1 {
@@ -250,7 +260,7 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 
 			klog.V(5).Infof("Rendering guard pod for operand %v on node %v", operands[node.Name].Name, node.Name)
 
-			pod := resourceread.ReadPodV1OrDie(bindata.MustAsset(filepath.Join("pkg/operator/staticpod/controller/guard", "manifests/guard-pod.yaml")))
+			pod := resourceread.ReadPodV1OrDie(podTemplate)
 
 			pod.ObjectMeta.Name = getGuardPodName(c.podResourcePrefix, node.Name)
 			pod.ObjectMeta.Namespace = c.targetNamespace
@@ -298,26 +308,4 @@ func (c *GuardController) sync(ctx context.Context, syncCtx factory.SyncContext)
 	}
 
 	return utilerrors.NewAggregate(errs)
-}
-
-// IsSNOCheckFnc creates a function that checks if the topology is SNO
-// In case the err is nil, precheckSucceeded signifies whether the isSNO is valid.
-// If precheckSucceeded is false, the isSNO return value does not reflect the cluster topology
-// and defaults to the bool default value.
-func IsSNOCheckFnc(infraInformer configv1informers.InfrastructureInformer) func() (isSNO, precheckSucceeded bool, err error) {
-	return func() (isSNO, precheckSucceeded bool, err error) {
-		if !infraInformer.Informer().HasSynced() {
-			// Do not return transient error
-			return false, false, nil
-		}
-		infraData, err := infraInformer.Lister().Get("cluster")
-		if err != nil {
-			return false, true, fmt.Errorf("Unable to list infrastructures.config.openshift.io/cluster object, unable to determine topology mode")
-		}
-		if infraData.Status.ControlPlaneTopology == "" {
-			return false, true, fmt.Errorf("ControlPlaneTopology was not set, unable to determine topology mode")
-		}
-
-		return infraData.Status.ControlPlaneTopology == configv1.SingleReplicaTopologyMode, true, nil
-	}
 }
