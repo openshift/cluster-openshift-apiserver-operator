@@ -17,7 +17,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
-	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	"github.com/openshift/library-go/pkg/operator/staticpod/controller/guard"
@@ -29,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -340,8 +338,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	)
 
-	ensureDaemonSetCleanup(ctx, kubeClient, controllerConfig.EventRecorder)
-
 	operatorConfigInformers.Start(ctx.Done())
 	kubeInformersForNamespaces.Start(ctx.Done())
 	apiregistrationInformers.Start(ctx.Done())
@@ -407,60 +403,4 @@ func apiServicesReferences() []configv1.ObjectReference {
 		ret = append(ret, configv1.ObjectReference{Group: "apiregistration.k8s.io", Resource: "apiservices", Name: apiService.Spec.Version + "." + apiService.Spec.Group})
 	}
 	return ret
-}
-
-// ensureDaemonSetCleanup continually ensures the removal of the daemonset
-// used to manage apiserver pods in releases prior to 4.5. The daemonset is
-// removed once the deployment now managing apiserver pods reports at least
-// one pod available.
-func ensureDaemonSetCleanup(ctx context.Context, kubeClient *kubernetes.Clientset, eventRecorder events.Recorder) {
-	// daemonset and deployment both use the same name
-	resourceName := "apiserver"
-
-	dsClient := kubeClient.AppsV1().DaemonSets(operatorclient.TargetNamespace)
-	deployClient := kubeClient.AppsV1().Deployments(operatorclient.TargetNamespace)
-
-	go wait.UntilWithContext(ctx, func(_ context.Context) {
-		// This function isn't expected to take long enough to suggest
-		// checking that the context is done. The wait method will do that
-		// checking.
-
-		// Check whether the legacy daemonset exists and is not marked for deletion
-		ds, err := dsClient.Get(ctx, resourceName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			// Done - daemonset does not exist
-			return
-		}
-		if err != nil {
-			klog.Warningf("Error retrieving legacy daemonset: %v", err)
-			return
-		}
-		if ds.ObjectMeta.DeletionTimestamp != nil {
-			// Done - daemonset has been marked for deletion
-			return
-		}
-
-		// Check that the deployment managing the apiserver pods has at last one available replica
-		deploy, err := deployClient.Get(ctx, resourceName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			// No available replicas if the deployment doesn't exist
-			return
-		}
-		if err != nil {
-			klog.Warningf("Error retrieving the deployment that manages apiserver pods: %v", err)
-			return
-		}
-		if deploy.Status.AvailableReplicas == 0 {
-			eventRecorder.Warning("LegacyDaemonSetCleanup", "the deployment replacing the daemonset does not have available replicas yet")
-			return
-		}
-
-		// Safe to remove legacy daemonset since the deployment has at least one available replica
-		err = dsClient.Delete(ctx, resourceName, metav1.DeleteOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			klog.Warningf("Failed to delete legacy daemonset: %v", err)
-			return
-		}
-		eventRecorder.Event("LegacyDaemonSetCleanup", "legacy daemonset has been removed")
-	}, time.Minute)
 }
