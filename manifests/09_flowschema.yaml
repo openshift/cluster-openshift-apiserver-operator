@@ -1,4 +1,4 @@
-apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta2
 kind: FlowSchema
 metadata:
   name: openshift-apiserver-sar
@@ -38,7 +38,7 @@ spec:
         name: openshift-apiserver-sa
         namespace: openshift-apiserver
 ---
-apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta2
 kind: FlowSchema
 metadata:
   name: openshift-apiserver
@@ -69,7 +69,7 @@ spec:
         name: openshift-apiserver-sa
         namespace: openshift-apiserver
 ---
-apiVersion: flowcontrol.apiserver.k8s.io/v1beta1
+apiVersion: flowcontrol.apiserver.k8s.io/v1beta2
 kind: FlowSchema
 metadata:
   name: openshift-apiserver-operator
