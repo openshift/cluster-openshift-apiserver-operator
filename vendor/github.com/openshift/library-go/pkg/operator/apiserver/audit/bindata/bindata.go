@@ -62,7 +62,7 @@ var _pkgOperatorApiserverAuditManifestsAllrequestbodiesRulesYaml = []byte(`# exc
 - level: Metadata
   resources:
   - group: "route.openshift.io"
-    resources: ["routes"]
+    resources: ["routes", "routes/status"]
   - resources: ["secrets"]
 - level: Metadata
   resources:
@@ -107,6 +107,13 @@ var _pkgOperatorApiserverAuditManifestsBasePolicyYaml = []byte(`    apiVersion: 
       - "/version"
       - "/healthz"
       - "/readyz"
+    # Don't log requests by "system:apiserver" on apirequestcounts
+    - level: None
+      users: ["system:apiserver"]
+      resources:
+        - group: "apiserver.openshift.io"
+          resources: ["apirequestcounts", "apirequestcounts/*"]
+      namespaces: [""]
 `)
 
 func pkgOperatorApiserverAuditManifestsBasePolicyYamlBytes() ([]byte, error) {
@@ -177,7 +184,7 @@ var _pkgOperatorApiserverAuditManifestsWriterequestbodiesRulesYaml = []byte(`# e
 - level: Metadata
   resources:
   - group: "route.openshift.io"
-    resources: ["routes"]
+    resources: ["routes", "routes/status"]
   - resources: ["secrets"]
 - level: Metadata
   resources:
