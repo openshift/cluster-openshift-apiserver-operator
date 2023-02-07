@@ -27,9 +27,9 @@ var _ statemachine.Deployer = &UnionDeployer{}
 
 // NewUnionDeployer creates a deployer that returns a unified state from multiple distinct deployers.
 // That means:
-//  - none has reported an error
-//  - all have converged
-//  - all have observed exactly the same encryption configuration otherwise it returns converged=false
+//   - none has reported an error
+//   - all have converged
+//   - all have observed exactly the same encryption configuration otherwise it returns converged=false
 func NewUnionDeployer(delegates ...MaybeDisabledDeployer) (*UnionDeployer, error) {
 	if len(delegates) == 0 {
 		return nil, fmt.Errorf("no deployers were configured")
@@ -106,12 +106,15 @@ func (d *UnionDeployer) HasSynced() bool {
 }
 
 // AddEventHandler registers a event handler that might influence the result of DeployedEncryptionConfigSecret for all configured deployers.
-func (d *UnionDeployer) AddEventHandler(handler cache.ResourceEventHandler) {
+func (d *UnionDeployer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	d.hasSynced = []cache.InformerSynced{}
 	for _, delegate := range d.delegates {
-		delegate.AddEventHandler(handler)
+		if _, err := delegate.AddEventHandler(handler); err != nil {
+			return nil, err
+		}
 		d.hasSynced = append(d.hasSynced, delegate.HasSynced)
 	}
+	return nil, nil
 }
 
 type disabledByPredicateDeployer struct {

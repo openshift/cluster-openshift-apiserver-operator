@@ -197,7 +197,9 @@ func (d *fakeDeployer) DeployedEncryptionConfigSecret(context.Context) (secret *
 	return d.secret, d.converged, d.err
 }
 
-func (d *fakeDeployer) AddEventHandler(handler cache.ResourceEventHandler) {}
+func (d *fakeDeployer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+	panic("implement me")
+}
 
 func (d *fakeDeployer) HasSynced() bool {
 	return true
