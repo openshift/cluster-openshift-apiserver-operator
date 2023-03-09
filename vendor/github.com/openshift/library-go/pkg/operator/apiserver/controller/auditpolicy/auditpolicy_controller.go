@@ -15,7 +15,9 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -99,6 +101,19 @@ func (c *auditPolicyController) sync(ctx context.Context, syncCtx factory.SyncCo
 	return err
 }
 
+// ensureNamespaceCreated makes sure target namespace exists before running other controllers
+func (c *auditPolicyController) ensureNamespacesCreated(ctx context.Context) error {
+	nsClient := c.kubeClient.CoreV1().Namespaces()
+	return wait.PollImmediateUntilWithContext(ctx, time.Minute, func(_ context.Context) (done bool, err error) {
+		_, err = nsClient.Get(ctx, c.targetNamespace, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			// Wait - target namespace doesn't exist yet
+			return false, nil
+		}
+		return true, nil
+	})
+}
+
 func (c *auditPolicyController) syncAuditPolicy(ctx context.Context, config configv1.Audit, recorder events.Recorder) error {
 	desired, err := audit.GetAuditPolicy(config)
 	if err != nil {
@@ -110,6 +125,11 @@ func (c *auditPolicyController) syncAuditPolicy(ctx context.Context, config conf
 
 	bs, err := yaml.Marshal(desired)
 	if err != nil {
+		return err
+	}
+
+	// Before starting operator make sure target namespace is created
+	if err := c.ensureNamespacesCreated(ctx); err != nil {
 		return err
 	}
 

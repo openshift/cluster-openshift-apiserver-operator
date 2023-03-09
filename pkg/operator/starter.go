@@ -346,9 +346,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	migrationInformer.Start(ctx.Done())
 	apiextensionsInformers.Start(ctx.Done())
 
+	go runnableAPIServerControllers.Run(ctx)
 	go configObserver.Run(ctx, 1)
 	go resourceSyncController.Run(ctx, 1)
-	go runnableAPIServerControllers.Run(ctx)
 	go staleConditions.Run(ctx, 1)
 	go connectivityCheckController.Run(ctx, 1)
 
