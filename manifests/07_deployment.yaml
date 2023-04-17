@@ -66,6 +66,8 @@ spec:
           value: "0.0.1-snapshot"
         - name: KUBE_APISERVER_OPERATOR_IMAGE
           value: docker.io/openshift/origin-cluster-kube-apiserver-operator:latest
+        - name: OPENSHIFT_PROFILE
+          value: web
       volumes:
       - name: serving-cert
         secret:
