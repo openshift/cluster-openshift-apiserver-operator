@@ -275,7 +275,7 @@ spec:
             path: healthz
           initialDelaySeconds: 0
           periodSeconds: 10
-          timeoutSeconds: 1
+          timeoutSeconds: 10
           successThreshold: 1
           failureThreshold: 3
         readinessProbe:
@@ -285,7 +285,7 @@ spec:
             path: readyz
           initialDelaySeconds: 0
           periodSeconds: 5
-          timeoutSeconds: 1
+          timeoutSeconds: 10
           successThreshold: 1
           failureThreshold: 1
         startupProbe:
@@ -295,7 +295,7 @@ spec:
             path: healthz
           initialDelaySeconds: 0
           periodSeconds: 5
-          timeoutSeconds: 1
+          timeoutSeconds: 10
           successThreshold: 1
           failureThreshold: 30
       - name: openshift-apiserver-check-endpoints
