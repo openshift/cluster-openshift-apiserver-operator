@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,5 +68,6 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "RouteOfLife",
+		EncryptionProvider:             configv1.EncryptionType("aescbc"),
 	})
 }
