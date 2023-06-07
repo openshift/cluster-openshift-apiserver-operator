@@ -7,7 +7,7 @@ require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
 	github.com/openshift/api v0.0.0-20230503133300-8bbcb7ca7183
-	github.com/openshift/build-machinery-go v0.0.0-20220913142420-e25cf57ea46d
+	github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
 	github.com/openshift/client-go v0.0.0-20230503144108-75015d2347cb
 	github.com/openshift/library-go v0.0.0-20230508110756-9b7abe2c9cbf
 	github.com/spf13/cobra v1.6.1
