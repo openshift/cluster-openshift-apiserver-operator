@@ -20,15 +20,18 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog/v2"
 
 	openshiftapi "github.com/openshift/api"
+	configv1 "github.com/openshift/api/config/v1"
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	configinformersconfigv1 "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
@@ -55,10 +58,11 @@ type ensureAtMostOnePodPerNodeFunc func(spec *appsv1.DeploymentSpec, component s
 
 // OpenShiftAPIServerWorkload is a struct that holds necessary data to install OpenShiftAPIServer
 type OpenShiftAPIServerWorkload struct {
-	operatorClient        v1helpers.OperatorClient
-	operatorConfigClient  operatorv1client.OpenShiftAPIServersGetter
-	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface
-	kubeClient            kubernetes.Interface
+	operatorClient         v1helpers.OperatorClient
+	operatorConfigClient   operatorv1client.OpenShiftAPIServersGetter
+	openshiftConfigClient  openshiftconfigclientv1.ConfigV1Interface
+	clusterVersionInformer configinformersconfigv1.ClusterVersionInformer
+	kubeClient             kubernetes.Interface
 
 	// countNodes a function to return count of nodes on which the workload will be installed
 	countNodes nodeCountFunc
@@ -79,6 +83,7 @@ func NewOpenShiftAPIServerWorkload(
 	operatorClient v1helpers.OperatorClient,
 	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
+	clusterVersionInformer configinformersconfigv1.ClusterVersionInformer,
 	countNodes nodeCountFunc,
 	ensureAtMostOnePodPerNode ensureAtMostOnePodPerNodeFunc,
 	targetNamespace string,
@@ -91,6 +96,7 @@ func NewOpenShiftAPIServerWorkload(
 		operatorClient:            operatorClient,
 		operatorConfigClient:      operatorConfigClient,
 		openshiftConfigClient:     openshiftConfigClient,
+		clusterVersionInformer:    clusterVersionInformer,
 		countNodes:                countNodes,
 		ensureAtMostOnePodPerNode: ensureAtMostOnePodPerNode,
 		targetNamespace:           targetNamespace,
@@ -147,7 +153,7 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 	}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
-	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx, c.kubeClient.CoreV1(), syncContext.Recorder(), operatorConfig)
+	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx, c.kubeClient.CoreV1(), c.clusterVersionInformer, syncContext.Recorder(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -273,15 +279,46 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx context.Context
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, client coreclientv1.ConfigMapsGetter, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
+func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, client coreclientv1.ConfigMapsGetter, clusterVersionInformer configinformersconfigv1.ClusterVersionInformer, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/config/defaultconfig.yaml")
+
+	clusterVersion, err := clusterVersionInformer.Lister().Get("version")
+	if err != nil {
+		return nil, false, err
+	}
+
+	knownCaps := sets.New[configv1.ClusterVersionCapability](clusterVersion.Status.Capabilities.KnownCapabilities...)
+	capsEnabled := sets.New[configv1.ClusterVersionCapability](clusterVersion.Status.Capabilities.EnabledCapabilities...)
+
+	apiServersConfig := openshiftcontrolplanev1.OpenShiftAPIServerConfig{
+		APIServers: openshiftcontrolplanev1.APIServers{
+			PerGroupOptions: []openshiftcontrolplanev1.PerGroupOptions{},
+		},
+	}
+
+	if knownCaps.Has(configv1.ClusterVersionCapabilityBuild) && !capsEnabled.Has(configv1.ClusterVersionCapabilityBuild) {
+		klog.V(4).Infof("Capability %q not enabled, disabling 'openshift.io/build' controller", configv1.ClusterVersionCapabilityBuild)
+		apiServersConfig.APIServers.PerGroupOptions = append(apiServersConfig.APIServers.PerGroupOptions, openshiftcontrolplanev1.PerGroupOptions{Name: openshiftcontrolplanev1.OpenShiftBuildAPIserver, DisabledVersions: []string{"v1"}})
+	}
+
+	if knownCaps.Has(configv1.ClusterVersionCapabilityDeploymentConfig) && !capsEnabled.Has(configv1.ClusterVersionCapabilityDeploymentConfig) {
+		klog.V(4).Infof("Capability %q not enabled, disabling 'openshift.io/apps' controller", configv1.ClusterVersionCapabilityDeploymentConfig)
+		apiServersConfig.APIServers.PerGroupOptions = append(apiServersConfig.APIServers.PerGroupOptions, openshiftcontrolplanev1.PerGroupOptions{Name: openshiftcontrolplanev1.OpenShiftAppsAPIserver, DisabledVersions: []string{"v1"}})
+	}
+
+	bytes, err := json.Marshal(apiServersConfig)
+	if err != nil {
+		return nil, false, fmt.Errorf("unable to marshal OpenShiftAPIServerConfig struct: %v", err)
+	}
+
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&openshiftcontrolplanev1.OpenShiftAPIServerConfig{},
 		configMap,
 		"config.yaml",
 		nil,
 		defaultConfig,
+		bytes,
 		operatorConfig.Spec.ObservedConfig.Raw,
 		operatorConfig.Spec.UnsupportedConfigOverrides.Raw,
 	)

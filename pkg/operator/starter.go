@@ -10,6 +10,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	configinformersconfigv1 "github.com/openshift/client-go/config/informers/externalversions/config/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
@@ -38,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -51,6 +53,19 @@ import (
 const (
 	oauthAPIServerTargetNamespace = "openshift-oauth-apiserver"
 )
+
+var apiServiceGroupVersions = []schema.GroupVersion{
+	// these are all the apigroups we manage
+	{Group: "apps.openshift.io", Version: "v1"},
+	{Group: "authorization.openshift.io", Version: "v1"},
+	{Group: "build.openshift.io", Version: "v1"},
+	{Group: "image.openshift.io", Version: "v1"},
+	{Group: "project.openshift.io", Version: "v1"},
+	{Group: "quota.openshift.io", Version: "v1"},
+	{Group: "route.openshift.io", Version: "v1"},
+	{Group: "security.openshift.io", Version: "v1"},
+	{Group: "template.openshift.io", Version: "v1"},
+}
 
 func RunOperator(ctx context.Context, controllerConfig *controllercmd.ControllerContext) error {
 	kubeClient, err := kubernetes.NewForConfig(controllerConfig.ProtoKubeConfig)
@@ -156,6 +171,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorClient,
 		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
+		configInformers.Config().V1().ClusterVersions(),
 		workloadcontroller.CountNodesFuncWrapper(kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister()),
 		workloadcontroller.EnsureAtMostOnePodPerNode,
 		"openshift-apiserver",
@@ -180,13 +196,14 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	).WithAPIServiceController(
 		"openshift-apiserver",
-		func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error) {
-			return apiServices(), nil, nil
+		func() ([]*apiregistrationv1.APIService, []*apiregistrationv1.APIService, error) {
+			return apiServices(configInformers.Config().V1().ClusterVersions())
 		},
 		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeClient,
+		configInformers.Config().V1().ClusterVersions().Informer(),
 	).WithFinalizerController(
 		operatorclient.TargetNamespace,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
@@ -224,6 +241,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces,
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer(),
 		configInformers.Config().V1().Images().Informer(),
+		configInformers.Config().V1().ClusterVersions().Informer(),
 	).WithStaticResourcesController(
 		"APIServerStaticResources",
 		v311_00_assets.Asset,
@@ -383,21 +401,26 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	return nil
 }
 
-func apiServices() []*apiregistrationv1.APIService {
-	var apiServiceGroupVersions = []schema.GroupVersion{
-		// these are all the apigroups we manage
-		{Group: "apps.openshift.io", Version: "v1"},
-		{Group: "authorization.openshift.io", Version: "v1"},
-		{Group: "build.openshift.io", Version: "v1"},
-		{Group: "image.openshift.io", Version: "v1"},
-		{Group: "project.openshift.io", Version: "v1"},
-		{Group: "quota.openshift.io", Version: "v1"},
-		{Group: "route.openshift.io", Version: "v1"},
-		{Group: "security.openshift.io", Version: "v1"},
-		{Group: "template.openshift.io", Version: "v1"},
+func apiServices(clusterVersionInformer configinformersconfigv1.ClusterVersionInformer) ([]*apiregistrationv1.APIService, []*apiregistrationv1.APIService, error) {
+	clusterVersion, err := clusterVersionInformer.Lister().Get("version")
+	if err != nil {
+		return nil, nil, err
 	}
 
-	ret := []*apiregistrationv1.APIService{}
+	knownCaps := sets.New[configv1.ClusterVersionCapability](clusterVersion.Status.Capabilities.KnownCapabilities...)
+	capsEnabled := sets.New[configv1.ClusterVersionCapability](clusterVersion.Status.Capabilities.EnabledCapabilities...)
+
+	groupDisabled := make(map[string]bool)
+	if knownCaps.Has(configv1.ClusterVersionCapabilityBuild) && !capsEnabled.Has(configv1.ClusterVersionCapabilityBuild) {
+		groupDisabled["build.openshift.io"] = true
+	}
+	if knownCaps.Has(configv1.ClusterVersionCapabilityDeploymentConfig) && !capsEnabled.Has(configv1.ClusterVersionCapabilityDeploymentConfig) {
+		groupDisabled["apps.openshift.io"] = true
+	}
+
+	disabled := []*apiregistrationv1.APIService{}
+	enabled := []*apiregistrationv1.APIService{}
+
 	for _, apiServiceGroupVersion := range apiServiceGroupVersions {
 		obj := &apiregistrationv1.APIService{
 			ObjectMeta: metav1.ObjectMeta{
@@ -418,16 +441,20 @@ func apiServices() []*apiregistrationv1.APIService {
 				VersionPriority:      15,
 			},
 		}
-		ret = append(ret, obj)
+		if groupDisabled[apiServiceGroupVersion.Group] {
+			disabled = append(disabled, obj)
+		} else {
+			enabled = append(enabled, obj)
+		}
 	}
 
-	return ret
+	return enabled, disabled, nil
 }
 
 func apiServicesReferences() []configv1.ObjectReference {
 	ret := []configv1.ObjectReference{}
-	for _, apiService := range apiServices() {
-		ret = append(ret, configv1.ObjectReference{Group: "apiregistration.k8s.io", Resource: "apiservices", Name: apiService.Spec.Version + "." + apiService.Spec.Group})
+	for _, apiService := range apiServiceGroupVersions {
+		ret = append(ret, configv1.ObjectReference{Group: "apiregistration.k8s.io", Resource: "apiservices", Name: apiService.Version + "." + apiService.Group})
 	}
 	return ret
 }
