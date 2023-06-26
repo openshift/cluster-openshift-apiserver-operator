@@ -78,6 +78,10 @@ apiServerArguments:
   - /var/log/openshift-apiserver/audit.log
   audit-policy-file:
   - /var/run/configmaps/audit/policy.yaml
+  etcd-healthcheck-timeout:
+  - 9s
+  etcd-readycheck-timeout:
+  - 9s
   shutdown-delay-duration:
   - 15s # this gives SDN 5s to converge after the worst readyz=false delay
   shutdown-send-retry-after:
