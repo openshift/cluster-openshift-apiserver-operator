@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -12,8 +13,17 @@ import (
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/connectivitycheckcontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
+	operatorworkload "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workload"
 	"github.com/openshift/library-go/pkg/controller/controllercmd"
+	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
+	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
+	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
@@ -36,15 +46,6 @@ import (
 	utilpointer "k8s.io/utils/pointer"
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
-
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
-	operatorworkload "github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/workload"
-	workloadcontroller "github.com/openshift/library-go/pkg/operator/apiserver/controller/workload"
-	apiservercontrollerset "github.com/openshift/library-go/pkg/operator/apiserver/controllerset"
-	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 )
 
 const (
@@ -95,6 +96,29 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewClusterScopedOperatorClient(controllerConfig.KubeConfig, operatorv1.GroupVersion.WithResource("openshiftapiservers"))
 	if err != nil {
 		return err
+	}
+
+	desiredVersion := status.VersionForOperatorFromEnv()
+	missingVersion := "0.0.1-snapshot"
+
+	// By default, this will exit(0) the process if the featuregates ever change to a different set of values.
+	featureGateAccessor := featuregates.NewFeatureGateAccess(
+		desiredVersion, missingVersion,
+		configInformers.Config().V1().ClusterVersions(), configInformers.Config().V1().FeatureGates(),
+		controllerConfig.EventRecorder,
+	)
+	go featureGateAccessor.Run(ctx)
+	// this second start is intentional.  This must start in order to sync the clusterversion and if it isn't started later
+	// then any additional resources being watched won't have their informers started.
+	configInformers.Start(ctx.Done())
+
+	select {
+	case <-featureGateAccessor.InitialFeatureGatesObserved():
+		featureGates, _ := featureGateAccessor.CurrentFeatureGates()
+		klog.Infof("FeatureGates initialized: knownFeatureGates=%v", featureGates.KnownFeatures())
+	case <-time.After(1 * time.Minute):
+		klog.Errorf("timed out waiting for FeatureGate detection")
+		return fmt.Errorf("timed out waiting for FeatureGate detection")
 	}
 
 	resourceSyncController, debugHandler, err := resourcesynccontroller.NewResourceSyncController(
@@ -301,6 +325,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		resourceSyncController,
 		operatorConfigInformers,
 		configInformers,
+		featureGateAccessor,
 		controllerConfig.EventRecorder,
 	)
 
