@@ -1,26 +1,25 @@
 package configobservercontroller
 
 import (
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/client-go/tools/cache"
-
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
-	"github.com/openshift/library-go/pkg/controller/factory"
-	"github.com/openshift/library-go/pkg/operator/configobserver"
-	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
-	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
-	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
-	"github.com/openshift/library-go/pkg/operator/encryption/observer"
-	"github.com/openshift/library-go/pkg/operator/events"
-	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
-	"github.com/openshift/library-go/pkg/operator/v1helpers"
-
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/images"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/ingresses"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/project"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/configobserver"
+	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
+	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	"github.com/openshift/library-go/pkg/operator/configobserver/proxy"
+	"github.com/openshift/library-go/pkg/operator/encryption/observer"
+	"github.com/openshift/library-go/pkg/operator/events"
+	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
+	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 )
 
 // NewConfigObserver initializes a new configuration observer.
@@ -31,6 +30,7 @@ func NewConfigObserver(
 	resourceSyncer resourcesynccontroller.ResourceSyncer,
 	operatorConfigInformers operatorv1informers.SharedInformerFactory,
 	configInformers configinformers.SharedInformerFactory,
+	featureGateAccessor featuregates.FeatureGateAccess,
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := configobserver.NewConfigObserver(
@@ -69,6 +69,12 @@ func NewConfigObserver(
 		project.ObserveProjectRequestTemplateName,
 		proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
 		observer.NewEncryptionConfigObserver(operatorclient.TargetNamespace, "/var/run/secrets/encryption-config/encryption-config"),
+		featuregates.NewObserveFeatureFlagsFunc(
+			nil,
+			nil,
+			[]string{"apiServerArguments", "feature-gates"},
+			featureGateAccessor,
+		),
 	)
 
 	return c
