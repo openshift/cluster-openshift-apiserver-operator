@@ -198,6 +198,7 @@ spec:
         apiserver: "true"
       annotations:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+        openshift.io/required-scc: 'privileged'
     spec:
       serviceAccountName: openshift-apiserver-sa
       priorityClassName: system-node-critical
