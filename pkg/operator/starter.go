@@ -180,7 +180,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	).WithAPIServiceController(
 		"openshift-apiserver",
-		func() ([]*apiregistrationv1.APIService, error) { return apiServices(), nil },
+		func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error) {
+			return apiServices(), nil, nil
+		},
 		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
