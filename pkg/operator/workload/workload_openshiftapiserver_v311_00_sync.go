@@ -213,8 +213,8 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 func mergeImageRegistryCertificates(ctx context.Context, cfgCli openshiftconfigclientv1.ConfigV1Interface, cli coreclientv1.CoreV1Interface) (map[string]string, error) {
 	cas := make(map[string]string)
 
-	internalRegistryCAs, err := cli.ConfigMaps("openshift-image-registry").Get(
-		ctx, "image-registry-certificates", metav1.GetOptions{},
+	internalRegistryCAs, err := cli.ConfigMaps("openshift-config-managed").Get(
+		ctx, "merged-trusted-image-registry-ca", metav1.GetOptions{},
 	)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
