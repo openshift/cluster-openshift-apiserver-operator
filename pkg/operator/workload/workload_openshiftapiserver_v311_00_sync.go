@@ -31,7 +31,7 @@ import (
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	configinformersconfigv1 "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
@@ -58,11 +58,11 @@ type ensureAtMostOnePodPerNodeFunc func(spec *appsv1.DeploymentSpec, component s
 
 // OpenShiftAPIServerWorkload is a struct that holds necessary data to install OpenShiftAPIServer
 type OpenShiftAPIServerWorkload struct {
-	operatorClient         v1helpers.OperatorClient
-	operatorConfigClient   operatorv1client.OpenShiftAPIServersGetter
-	openshiftConfigClient  openshiftconfigclientv1.ConfigV1Interface
-	clusterVersionInformer configinformersconfigv1.ClusterVersionInformer
-	kubeClient             kubernetes.Interface
+	operatorClient        v1helpers.OperatorClient
+	operatorConfigClient  operatorv1client.OpenShiftAPIServersGetter
+	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface
+	clusterVersionLister  configlisterv1.ClusterVersionLister
+	kubeClient            kubernetes.Interface
 
 	// countNodes a function to return count of nodes on which the workload will be installed
 	countNodes nodeCountFunc
@@ -83,7 +83,7 @@ func NewOpenShiftAPIServerWorkload(
 	operatorClient v1helpers.OperatorClient,
 	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
-	clusterVersionInformer configinformersconfigv1.ClusterVersionInformer,
+	clusterVersionLister configlisterv1.ClusterVersionLister,
 	countNodes nodeCountFunc,
 	ensureAtMostOnePodPerNode ensureAtMostOnePodPerNodeFunc,
 	targetNamespace string,
@@ -96,7 +96,7 @@ func NewOpenShiftAPIServerWorkload(
 		operatorClient:            operatorClient,
 		operatorConfigClient:      operatorConfigClient,
 		openshiftConfigClient:     openshiftConfigClient,
-		clusterVersionInformer:    clusterVersionInformer,
+		clusterVersionLister:      clusterVersionLister,
 		countNodes:                countNodes,
 		ensureAtMostOnePodPerNode: ensureAtMostOnePodPerNode,
 		targetNamespace:           targetNamespace,
@@ -153,7 +153,7 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 	}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
-	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx, c.kubeClient.CoreV1(), c.clusterVersionInformer, syncContext.Recorder(), operatorConfig)
+	_, _, err = manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx, c.kubeClient.CoreV1(), c.clusterVersionLister, syncContext.Recorder(), operatorConfig)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "configmap", err))
 	}
@@ -279,11 +279,11 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx context.Context
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
-func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, client coreclientv1.ConfigMapsGetter, clusterVersionInformer configinformersconfigv1.ClusterVersionInformer, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
+func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, client coreclientv1.ConfigMapsGetter, clusterVersionLister configlisterv1.ClusterVersionLister, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/config/defaultconfig.yaml")
 
-	clusterVersion, err := clusterVersionInformer.Lister().Get("version")
+	clusterVersion, err := clusterVersionLister.Get("version")
 	if err != nil {
 		return nil, false, err
 	}
@@ -291,23 +291,26 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, cl
 	knownCaps := sets.New[configv1.ClusterVersionCapability](clusterVersion.Status.Capabilities.KnownCapabilities...)
 	capsEnabled := sets.New[configv1.ClusterVersionCapability](clusterVersion.Status.Capabilities.EnabledCapabilities...)
 
-	apiServersConfig := openshiftcontrolplanev1.OpenShiftAPIServerConfig{
-		APIServers: openshiftcontrolplanev1.APIServers{
-			PerGroupOptions: []openshiftcontrolplanev1.PerGroupOptions{},
-		},
+	apiServers := openshiftcontrolplanev1.APIServers{
+		PerGroupOptions: []openshiftcontrolplanev1.PerGroupOptions{},
 	}
 
 	if knownCaps.Has(configv1.ClusterVersionCapabilityBuild) && !capsEnabled.Has(configv1.ClusterVersionCapabilityBuild) {
 		klog.V(4).Infof("Capability %q not enabled, disabling 'openshift.io/build' controller", configv1.ClusterVersionCapabilityBuild)
-		apiServersConfig.APIServers.PerGroupOptions = append(apiServersConfig.APIServers.PerGroupOptions, openshiftcontrolplanev1.PerGroupOptions{Name: openshiftcontrolplanev1.OpenShiftBuildAPIserver, DisabledVersions: []string{"v1"}})
+		apiServers.PerGroupOptions = append(apiServers.PerGroupOptions, openshiftcontrolplanev1.PerGroupOptions{Name: openshiftcontrolplanev1.OpenShiftBuildAPIserver, DisabledVersions: []string{"v1"}})
 	}
 
 	if knownCaps.Has(configv1.ClusterVersionCapabilityDeploymentConfig) && !capsEnabled.Has(configv1.ClusterVersionCapabilityDeploymentConfig) {
 		klog.V(4).Infof("Capability %q not enabled, disabling 'openshift.io/apps' controller", configv1.ClusterVersionCapabilityDeploymentConfig)
-		apiServersConfig.APIServers.PerGroupOptions = append(apiServersConfig.APIServers.PerGroupOptions, openshiftcontrolplanev1.PerGroupOptions{Name: openshiftcontrolplanev1.OpenShiftAppsAPIserver, DisabledVersions: []string{"v1"}})
+		apiServers.PerGroupOptions = append(apiServers.PerGroupOptions, openshiftcontrolplanev1.PerGroupOptions{Name: openshiftcontrolplanev1.OpenShiftAppsAPIserver, DisabledVersions: []string{"v1"}})
 	}
 
-	bytes, err := json.Marshal(apiServersConfig)
+	bytes, err := json.Marshal(apiServers)
+	if err != nil {
+		return nil, false, fmt.Errorf("unable to marshal APIServers struct: %v", err)
+	}
+
+	configYaml, err := yaml.JSONToYAML([]byte(fmt.Sprintf("{\"apiVersion\": \"openshiftcontrolplane.config.openshift.io/v1\", \"kind\": \"OpenShiftAPIServerConfig\", \"apiServers\": %v}\n", string(bytes))))
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to marshal OpenShiftAPIServerConfig struct: %v", err)
 	}
@@ -318,7 +321,7 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, cl
 		"config.yaml",
 		nil,
 		defaultConfig,
-		bytes,
+		configYaml,
 		operatorConfig.Spec.ObservedConfig.Raw,
 		operatorConfig.Spec.UnsupportedConfigOverrides.Raw,
 	)

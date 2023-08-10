@@ -10,7 +10,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
-	configinformersconfigv1 "github.com/openshift/client-go/config/informers/externalversions/config/v1"
+	configlisterv1 "github.com/openshift/client-go/config/listers/config/v1"
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
@@ -171,7 +171,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorClient,
 		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
-		configInformers.Config().V1().ClusterVersions(),
+		configInformers.Config().V1().ClusterVersions().Lister(),
 		workloadcontroller.CountNodesFuncWrapper(kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister()),
 		workloadcontroller.EnsureAtMostOnePodPerNode,
 		"openshift-apiserver",
@@ -197,7 +197,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).WithAPIServiceController(
 		"openshift-apiserver",
 		func() ([]*apiregistrationv1.APIService, []*apiregistrationv1.APIService, error) {
-			return apiServices(configInformers.Config().V1().ClusterVersions())
+			return apiServices(configInformers.Config().V1().ClusterVersions().Lister())
 		},
 		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
@@ -401,8 +401,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	return nil
 }
 
-func apiServices(clusterVersionInformer configinformersconfigv1.ClusterVersionInformer) ([]*apiregistrationv1.APIService, []*apiregistrationv1.APIService, error) {
-	clusterVersion, err := clusterVersionInformer.Lister().Get("version")
+func apiServices(clusterVersionLister configlisterv1.ClusterVersionLister) ([]*apiregistrationv1.APIService, []*apiregistrationv1.APIService, error) {
+	clusterVersion, err := clusterVersionLister.Get("version")
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,17 +1,14 @@
 package workload
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"testing"
-	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	configfake "github.com/openshift/client-go/config/clientset/versioned/fake"
-	configinformers "github.com/openshift/client-go/config/informers/externalversions"
+	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
 	operatorfake "github.com/openshift/client-go/operator/clientset/versioned/fake"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
@@ -24,8 +21,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/diff"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	clientgotesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 )
 
 func fakeCountNodes(_ map[string]string) (*int32, error) {
@@ -70,7 +71,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			kubeClient := fake.NewSimpleClientset(
+			fakeKubeClient := fake.NewSimpleClientset(
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "serving-cert", Namespace: "openshift-apiserver"}},
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "etcd-client", Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace}},
 				&appsv1.Deployment{
@@ -105,27 +106,21 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 			)
 
 			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
-			configInformers := configinformers.NewSharedInformerFactory(openshiftConfigClient, 10*time.Minute)
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			indexer.Add(&configv1.ClusterVersion{ObjectMeta: metav1.ObjectMeta{Name: "version"}})
 
 			target := OpenShiftAPIServerWorkload{
-				kubeClient:                kubeClient,
+				kubeClient:                fakeKubeClient,
 				operatorClient:            fakeOperatorClient,
 				operatorConfigClient:      apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:     openshiftConfigClient.ConfigV1(),
-				clusterVersionInformer:    configInformers.Config().V1().ClusterVersions(),
+				clusterVersionLister:      configlistersv1.NewClusterVersionLister(indexer),
 				versionRecorder:           status.NewVersionGetter(),
 				countNodes:                fakeCountNodes,
 				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
 			}
 
-			// register the informer
-			configInformers.Config().V1().ClusterVersions().Informer()
-
-			ctx := context.Background()
-			configInformers.Start(ctx.Done())
-			configInformers.WaitForCacheSync(ctx.Done())
-
-			if _, _, err := target.Sync(ctx, factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder(""))); len(err) > 0 {
+			if _, _, err := target.Sync(context.Background(), factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder(""))); len(err) > 0 {
 				t.Fatal(err)
 			}
 
@@ -306,7 +301,7 @@ func TestCapabilities(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			kubeClient := fake.NewSimpleClientset(
+			fakeKubeClient := fake.NewSimpleClientset(
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "serving-cert", Namespace: "openshift-apiserver"}},
 				&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "etcd-client", Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace}},
 				&appsv1.Deployment{
@@ -335,56 +330,102 @@ func TestCapabilities(t *testing.T) {
 				},
 			}
 			apiServiceOperatorClient := operatorfake.NewSimpleClientset(operatorConfig)
-			openshiftConfigClient := configfake.NewSimpleClientset(
-				&configv1.Image{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
-				&configv1.ClusterVersion{
-					ObjectMeta: metav1.ObjectMeta{Name: "version"},
-					Status: configv1.ClusterVersionStatus{
-						Capabilities: configv1.ClusterVersionCapabilitiesStatus{
-							EnabledCapabilities: tc.enabledCapabilities,
-							KnownCapabilities:   tc.knownCapabilities,
-						},
+			clusterVersion := &configv1.ClusterVersion{
+				ObjectMeta: metav1.ObjectMeta{Name: "version"},
+				Status: configv1.ClusterVersionStatus{
+					Capabilities: configv1.ClusterVersionCapabilitiesStatus{
+						EnabledCapabilities: tc.enabledCapabilities,
+						KnownCapabilities:   tc.knownCapabilities,
 					},
 				},
+			}
+			openshiftConfigClient := configfake.NewSimpleClientset(
+				&configv1.Image{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}},
+				clusterVersion,
 			)
 
 			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed}, &operatorv1.OperatorStatus{}, nil)
-			configInformers := configinformers.NewSharedInformerFactory(openshiftConfigClient, 10*time.Minute)
+
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			indexer.Add(clusterVersion)
 
 			target := OpenShiftAPIServerWorkload{
-				kubeClient:                kubeClient,
+				kubeClient:                fakeKubeClient,
 				operatorClient:            fakeOperatorClient,
 				operatorConfigClient:      apiServiceOperatorClient.OperatorV1(),
 				openshiftConfigClient:     openshiftConfigClient.ConfigV1(),
-				clusterVersionInformer:    configInformers.Config().V1().ClusterVersions(),
+				clusterVersionLister:      configlistersv1.NewClusterVersionLister(indexer),
 				versionRecorder:           status.NewVersionGetter(),
 				countNodes:                fakeCountNodes,
 				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
 			}
 
-			// register the informer
-			configInformers.Config().V1().ClusterVersions().Informer()
-
 			ctx := context.Background()
-			configInformers.Start(ctx.Done())
-			configInformers.WaitForCacheSync(ctx.Done())
-
 			if _, _, err := target.Sync(ctx, factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder(""))); len(err) > 0 {
 				t.Fatal(err)
 			}
 
-			cm, err := kubeClient.CoreV1().ConfigMaps("openshift-apiserver").Get(ctx, "config", metav1.GetOptions{})
-			if err != nil {
-				t.Fatalf("Unable to get 'config' configmap: %v", err)
+			expecteOpenShiftAPIServerConfig := &openshiftcontrolplanev1.OpenShiftAPIServerConfig{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "OpenShiftAPIServerConfig",
+					APIVersion: "openshiftcontrolplane.config.openshift.io/v1",
+				},
+				GenericAPIServerConfig: configv1.GenericAPIServerConfig{
+					ServingInfo: configv1.HTTPServingInfo{
+						ServingInfo: configv1.ServingInfo{
+							BindNetwork: "tcp",
+						},
+					},
+					StorageConfig: configv1.EtcdStorageConfig{
+						EtcdConnectionInfo: configv1.EtcdConnectionInfo{
+							URLs: []string{"https://etcd.openshift-etcd.svc:2379"},
+						},
+					},
+				},
+				APIServerArguments: map[string][]string{
+					"audit-log-format":          {"json"},
+					"audit-log-maxbackup":       {"10"},
+					"audit-log-maxsize":         {"100"},
+					"audit-log-path":            {"/var/log/openshift-apiserver/audit.log"},
+					"audit-policy-file":         {"/var/run/configmaps/audit/policy.yaml"},
+					"etcd-healthcheck-timeout":  {"9s"},
+					"etcd-readycheck-timeout":   {"9s"},
+					"shutdown-delay-duration":   {"15s"},
+					"shutdown-send-retry-after": {"true"},
+				},
+				APIServers: openshiftcontrolplanev1.APIServers{
+					PerGroupOptions: tc.expectedPerGroupOptions,
+				},
 			}
 
-			config := openshiftcontrolplanev1.OpenShiftAPIServerConfig{}
-			if err := json.NewDecoder(bytes.NewBuffer([]byte(cm.Data["config.yaml"]))).Decode(&config); err != nil {
+			var createConfigCM *corev1.ConfigMap
+			for _, action := range fakeKubeClient.Actions() {
+				if action.GetResource().Resource != "configmaps" || action.GetVerb() != "create" {
+					continue
+				}
+				cm := action.(clientgotesting.CreateActionImpl).GetObject().(*corev1.ConfigMap)
+				if cm.Name != "config" {
+					continue
+				}
+				createConfigCM = cm
+				break
+			}
+
+			if createConfigCM == nil {
+				t.Fatalf("Expected client action for create configmaps/config")
+			}
+
+			scheme := runtime.NewScheme()
+			utilruntime.Must(openshiftcontrolplanev1.Install(scheme))
+			codecs := serializer.NewCodecFactory(scheme)
+			obj, err := runtime.Decode(codecs.UniversalDecoder(openshiftcontrolplanev1.GroupVersion, configv1.GroupVersion), []byte(createConfigCM.Data["config.yaml"]))
+			if err != nil {
 				t.Fatalf("Unable to decode OpenShiftAPIServerConfig: %v", err)
 			}
 
-			if !equality.Semantic.DeepEqual(config.APIServers.PerGroupOptions, tc.expectedPerGroupOptions) {
-				t.Errorf("generation status mismatch, diff = %s", diff.ObjectDiff(config.APIServers.PerGroupOptions, tc.expectedPerGroupOptions))
+			config := obj.(*openshiftcontrolplanev1.OpenShiftAPIServerConfig)
+			if !equality.Semantic.DeepEqual(config, expecteOpenShiftAPIServerConfig) {
+				t.Errorf("generation status mismatch, diff = %s", diff.ObjectDiff(config, expecteOpenShiftAPIServerConfig))
 			}
 		})
 	}
