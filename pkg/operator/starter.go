@@ -398,7 +398,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	go connectivityCheckController.Run(ctx, 1)
 
 	<-ctx.Done()
-	return nil
+	return context.Cause(ctx)
 }
 
 func apiServices(clusterVersionLister configlisterv1.ClusterVersionLister) ([]*apiregistrationv1.APIService, []*apiregistrationv1.APIService, error) {
