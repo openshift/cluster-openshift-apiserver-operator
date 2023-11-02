@@ -9,7 +9,7 @@ require (
 	github.com/openshift/api v0.0.0-20230809121144-3278705b3ada
 	github.com/openshift/build-machinery-go v0.0.0-20230228230858-4cd708338479
 	github.com/openshift/client-go v0.0.0-20230503144108-75015d2347cb
-	github.com/openshift/library-go v0.0.0-20230809121909-d7e7beca5bae
+	github.com/openshift/library-go v0.0.0-20231019174803-a2be4c7ba05f
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	go.etcd.io/etcd/client/v3 v3.5.7
