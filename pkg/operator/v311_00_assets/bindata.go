@@ -460,6 +460,7 @@ metadata:
   namespace: openshift-apiserver
 spec:
   maxUnavailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
   selector:
     matchLabels:
       app: openshift-apiserver-a
