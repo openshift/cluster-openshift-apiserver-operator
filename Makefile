@@ -57,7 +57,7 @@ test-e2e-encryption: test-unit
 $(TEST_E2E_ENCRYPTION_TARGETS): test-e2e-encryption-%:
 	ENCRYPTION_PROVIDER=$* $(MAKE) test-e2e-encryption
 
-TEST_E2E_ENCRYPTION_ROTATION_TARGETS=$(addprefix test-e2e-encryption-rotation,$(ENCRYPTION_PROVIDERS))
+TEST_E2E_ENCRYPTION_ROTATION_TARGETS=$(addprefix test-e2e-encryption-rotation-,$(ENCRYPTION_PROVIDERS))
 
 # these are extremely slow serial e2e encryption rotation tests that modify the cluster's global state
 test-e2e-encryption-rotation: GO_TEST_PACKAGES :=./test/e2e-encryption-rotation/...
@@ -69,7 +69,7 @@ test-e2e-encryption-rotation: test-unit
 .PHONY: test-e2e-encryption-rotation
 
 .PHONY: $(TEST_E2E_ENCRYPTION_ROTATION_TARGETS)
-$(TEST_E2E_ENCRYPTION_ROTATION_TARGETS): test-e2e-encryption-rotation%:
+$(TEST_E2E_ENCRYPTION_ROTATION_TARGETS): test-e2e-encryption-rotation-%:
 	ENCRYPTION_PROVIDER=$* $(MAKE) test-e2e-encryption-rotation
 
 .PHONY: test-e2e
