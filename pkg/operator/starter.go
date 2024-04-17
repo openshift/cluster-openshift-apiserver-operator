@@ -196,12 +196,13 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		controllerConfig.EventRecorder,
 	).WithAPIServiceController(
 		"openshift-apiserver",
+		operatorclient.TargetNamespace,
 		func() ([]*apiregistrationv1.APIService, []*apiregistrationv1.APIService, error) {
 			return apiServices(configInformers.Config().V1().ClusterVersions().Lister())
 		},
 		apiregistrationInformers,
 		apiregistrationv1Client.ApiregistrationV1(),
-		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
+		kubeInformersForNamespaces,
 		kubeClient,
 		configInformers.Config().V1().ClusterVersions().Informer(),
 	).WithFinalizerController(
