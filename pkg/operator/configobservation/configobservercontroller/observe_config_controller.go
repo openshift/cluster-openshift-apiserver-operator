@@ -59,6 +59,7 @@ func NewConfigObserver(
 			},
 		},
 		[]factory.Informer{operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer()},
+		images.ObserveImagestreamImportMode,
 		images.ObserveInternalRegistryHostname,
 		images.ObserveExternalRegistryHostnames,
 		images.ObserveAllowedRegistriesForImport,

@@ -148,6 +148,56 @@ func ObserveAllowedRegistriesForImport(genericListers configobserver.Listers, re
 	return observedConfig, errs
 }
 
+func ObserveImagestreamImportMode(genericListers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (map[string]interface{}, []error) {
+	listers := genericListers.(configobservation.Listers)
+	var errs []error
+
+	// first observe all the existing config values so that if we get any errors
+	// we can at least return those.
+	imageStreamImportModePath := []string{"imagePolicyConfig", "imageStreamImportMode"}
+	currentImageStreamImportMode, _, err := unstructured.NestedString(existingConfig, imageStreamImportModePath...)
+	if err != nil {
+		return map[string]interface{}{}, append(errs, err)
+	}
+
+	prevObservedConfig := map[string]interface{}{}
+	if len(currentImageStreamImportMode) > 0 {
+		err := unstructured.SetNestedField(prevObservedConfig, currentImageStreamImportMode, imageStreamImportModePath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
+	}
+
+	// now gather the cluster config and turn it into the observed config
+	observedConfig := map[string]interface{}{}
+	configImage, err := listers.ImageConfigLister.Get("cluster")
+	if errors.IsNotFound(err) {
+		klog.Warningf("ImageStreamImportMode observer: image.config.openshift.io/cluster: not found")
+		return observedConfig, errs
+	}
+	if err != nil {
+		return prevObservedConfig, append(errs, err)
+	}
+
+	imageStreamImportMode := ""
+	if len(string(configImage.Status.ImageStreamImportMode)) > 0 {
+		imageStreamImportMode = string(configImage.Status.ImageStreamImportMode)
+		err = unstructured.SetNestedField(observedConfig, imageStreamImportMode, imageStreamImportModePath...)
+		if err != nil {
+			return prevObservedConfig, append(errs, err)
+		}
+	}
+
+	// no change, return early to skip the event
+	if imageStreamImportMode == currentImageStreamImportMode {
+		return observedConfig, errs
+	}
+
+	recorder.Eventf("ImageStreamImportModeChanged", "ImageStreamImportMode changed from %q to %q", currentImageStreamImportMode, imageStreamImportMode)
+
+	return observedConfig, errs
+}
+
 func Convert(o interface{}) (interface{}, error) {
 	if o == nil {
 		return nil, nil
