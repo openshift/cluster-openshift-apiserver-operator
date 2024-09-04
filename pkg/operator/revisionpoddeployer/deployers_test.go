@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/diff"
-	apiserverconfigv1 "k8s.io/apiserver/pkg/apis/config/v1"
+	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/revisionpoddeployer"
@@ -41,7 +41,7 @@ func TestUnionRevisionLabelPodDeployer(t *testing.T) {
 				newFakeDeployer(createDefaultSecretWithEncryptionConfig(t), true, false, nil),
 				newFakeDeployer(func() *corev1.Secret {
 					ec := createDefaultEncryptionConfig()
-					ec.Resources = append(ec.Resources, apiserverconfigv1.ResourceConfiguration{Resources: []string{"pods"}})
+					ec.Resources = append(ec.Resources, apiserverv1.ResourceConfiguration{Resources: []string{"pods"}})
 					return encryptionCfgToSecret(t, ec)
 				}(), true, false, nil),
 			},
@@ -151,7 +151,7 @@ func createDefaultSecretWithEncryptionConfig(t *testing.T) *corev1.Secret {
 	return encryptionCfgToSecret(t, ec)
 }
 
-func encryptionCfgToSecret(t *testing.T, ec *apiserverconfigv1.EncryptionConfiguration) *corev1.Secret {
+func encryptionCfgToSecret(t *testing.T, ec *apiserverv1.EncryptionConfiguration) *corev1.Secret {
 	s, err := encryptionconfig.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec)
 	if err != nil {
 		t.Fatal(err)
@@ -159,10 +159,10 @@ func encryptionCfgToSecret(t *testing.T, ec *apiserverconfigv1.EncryptionConfigu
 	return s
 }
 
-func createDefaultEncryptionConfig() *apiserverconfigv1.EncryptionConfiguration {
+func createDefaultEncryptionConfig() *apiserverv1.EncryptionConfiguration {
 	keysResForSecrets := encryptiontesting.EncryptionKeysResourceTuple{
 		Resource: "secrets",
-		Keys: []apiserverconfigv1.Key{
+		Keys: []apiserverv1.Key{
 			{
 				Name:   "1",
 				Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
@@ -171,7 +171,7 @@ func createDefaultEncryptionConfig() *apiserverconfigv1.EncryptionConfiguration 
 	}
 	keysResForConfigMaps := encryptiontesting.EncryptionKeysResourceTuple{
 		Resource: "configmaps",
-		Keys: []apiserverconfigv1.Key{
+		Keys: []apiserverv1.Key{
 			{
 				Name:   "1",
 				Secret: "NzFlYTdjOTE0MTlhNjhmZDEyMjRmODhkNTAzMTZiNGU=",
