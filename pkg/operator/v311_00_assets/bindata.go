@@ -83,7 +83,7 @@ apiServerArguments:
   etcd-readycheck-timeout:
   - 9s
   shutdown-delay-duration:
-  - 15s # this gives SDN 5s to converge after the worst readyz=false delay
+  - 50s # this gives SDN 15s to converge after the worst readyz=false delay
   shutdown-send-retry-after:
   - "true"
 servingInfo:
@@ -277,7 +277,7 @@ spec:
           httpGet:
             scheme: HTTPS
             port: 8443
-            path: healthz
+            path: livez?exclude=etcd
           initialDelaySeconds: 0
           periodSeconds: 10
           timeoutSeconds: 10
@@ -292,12 +292,12 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 10
           successThreshold: 1
-          failureThreshold: 1
+          failureThreshold: 3
         startupProbe:
           httpGet:
             scheme: HTTPS
             port: 8443
-            path: healthz
+            path: livez
           initialDelaySeconds: 0
           periodSeconds: 5
           timeoutSeconds: 10
@@ -334,7 +334,7 @@ spec:
           requests:
             memory: 50Mi
             cpu: 10m
-      terminationGracePeriodSeconds: 90 # a bit more than the 60 seconds timeout of non-long-running requests + the shutdown delay
+      terminationGracePeriodSeconds: 120 # a bit more than the 60 seconds timeout of non-long-running requests + the shutdown delay
       volumes:
       - name: node-pullsecrets
         hostPath:

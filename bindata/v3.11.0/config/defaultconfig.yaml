@@ -19,7 +19,7 @@ apiServerArguments:
   etcd-readycheck-timeout:
   - 9s
   shutdown-delay-duration:
-  - 15s # this gives SDN 5s to converge after the worst readyz=false delay
+  - 50s # this gives SDN 15s to converge after the worst readyz=false delay
   shutdown-send-retry-after:
   - "true"
 servingInfo:

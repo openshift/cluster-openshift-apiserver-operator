@@ -390,7 +390,7 @@ func TestCapabilities(t *testing.T) {
 					"audit-policy-file":         {"/var/run/configmaps/audit/policy.yaml"},
 					"etcd-healthcheck-timeout":  {"9s"},
 					"etcd-readycheck-timeout":   {"9s"},
-					"shutdown-delay-duration":   {"15s"},
+					"shutdown-delay-duration":   {"50s"},
 					"shutdown-send-retry-after": {"true"},
 				},
 				APIServers: openshiftcontrolplanev1.APIServers{
