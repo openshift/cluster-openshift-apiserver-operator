@@ -128,7 +128,11 @@ type OperatorStatus struct {
 	ReadyReplicas int32 `json:"readyReplicas"`
 
 	// generations are used to determine when an item needs to be reconciled or has changed in a way that needs a reaction.
-	// +listType=atomic
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
+	// +listMapKey=namespace
+	// +listMapKey=name
 	// +optional
 	Generations []GenerationStatus `json:"generations,omitempty"`
 }

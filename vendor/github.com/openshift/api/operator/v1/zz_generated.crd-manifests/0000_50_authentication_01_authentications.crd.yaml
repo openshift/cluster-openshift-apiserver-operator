@@ -145,7 +145,12 @@ spec:
                       type: string
                   type: object
                 type: array
-                x-kubernetes-list-type: atomic
+                x-kubernetes-list-map-keys:
+                - group
+                - resource
+                - namespace
+                - name
+                x-kubernetes-list-type: map
               oauthAPIServer:
                 description: OAuthAPIServer holds status specific only to oauth-apiserver
                 properties:
