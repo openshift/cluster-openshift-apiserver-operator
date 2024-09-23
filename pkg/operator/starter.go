@@ -202,6 +202,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	}
 
 	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
+		"openshift-apiserver",
 		operatorClient,
 		controllerConfig.EventRecorder,
 	).WithAPIServiceController(
