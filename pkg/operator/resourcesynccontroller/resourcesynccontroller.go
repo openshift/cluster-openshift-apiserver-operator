@@ -20,6 +20,7 @@ func NewResourceSyncController(
 	eventRecorder events.Recorder) (*resourcesynccontroller.ResourceSyncController, http.Handler, error) {
 
 	resourceSyncController := resourcesynccontroller.NewResourceSyncController(
+		"openshift-apiserver",
 		operatorConfigClient,
 		kubeInformersForNamespaces,
 		secretsGetter,

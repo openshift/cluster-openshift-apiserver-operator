@@ -34,6 +34,7 @@ func NewConfigObserver(
 	eventRecorder events.Recorder,
 ) factory.Controller {
 	c := configobserver.NewConfigObserver(
+		"openshift-apiserver",
 		operatorClient,
 		eventRecorder,
 		configobservation.Listers{
