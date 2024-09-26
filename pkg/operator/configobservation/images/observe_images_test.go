@@ -18,10 +18,12 @@ import (
 )
 
 type imageConfigTest struct {
+	name                              string
 	imageConfig                       *configv1.Image
 	expectedInternalRegistryHostname  string
 	expectedExternalRegistryHostnames []string
 	expectedAllowedRegistries         []configv1.RegistryLocation
+	expectedImageStreamImportMode     configv1.ImportModeType
 }
 
 func TestObserveImageConfig(t *testing.T) {
@@ -210,4 +212,72 @@ func TestObserveImageConfig(t *testing.T) {
 		}
 	}
 
+}
+
+func TestObserveImageConfigImageStreamImportMode(t *testing.T) {
+	tests := []imageConfigTest{
+		{
+			name: "image-config-set-import-mode-legacy",
+			imageConfig: &configv1.Image{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.ImageSpec{
+					ImageStreamImportMode: configv1.ImportModeLegacy,
+				},
+				Status: configv1.ImageStatus{
+					ImageStreamImportMode: configv1.ImportModeLegacy,
+				},
+			},
+			expectedImageStreamImportMode: configv1.ImportModeLegacy,
+		},
+		{
+			name: "image-config-set-import-mode-preserveoriginal",
+			imageConfig: &configv1.Image{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster",
+				},
+				Spec: configv1.ImageSpec{
+					ImageStreamImportMode: configv1.ImportModePreserveOriginal,
+				},
+				Status: configv1.ImageStatus{
+					ImageStreamImportMode: configv1.ImportModePreserveOriginal,
+				},
+			},
+			expectedImageStreamImportMode: configv1.ImportModePreserveOriginal,
+		},
+	}
+
+	for _, tc := range tests {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		_ = indexer.Add(tc.imageConfig)
+		listers := configobservation.Listers{
+			ImageConfigLister: configlistersv1.NewImageLister(indexer),
+		}
+		unsyncedlisters := configobservation.Listers{
+			ImageConfigLister: configlistersv1.NewImageLister(indexer),
+		}
+
+		result, errs := ObserveImagestreamImportMode(listers, events.NewInMemoryRecorder(""), map[string]interface{}{})
+		if len(errs) != 0 {
+			t.Fatalf("unexpected error: %v", errs)
+		}
+		imageStreamImportMode, _, err := unstructured.NestedString(result, "imagePolicyConfig", "imageStreamImportMode")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if imageStreamImportMode != string(tc.expectedImageStreamImportMode) {
+			t.Errorf("expected imagestream import mode: %s, got %s", tc.expectedImageStreamImportMode, imageStreamImportMode)
+		}
+
+		// When the cache is not synced, the result should be the previously observed
+		// configuration.
+		newResult, errs := ObserveImagestreamImportMode(unsyncedlisters, events.NewInMemoryRecorder("test"), result)
+		if len(errs) != 0 {
+			t.Fatalf("unexpected error: %v", errs)
+		}
+		if !reflect.DeepEqual(result, newResult) {
+			t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
+		}
+	}
 }
