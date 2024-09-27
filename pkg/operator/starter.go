@@ -313,7 +313,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			},
 		},
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
-		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient, TypedClient: operatorConfigClient.OperatorV1()},
+		OpenshiftDeploymentLatestRevisionClient{OperatorClient: operatorClient},
 		v1helpers.CachedConfigMapGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 	).WithEncryptionControllers(
