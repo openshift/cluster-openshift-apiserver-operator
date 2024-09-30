@@ -8,10 +8,10 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
-	github.com/openshift/api v0.0.0-20240926031850-46b94866c024
+	github.com/openshift/api v0.0.0-20240930154731-d67159445fc4
 	github.com/openshift/build-machinery-go v0.0.0-20240419090851-af9c868bcf52
-	github.com/openshift/client-go v0.0.0-20240918182115-6a8ead8397fd
-	github.com/openshift/library-go v0.0.0-20240926163055-2402ef326fc1
+	github.com/openshift/client-go v0.0.0-20240925210910-aaed17e719c5
+	github.com/openshift/library-go v0.0.0-20240930172803-190f286b06b1
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	go.etcd.io/etcd/client/v3 v3.5.10

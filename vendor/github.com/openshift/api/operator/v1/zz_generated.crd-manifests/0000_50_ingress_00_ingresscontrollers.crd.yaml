@@ -574,6 +574,24 @@ spec:
                                 - PROXY
                                 type: string
                             type: object
+                          openstack:
+                            description: "openstack provides configuration settings
+                              that are specific to OpenStack load balancers. \n If
+                              empty, defaults will be applied. See specific openstack
+                              fields for details about their defaults."
+                            properties:
+                              loadBalancerIP:
+                                description: loadBalancerIP specifies the floating
+                                  IP address that the load balancer will use. When
+                                  not specified, an IP address will be assigned randomly
+                                  by the OpenStack cloud provider. This value must
+                                  be a valid IPv4 or IPv6 address.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: loadBalancerIP must be a valid IPv4 or
+                                    IPv6 address
+                                  rule: isIP(self)
+                            type: object
                           type:
                             description: type is the underlying infrastructure provider
                               for the load balancer. Allowed values are "AWS", "Azure",
@@ -592,6 +610,10 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: openstack is not permitted when type is not OpenStack
+                          rule: 'has(self.type) && self.type == ''OpenStack'' ? true
+                            : !has(self.openstack)'
                       scope:
                         description: scope indicates the scope at which the load balancer
                           is exposed. Possible values are "External" and "Internal".
@@ -1990,10 +2012,6 @@ spec:
                   description: OperatorCondition is just the standard condition fields.
                   properties:
                     lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
@@ -2001,24 +2019,10 @@ spec:
                     reason:
                       type: string
                     status:
-                      description: status of the condition, one of True, False, Unknown.
-                      enum:
-                      - "True"
-                      - "False"
-                      - Unknown
                       type: string
                     type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-                      maxLength: 316
-                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
                   required:
-                  - lastTransitionTime
-                  - status
                   - type
                   type: object
                 type: array
@@ -2458,6 +2462,24 @@ spec:
                                 - PROXY
                                 type: string
                             type: object
+                          openstack:
+                            description: "openstack provides configuration settings
+                              that are specific to OpenStack load balancers. \n If
+                              empty, defaults will be applied. See specific openstack
+                              fields for details about their defaults."
+                            properties:
+                              loadBalancerIP:
+                                description: loadBalancerIP specifies the floating
+                                  IP address that the load balancer will use. When
+                                  not specified, an IP address will be assigned randomly
+                                  by the OpenStack cloud provider. This value must
+                                  be a valid IPv4 or IPv6 address.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: loadBalancerIP must be a valid IPv4 or
+                                    IPv6 address
+                                  rule: isIP(self)
+                            type: object
                           type:
                             description: type is the underlying infrastructure provider
                               for the load balancer. Allowed values are "AWS", "Azure",
@@ -2476,6 +2498,10 @@ spec:
                         required:
                         - type
                         type: object
+                        x-kubernetes-validations:
+                        - message: openstack is not permitted when type is not OpenStack
+                          rule: 'has(self.type) && self.type == ''OpenStack'' ? true
+                            : !has(self.openstack)'
                       scope:
                         description: scope indicates the scope at which the load balancer
                           is exposed. Possible values are "External" and "Internal".
