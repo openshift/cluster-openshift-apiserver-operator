@@ -64,7 +64,7 @@ var apiServiceGroupVersions = []schema.GroupVersion{
 	{Group: "apps.openshift.io", Version: "v1"},
 	{Group: "authorization.openshift.io", Version: "v1"},
 	{Group: "build.openshift.io", Version: "v1"},
-	{Group: "image.openshift.io", Version: "v1"},
+	//{Group: "image.openshift.io", Version: "v1"},
 	{Group: "project.openshift.io", Version: "v1"},
 	{Group: "quota.openshift.io", Version: "v1"},
 	{Group: "route.openshift.io", Version: "v1"},
