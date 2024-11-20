@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/openshift/library-go/pkg/operator/events"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	configv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -135,7 +137,7 @@ func TestObserveImageConfig(t *testing.T) {
 			ImageConfigLister: configlistersv1.NewImageLister(indexer),
 		}
 
-		result, errs := ObserveInternalRegistryHostname(listers, events.NewInMemoryRecorder(""), map[string]interface{}{})
+		result, errs := ObserveInternalRegistryHostname(listers, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())), map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -149,7 +151,7 @@ func TestObserveImageConfig(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs := ObserveInternalRegistryHostname(unsyncedlisters, events.NewInMemoryRecorder("test"), result)
+		newResult, errs := ObserveInternalRegistryHostname(unsyncedlisters, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -157,7 +159,7 @@ func TestObserveImageConfig(t *testing.T) {
 			t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
 		}
 
-		result, errs = ObserveExternalRegistryHostnames(listers, events.NewInMemoryRecorder(""), map[string]interface{}{})
+		result, errs = ObserveExternalRegistryHostnames(listers, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())), map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -176,7 +178,7 @@ func TestObserveImageConfig(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs = ObserveExternalRegistryHostnames(unsyncedlisters, events.NewInMemoryRecorder(""), result)
+		newResult, errs = ObserveExternalRegistryHostnames(unsyncedlisters, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())), result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -184,7 +186,7 @@ func TestObserveImageConfig(t *testing.T) {
 			t.Errorf("got: \n%#v\nexpected: \n%#v", newResult, result)
 		}
 
-		result, errs = ObserveAllowedRegistriesForImport(listers, events.NewInMemoryRecorder(""), map[string]interface{}{})
+		result, errs = ObserveAllowedRegistriesForImport(listers, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())), map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -203,7 +205,7 @@ func TestObserveImageConfig(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, events.NewInMemoryRecorder(""), result)
+		newResult, errs = ObserveAllowedRegistriesForImport(unsyncedlisters, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())), result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -258,7 +260,7 @@ func TestObserveImageConfigImageStreamImportMode(t *testing.T) {
 			ImageConfigLister: configlistersv1.NewImageLister(indexer),
 		}
 
-		result, errs := ObserveImagestreamImportMode(listers, events.NewInMemoryRecorder(""), map[string]interface{}{})
+		result, errs := ObserveImagestreamImportMode(listers, events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())), map[string]interface{}{})
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
@@ -272,7 +274,7 @@ func TestObserveImageConfigImageStreamImportMode(t *testing.T) {
 
 		// When the cache is not synced, the result should be the previously observed
 		// configuration.
-		newResult, errs := ObserveImagestreamImportMode(unsyncedlisters, events.NewInMemoryRecorder("test"), result)
+		newResult, errs := ObserveImagestreamImportMode(unsyncedlisters, events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now())), result)
 		if len(errs) != 0 {
 			t.Fatalf("unexpected error: %v", errs)
 		}
