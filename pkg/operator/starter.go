@@ -49,7 +49,6 @@ import (
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	apiregistrationinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
-	"k8s.io/utils/clock"
 	utilpointer "k8s.io/utils/pointer"
 	kubemigratorclient "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/clientset"
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
@@ -114,7 +113,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
 
 	operatorClient, dynamicInformers, err := genericoperatorclient.NewClusterScopedOperatorClient(
-		clock.RealClock{},
+		controllerConfig.Clock,
 		controllerConfig.KubeConfig,
 		operatorv1.GroupVersion.WithResource("openshiftapiservers"),
 		operatorv1.GroupVersion.WithKind("OpenShiftAPIServer"),
@@ -364,6 +363,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	)
 
 	staleConditions := staleconditions.NewRemoveStaleConditionsController(
+		"openshift-apiserver",
 		[]string{
 			// in 4.1.0-4.3.0 this was used for indicating the apiserver daemonset was progressing
 			"Progressing",

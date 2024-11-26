@@ -3,6 +3,7 @@ package workload
 import (
 	"context"
 	"testing"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 func fakeCountNodes(_ map[string]string) (*int32, error) {
@@ -120,7 +122,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
 			}
 
-			if _, _, err := target.Sync(context.Background(), factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder(""))); len(err) > 0 {
+			if _, _, err := target.Sync(context.Background(), factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
 				t.Fatal(err)
 			}
 
@@ -361,7 +363,7 @@ func TestCapabilities(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			if _, _, err := target.Sync(ctx, factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder(""))); len(err) > 0 {
+			if _, _, err := target.Sync(ctx, factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
 				t.Fatal(err)
 			}
 
