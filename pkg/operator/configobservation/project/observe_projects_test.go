@@ -2,10 +2,12 @@ package project
 
 import (
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/tools/cache"
+	clocktesting "k8s.io/utils/clock/testing"
 
 	projectv1 "github.com/openshift/api/config/v1"
 	configlistersv1 "github.com/openshift/client-go/config/listers/config/v1"
@@ -70,7 +72,7 @@ func TestObserveProjectRequestMessage(t *testing.T) {
 				ProjectConfigLister: configlistersv1.NewProjectLister(indexer),
 			}
 
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 
 			result, errs := ObserveProjectRequestMessage(listers, eventRecorder, test.existingConfig)
 			if len(errs) != test.expectErrorsCount {
@@ -136,7 +138,7 @@ func TestObserveProjectRequestTemplateName(t *testing.T) {
 				ProjectConfigLister: configlistersv1.NewProjectLister(indexer),
 			}
 
-			eventRecorder := events.NewInMemoryRecorder("")
+			eventRecorder := events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now()))
 
 			result, errs := ObserveProjectRequestTemplateName(listers, eventRecorder, test.existingConfig)
 			if len(errs) != test.expectErrorsCount {
