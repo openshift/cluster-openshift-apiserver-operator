@@ -8,7 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-bindata/go-bindata v3.1.2+incompatible
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
-	github.com/openshift/api v0.0.0-20241001152557-e415140e5d5f
+	github.com/openshift/api v0.0.0-20241128230347-e456392b2cb4
 	github.com/openshift/build-machinery-go v0.0.0-20240613134303-8359781da660
 	github.com/openshift/client-go v0.0.0-20241001162912-da6d55e4611f
 	github.com/openshift/library-go v0.0.0-20241120135057-fc703a7407c9
