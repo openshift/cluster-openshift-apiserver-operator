@@ -228,9 +228,13 @@ func (c *APIServiceController) syncEnabledAPIServices(ctx context.Context, enabl
 	for _, apiService := range enabledApiServices {
 		// Create/Update enabled APIService
 		apiregistrationv1.SetDefaults_ServiceReference(apiService.Spec.Service)
+        apiServiceName := ""
+        if apiService != nil {
+            apiServiceName = apiService.Name
+        }
 		apiService, _, err := resourceapply.ApplyAPIService(ctx, c.apiregistrationv1Client, recorder, apiService)
 		if err != nil {
-            errs = append(errs, fmt.Errorf("applying APIService %q: %w", apiService.Name, err))
+            errs = append(errs, fmt.Errorf("applying APIService %q: %w", apiServiceName, err))
 			continue
 		}
 
