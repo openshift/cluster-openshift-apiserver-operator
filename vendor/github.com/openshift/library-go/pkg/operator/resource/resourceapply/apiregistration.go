@@ -2,6 +2,7 @@ package resourceapply
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +27,7 @@ func ApplyAPIService(ctx context.Context, client apiregistrationv1client.APIServ
 		return actual, true, err
 	}
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("getting APIService %q: %w", required.Name, err)
 	}
 
 	modified := false

@@ -30,8 +30,10 @@ import (
 // GetAPIServicesToMangeFunc provides list of enabled and disabled managed APIService items.
 // Both lists need to always contain all the managed APIServices so the controller
 // can avoid reconciling user-created/unmanaged objects.
-type GetAPIServicesToMangeFunc func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error)
-type apiServicesPreconditionFuncType func([]*apiregistrationv1.APIService) (bool, error)
+type (
+	GetAPIServicesToMangeFunc       func() (enabled []*apiregistrationv1.APIService, disabled []*apiregistrationv1.APIService, err error)
+	apiServicesPreconditionFuncType func([]*apiregistrationv1.APIService) (bool, error)
+)
 
 type APIServiceController struct {
 	controllerInstanceName   string
@@ -124,7 +126,7 @@ func (c *APIServiceController) updateOperatorStatus(
 		updateError := c.operatorClient.ApplyOperatorStatus(ctx, c.controllerInstanceName, status)
 		if updateError != nil {
 			// overrides error returned through 'return <ERROR>' statement
-			err = updateError
+            err = fmt.Errorf("updating operator status: %w", updateError)
 		}
 	}()
 
@@ -164,7 +166,7 @@ func (c *APIServiceController) updateOperatorStatus(
 func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncContext) error {
 	operatorConfigSpec, _, _, err := c.operatorClient.GetOperatorState()
 	if err != nil {
-		return err
+		return fmt.Errorf("getting operator state: %w", err)
 	}
 
 	switch operatorConfigSpec.ManagementState {
@@ -174,7 +176,7 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 	case operatorsv1.Removed:
 		enabledApiServices, disabledApiServices, err := c.getAPIServicesToManageFn()
 		if err != nil {
-			return err
+            return fmt.Errorf("removed management state: getting APIServices to manage: %w", err)
 		}
 		return c.syncDisabledAPIServices(ctx, append(enabledApiServices, disabledApiServices...))
 	default:
@@ -184,7 +186,7 @@ func (c *APIServiceController) sync(ctx context.Context, syncCtx factory.SyncCon
 
 	enabledApiServices, disabledApiServices, err := c.getAPIServicesToManageFn()
 	if err != nil {
-		return err
+        return fmt.Errorf("managed management state: getting APIServices to manage: %w", err)
 	}
 
 	var syncEnabledAPIServicesErr error
@@ -209,10 +211,10 @@ func (c *APIServiceController) syncDisabledAPIServices(ctx context.Context, apiS
 				continue
 			}
 			if err := c.apiregistrationv1Client.APIServices().Delete(ctx, apiService.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("deleting APIService %q: %w", apiService.Name, err))
 			}
 		} else if !apierrors.IsNotFound(err) {
-			errs = append(errs, err)
+            errs = append(errs, fmt.Errorf("getting APIService %q: %w", apiService.Name, err))
 		}
 	}
 
@@ -228,7 +230,7 @@ func (c *APIServiceController) syncEnabledAPIServices(ctx context.Context, enabl
 		apiregistrationv1.SetDefaults_ServiceReference(apiService.Spec.Service)
 		apiService, _, err := resourceapply.ApplyAPIService(ctx, c.apiregistrationv1Client, recorder, apiService)
 		if err != nil {
-			errs = append(errs, err)
+            errs = append(errs, fmt.Errorf("applying APIService %q: %w", apiService.Name, err))
 			continue
 		}
 
