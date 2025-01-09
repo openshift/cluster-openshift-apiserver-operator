@@ -338,7 +338,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).WithAuditPolicyController(
 		operatorclient.TargetNamespace,
 		"audit",
-		configInformers.Config().V1().APIServers().Lister(),
 		configInformers,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeClient,

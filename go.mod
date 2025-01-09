@@ -10,7 +10,7 @@ require (
 	github.com/gonum/graph v0.0.0-20190426092945-678096d81a4b
 	github.com/openshift/api v0.0.0-20241203091751-58d4ac495429
 	github.com/openshift/build-machinery-go v0.0.0-20240613134303-8359781da660
-	github.com/openshift/client-go v0.0.0-20241001162912-da6d55e4611f
+	github.com/openshift/client-go v0.0.0-20241203091221-452dfb8fa071
 	github.com/openshift/library-go v0.0.0-20241120135057-fc703a7407c9
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.9.0
@@ -124,3 +124,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/openshift/api => ../api
+
+replace github.com/openshift/library-go => ../library-go/
