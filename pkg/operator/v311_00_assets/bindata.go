@@ -287,7 +287,7 @@ spec:
           httpGet:
             scheme: HTTPS
             port: 8443
-            path: readyz
+            path: readyz?exclude=etcd&exclude=etcd-readiness
           initialDelaySeconds: 0
           periodSeconds: 5
           timeoutSeconds: 10
