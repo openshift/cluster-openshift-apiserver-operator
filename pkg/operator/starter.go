@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/clock"
 
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -206,6 +207,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		"openshift-apiserver",
 		operatorClient,
 		controllerConfig.EventRecorder,
+		clock.RealClock{},
 	).WithAPIServiceController(
 		"openshift-apiserver",
 		operatorclient.TargetNamespace,
@@ -338,7 +340,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	).WithAuditPolicyController(
 		operatorclient.TargetNamespace,
 		"audit",
-		configInformers.Config().V1().APIServers().Lister(),
 		configInformers,
 		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace),
 		kubeClient,
