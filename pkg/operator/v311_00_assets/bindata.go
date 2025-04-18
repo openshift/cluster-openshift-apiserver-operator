@@ -273,6 +273,8 @@ spec:
           name: encryption-config
         - mountPath: /var/log/openshift-apiserver
           name: audit-dir
+        - mountPath: /var/kube-kms
+          name: kms-plugin-dir
         livenessProbe:
           httpGet:
             scheme: HTTPS
@@ -376,6 +378,10 @@ spec:
       - hostPath:
           path: /var/log/openshift-apiserver
         name: audit-dir
+      - hostPath:
+          path: /var/kube-kms
+        type: DirectoryOrCreate
+        name: kms-plugin-dir
       nodeSelector:
         node-role.kubernetes.io/master: ""
       tolerations:
