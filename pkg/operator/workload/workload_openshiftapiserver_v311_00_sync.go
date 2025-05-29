@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	openshiftapi "github.com/openshift/api"
+	"github.com/openshift/api/annotations"
 	configv1 "github.com/openshift/api/config/v1"
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -270,6 +271,9 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx context.Context
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: operatorclient.TargetNamespace,
 			Name:      imageImportCAName,
+			Annotations: map[string]string{
+				annotations.OpenShiftComponent: "openshift-apiserver",
+			},
 		},
 		Data: mergedCAs,
 	}
