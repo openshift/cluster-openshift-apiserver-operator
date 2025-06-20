@@ -144,13 +144,13 @@ func (c *OpenShiftAPIServerWorkload) preconditionFulfilledInternal(operator *ope
 
 // Sync takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
-func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext factory.SyncContext) (*appsv1.Deployment, bool, []error) {
+func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext factory.SyncContext) (*appsv1.Deployment, bool, bool, string, string, []error) {
 	errors := []error{}
 
 	originalOperatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		errors = append(errors, err)
-		return nil, false, errors
+		return nil, false, false, "", "", errors
 	}
 	operatorConfig := originalOperatorConfig.DeepCopy()
 
@@ -210,7 +210,7 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 	}),
 	)
 
-	return actualDeployment, operatorConfig.Status.ObservedGeneration == operatorConfig.ObjectMeta.Generation, errors
+	return actualDeployment, operatorConfig.Status.ObservedGeneration == operatorConfig.ObjectMeta.Generation, false, "", "", errors
 }
 
 // mergeImageRegistryCertificates merges two distinct ConfigMap, both containing
