@@ -122,7 +122,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
 			}
 
-			if _, _, err := target.Sync(context.Background(), factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
+			if _, _, _, _, _, err := target.Sync(context.Background(), factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
 				t.Fatal(err)
 			}
 
@@ -363,7 +363,7 @@ func TestCapabilities(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			if _, _, err := target.Sync(ctx, factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
+			if _, _, _, _, _, err := target.Sync(ctx, factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
 				t.Fatal(err)
 			}
 

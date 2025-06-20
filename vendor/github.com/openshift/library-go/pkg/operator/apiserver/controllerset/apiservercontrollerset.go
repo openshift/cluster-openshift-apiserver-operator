@@ -3,6 +3,7 @@ package apiservercontrollerset
 import (
 	"context"
 	"fmt"
+	"k8s.io/utils/clock"
 	"regexp"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	openshiftconfigclientv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	configv1informers "github.com/openshift/client-go/config/informers/externalversions/config/v1"
-	configv1listers "github.com/openshift/client-go/config/listers/config/v1"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/apiservice"
 	"github.com/openshift/library-go/pkg/operator/apiserver/controller/auditpolicy"
@@ -83,17 +83,20 @@ type APIServerControllerSet struct {
 	revisionController              controllerWrapper
 	staticResourceController        controllerWrapper
 	workloadController              controllerWrapper
+	clock                           clock.PassiveClock
 }
 
 func NewAPIServerControllerSet(
 	name string,
 	operatorClient v1helpers.OperatorClient,
 	eventRecorder events.Recorder,
+	clock clock.PassiveClock,
 ) *APIServerControllerSet {
 	apiServerControllerSet := &APIServerControllerSet{
 		name:           name,
 		operatorClient: operatorClient,
 		eventRecorder:  eventRecorder,
+		clock:          clock,
 	}
 
 	return apiServerControllerSet
@@ -140,6 +143,7 @@ func (cs *APIServerControllerSet) WithClusterOperatorStatusController(
 		cs.operatorClient,
 		versionRecorder,
 		cs.eventRecorder,
+		cs.clock,
 	)
 	for _, opt := range options {
 		s = opt(s)
@@ -400,7 +404,6 @@ func (cs *APIServerControllerSet) WithoutEncryptionControllers() *APIServerContr
 func (cs *APIServerControllerSet) WithAuditPolicyController(
 	targetNamespace string,
 	targetConfigMapName string,
-	apiserverConfigLister configv1listers.APIServerLister,
 	configInformers configinformers.SharedInformerFactory,
 	kubeInformersForTargetNamesace kubeinformers.SharedInformerFactory,
 	kubeClient kubernetes.Interface,
@@ -409,7 +412,6 @@ func (cs *APIServerControllerSet) WithAuditPolicyController(
 		cs.name,
 		targetNamespace,
 		targetConfigMapName,
-		apiserverConfigLister,
 		cs.operatorClient,
 		kubeClient,
 		configInformers,
