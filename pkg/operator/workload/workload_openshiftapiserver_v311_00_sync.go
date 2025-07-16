@@ -142,6 +142,10 @@ func (c *OpenShiftAPIServerWorkload) preconditionFulfilledInternal(operator *ope
 	return true, nil
 }
 
+func (c *OpenShiftAPIServerWorkload) WorkloadDeleted(_ context.Context) (bool, string, error) {
+	return false, "", nil
+}
+
 // Sync takes care of synchronizing (not upgrading) the thing we're managing.
 // most of the time the sync method will be good for a large span of minor versions
 func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext factory.SyncContext) (*appsv1.Deployment, bool, []error) {
