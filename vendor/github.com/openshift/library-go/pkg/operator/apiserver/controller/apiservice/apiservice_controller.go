@@ -70,7 +70,7 @@ func NewAPIServiceController(
 		kubeClient:              kubeClient,
 	}
 
-	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(10*time.Second).WithInformers(
+	return factory.New().WithSync(c.sync).WithControllerInstanceName(c.controllerInstanceName).ResyncEvery(1*time.Minute).WithInformers(
 		append(informers,
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Services().Informer(),
 			kubeInformersForNamespaces.InformersFor(targetNamespace).Core().V1().Endpoints().Informer(),
@@ -246,7 +246,7 @@ func (c *APIServiceController) syncEnabledAPIServices(ctx context.Context, enabl
 	}
 	if len(availableConditionMessages) > 0 {
 		sort.Sort(sort.StringSlice(availableConditionMessages))
-		return fmt.Errorf(strings.Join(availableConditionMessages, "\n"))
+		return fmt.Errorf("%s", strings.Join(availableConditionMessages, "\n"))
 	}
 
 	// if the apiservices themselves check out ok, try to actually hit the discovery endpoints.  We have a history in clusterup
@@ -258,7 +258,7 @@ func (c *APIServiceController) syncEnabledAPIServices(ctx context.Context, enabl
 
 	if len(availableConditionMessages) > 0 {
 		sort.Sort(sort.StringSlice(availableConditionMessages))
-		return fmt.Errorf(strings.Join(availableConditionMessages, "\n"))
+		return fmt.Errorf("%s", strings.Join(availableConditionMessages, "\n"))
 	}
 
 	return nil
