@@ -3,13 +3,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
+	apioperatorv1 "github.com/openshift/api/operator/v1"
 	versioned "github.com/openshift/client-go/operator/clientset/versioned"
 	internalinterfaces "github.com/openshift/client-go/operator/informers/externalversions/internalinterfaces"
-	v1 "github.com/openshift/client-go/operator/listers/operator/v1"
+	operatorv1 "github.com/openshift/client-go/operator/listers/operator/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -20,7 +20,7 @@ import (
 // ServiceCatalogAPIServers.
 type ServiceCatalogAPIServerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ServiceCatalogAPIServerLister
+	Lister() operatorv1.ServiceCatalogAPIServerLister
 }
 
 type serviceCatalogAPIServerInformer struct {
@@ -45,16 +45,28 @@ func NewFilteredServiceCatalogAPIServerInformer(client versioned.Interface, resy
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().ServiceCatalogAPIServers().List(context.TODO(), options)
+				return client.OperatorV1().ServiceCatalogAPIServers().List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().ServiceCatalogAPIServers().Watch(context.TODO(), options)
+				return client.OperatorV1().ServiceCatalogAPIServers().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.OperatorV1().ServiceCatalogAPIServers().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.OperatorV1().ServiceCatalogAPIServers().Watch(ctx, options)
 			},
 		},
-		&operatorv1.ServiceCatalogAPIServer{},
+		&apioperatorv1.ServiceCatalogAPIServer{},
 		resyncPeriod,
 		indexers,
 	)
@@ -65,9 +77,9 @@ func (f *serviceCatalogAPIServerInformer) defaultInformer(client versioned.Inter
 }
 
 func (f *serviceCatalogAPIServerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&operatorv1.ServiceCatalogAPIServer{}, f.defaultInformer)
+	return f.factory.InformerFor(&apioperatorv1.ServiceCatalogAPIServer{}, f.defaultInformer)
 }
 
-func (f *serviceCatalogAPIServerInformer) Lister() v1.ServiceCatalogAPIServerLister {
-	return v1.NewServiceCatalogAPIServerLister(f.Informer().GetIndexer())
+func (f *serviceCatalogAPIServerInformer) Lister() operatorv1.ServiceCatalogAPIServerLister {
+	return operatorv1.NewServiceCatalogAPIServerLister(f.Informer().GetIndexer())
 }
