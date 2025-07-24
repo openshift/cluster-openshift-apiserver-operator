@@ -3,13 +3,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
+	apioperatorv1 "github.com/openshift/api/operator/v1"
 	versioned "github.com/openshift/client-go/operator/clientset/versioned"
 	internalinterfaces "github.com/openshift/client-go/operator/informers/externalversions/internalinterfaces"
-	v1 "github.com/openshift/client-go/operator/listers/operator/v1"
+	operatorv1 "github.com/openshift/client-go/operator/listers/operator/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -20,7 +20,7 @@ import (
 // Storages.
 type StorageInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.StorageLister
+	Lister() operatorv1.StorageLister
 }
 
 type storageInformer struct {
@@ -45,16 +45,28 @@ func NewFilteredStorageInformer(client versioned.Interface, resyncPeriod time.Du
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().Storages().List(context.TODO(), options)
+				return client.OperatorV1().Storages().List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().Storages().Watch(context.TODO(), options)
+				return client.OperatorV1().Storages().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.OperatorV1().Storages().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.OperatorV1().Storages().Watch(ctx, options)
 			},
 		},
-		&operatorv1.Storage{},
+		&apioperatorv1.Storage{},
 		resyncPeriod,
 		indexers,
 	)
@@ -65,9 +77,9 @@ func (f *storageInformer) defaultInformer(client versioned.Interface, resyncPeri
 }
 
 func (f *storageInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&operatorv1.Storage{}, f.defaultInformer)
+	return f.factory.InformerFor(&apioperatorv1.Storage{}, f.defaultInformer)
 }
 
-func (f *storageInformer) Lister() v1.StorageLister {
-	return v1.NewStorageLister(f.Informer().GetIndexer())
+func (f *storageInformer) Lister() operatorv1.StorageLister {
+	return operatorv1.NewStorageLister(f.Informer().GetIndexer())
 }
