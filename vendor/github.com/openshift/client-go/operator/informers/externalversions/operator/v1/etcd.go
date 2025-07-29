@@ -3,13 +3,13 @@
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
+	apioperatorv1 "github.com/openshift/api/operator/v1"
 	versioned "github.com/openshift/client-go/operator/clientset/versioned"
 	internalinterfaces "github.com/openshift/client-go/operator/informers/externalversions/internalinterfaces"
-	v1 "github.com/openshift/client-go/operator/listers/operator/v1"
+	operatorv1 "github.com/openshift/client-go/operator/listers/operator/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -20,7 +20,7 @@ import (
 // Etcds.
 type EtcdInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.EtcdLister
+	Lister() operatorv1.EtcdLister
 }
 
 type etcdInformer struct {
@@ -45,16 +45,28 @@ func NewFilteredEtcdInformer(client versioned.Interface, resyncPeriod time.Durat
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().Etcds().List(context.TODO(), options)
+				return client.OperatorV1().Etcds().List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OperatorV1().Etcds().Watch(context.TODO(), options)
+				return client.OperatorV1().Etcds().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.OperatorV1().Etcds().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.OperatorV1().Etcds().Watch(ctx, options)
 			},
 		},
-		&operatorv1.Etcd{},
+		&apioperatorv1.Etcd{},
 		resyncPeriod,
 		indexers,
 	)
@@ -65,9 +77,9 @@ func (f *etcdInformer) defaultInformer(client versioned.Interface, resyncPeriod 
 }
 
 func (f *etcdInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&operatorv1.Etcd{}, f.defaultInformer)
+	return f.factory.InformerFor(&apioperatorv1.Etcd{}, f.defaultInformer)
 }
 
-func (f *etcdInformer) Lister() v1.EtcdLister {
-	return v1.NewEtcdLister(f.Informer().GetIndexer())
+func (f *etcdInformer) Lister() operatorv1.EtcdLister {
+	return operatorv1.NewEtcdLister(f.Informer().GetIndexer())
 }
