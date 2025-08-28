@@ -108,6 +108,14 @@ func NewOpenShiftAPIServerWorkload(
 	}
 }
 
+// WorkloadDeleted indicates whether the delegate workload has been deleted or not. It returns a bool
+// flag to indicate this, a string representing the workload's name and an error
+//
+// For OAS this function is a no-op.
+func (c *OpenShiftAPIServerWorkload) WorkloadDeleted(_ context.Context) (bool, string, error) {
+	return false, "", nil
+}
+
 // PreconditionFulfilled is a function that indicates whether all prerequisites are met and we can Sync.
 func (c *OpenShiftAPIServerWorkload) PreconditionFulfilled(ctx context.Context) (bool, error) {
 	operatorConfig, err := c.operatorConfigClient.OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})

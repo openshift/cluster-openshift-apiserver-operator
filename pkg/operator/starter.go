@@ -250,7 +250,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		"APIServer",
 		kubeClient,
 		openShiftAPIServerWorkload,
-		configClient.ConfigV1().ClusterOperators(),
 		versionRecorder,
 		kubeInformersForNamespaces,
 		operatorConfigInformers.Operator().V1().OpenShiftAPIServers().Informer(),
