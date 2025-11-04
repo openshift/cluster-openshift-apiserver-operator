@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	appsclientv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	coreclientv1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 
 	openshiftapi "github.com/openshift/api"
@@ -63,6 +64,8 @@ type OpenShiftAPIServerWorkload struct {
 	operatorConfigClient  operatorv1client.OpenShiftAPIServersGetter
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface
 	clusterVersionLister  configlisterv1.ClusterVersionLister
+	apiserverLister       configlisterv1.APIServerLister
+	secretLister          corev1listers.SecretLister
 	kubeClient            kubernetes.Interface
 
 	// countNodes a function to return count of nodes on which the workload will be installed
@@ -75,6 +78,7 @@ type OpenShiftAPIServerWorkload struct {
 	targetNamespace       string
 	targetImagePullSpec   string
 	operatorImagePullSpec string
+	kmsPluginImage        string
 
 	versionRecorder status.VersionGetter
 }
@@ -85,11 +89,14 @@ func NewOpenShiftAPIServerWorkload(
 	operatorConfigClient operatorv1client.OpenShiftAPIServersGetter,
 	openshiftConfigClient openshiftconfigclientv1.ConfigV1Interface,
 	clusterVersionLister configlisterv1.ClusterVersionLister,
+	apiserverLister configlisterv1.APIServerLister,
+	secretLister corev1listers.SecretLister,
 	countNodes nodeCountFunc,
 	ensureAtMostOnePodPerNode ensureAtMostOnePodPerNodeFunc,
 	targetNamespace string,
 	targetImagePullSpec string,
 	operatorImagePullSpec string,
+	kmsPluginImage string,
 	kubeClient kubernetes.Interface,
 	versionRecorder status.VersionGetter,
 ) *OpenShiftAPIServerWorkload {
@@ -98,11 +105,14 @@ func NewOpenShiftAPIServerWorkload(
 		operatorConfigClient:      operatorConfigClient,
 		openshiftConfigClient:     openshiftConfigClient,
 		clusterVersionLister:      clusterVersionLister,
+		apiserverLister:           apiserverLister,
+		secretLister:              secretLister,
 		countNodes:                countNodes,
 		ensureAtMostOnePodPerNode: ensureAtMostOnePodPerNode,
 		targetNamespace:           targetNamespace,
 		targetImagePullSpec:       targetImagePullSpec,
 		operatorImagePullSpec:     operatorImagePullSpec,
+		kmsPluginImage:            kmsPluginImage,
 		kubeClient:                kubeClient,
 		versionRecorder:           versionRecorder,
 	}
@@ -178,10 +188,13 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 		ctx,
 		c.kubeClient,
 		c.kubeClient.AppsV1(),
+		c.apiserverLister,
+		c.secretLister,
 		c.countNodes,
 		syncContext.Recorder(),
 		c.targetImagePullSpec,
 		c.operatorImagePullSpec,
+		c.kmsPluginImage,
 		operatorConfig,
 		operatorConfig.Status.Generations,
 		c.ensureAtMostOnePodPerNode)
@@ -363,10 +376,13 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	ctx context.Context,
 	kubeClient kubernetes.Interface,
 	client appsclientv1.DeploymentsGetter,
+	apiserverLister configlisterv1.APIServerLister,
+	secretLister corev1listers.SecretLister,
 	countNodes nodeCountFunc,
 	recorder events.Recorder,
 	imagePullSpec string,
 	operatorImagePullSpec string,
+	kmsPluginImage string,
 	operatorConfig *operatorv1.OpenShiftAPIServer,
 	generationStatus []operatorv1.GenerationStatus,
 	ensureAtMostOnePodPerNodeFn ensureAtMostOnePodPerNodeFunc,
@@ -436,6 +452,11 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 			required.Spec.Template.Annotations = map[string]string{}
 		}
 		required.Spec.Template.Annotations[annotationKey] = v
+	}
+
+	// Inject KMS plugin sidecar if KMS encryption is enabled
+	if err := injectKMSPlugin(ctx, &required.Spec.Template.Spec, apiserverLister, secretLister, operatorclient.TargetNamespace, kmsPluginImage); err != nil {
+		return nil, false, fmt.Errorf("failed to inject KMS plugin: %v", err)
 	}
 
 	err = ensureAtMostOnePodPerNodeFn(&required.Spec, operatorclient.TargetNamespace)

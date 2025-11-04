@@ -183,11 +183,14 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		operatorConfigClient.OperatorV1(),
 		configClient.ConfigV1(),
 		configInformers.Config().V1().ClusterVersions().Lister(),
+		configInformers.Config().V1().APIServers().Lister(),
+		kubeInformersForNamespaces.InformersFor(operatorclient.TargetNamespace).Core().V1().Secrets().Lister(),
 		workloadcontroller.CountNodesFuncWrapper(kubeInformersForNamespaces.InformersFor("").Core().V1().Nodes().Lister()),
 		workloadcontroller.EnsureAtMostOnePodPerNode,
 		"openshift-apiserver",
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
+		os.Getenv("KMS_PLUGIN_IMAGE"),
 		kubeClient,
 		versionRecorder)
 
