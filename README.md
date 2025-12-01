@@ -41,3 +41,36 @@ All of these are sparse configurations, i.e. unvalidated json snippets which are
 ## Debugging
 
 To gather all information necessary for debugging operator please use the [must-gather](https://github.com/openshift/must-gather) tool.
+
+## Tests
+
+This repository is compatible with the [OpenShift Tests Extension (OTE)](https://github.com/openshift-eng/openshift-tests-extension) framework.
+
+### Building the test binary
+
+```bash
+make build
+```
+
+### Running test suites and tests
+
+```bash
+# Run a specific test suite or test
+./cluster-openshift-apiserver-operator-tests-ext run-suite openshift/cluster-openshift-apiserver-operator/all
+./cluster-openshift-apiserver-operator-tests-ext run-test "test-name"
+
+# Run with JUnit output
+./cluster-openshift-apiserver-operator-tests-ext run-suite openshift/cluster-openshift-apiserver-operator/all --junit-path /tmp/junit.xml
+```
+
+### Listing available tests and suites
+
+```bash
+# List all test suites
+./cluster-openshift-apiserver-operator-tests-ext list suites
+
+# List tests in a suite
+./cluster-openshift-apiserver-operator-tests-ext list tests --suite=openshift/cluster-openshift-apiserver-operator/all
+```
+
+For more information about the OTE framework, see the [openshift-tests-extension documentation](https://github.com/openshift-eng/openshift-tests-extension).

@@ -1,4 +1,6 @@
 /cluster-openshift-apiserver-operator
 /cluster-openshift-apiserver-operator-tests-ext
+/cluster-openshift-apiserver-operator-tests-ext.gz
 .idea/
 telepresence.log
+
