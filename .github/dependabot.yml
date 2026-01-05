@@ -5,6 +5,21 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      k8s:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+      openshift:
+        patterns:
+          - "github.com/openshift/*"
+      other-go-modules:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/openshift/*"
   - package-ecosystem: github-actions
     directory: /
     schedule:
