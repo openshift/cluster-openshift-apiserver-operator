@@ -2,8 +2,14 @@ reviewers:
   - p0lyn0mial
   - benluddy
   - sanchezl
+  - wangke19
+  - gangwgr
+  - xingxingxia
 approvers:
   - p0lyn0mial
   - benluddy
   - sanchezl
+  - wangke19
+  - gangwgr
+  - xingxingxia
 component: openshift-apiserver
