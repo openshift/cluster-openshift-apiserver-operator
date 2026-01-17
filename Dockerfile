@@ -5,7 +5,7 @@ RUN GODEBUG=tls13=1 make build \
     && make tests-ext-build \
     && gzip cluster-openshift-apiserver-operator-tests-ext
 
-FROM registry.ci.openshift.org/ocp/4.22:base-rhel9
+FROM registry.ci.openshift.org/ocp/4.22:base-rhel9-minimal
 COPY --from=builder /go/src/github.com/openshift/cluster-openshift-apiserver-operator/cluster-openshift-apiserver-operator /usr/bin/
 COPY --from=builder /go/src/github.com/openshift/cluster-openshift-apiserver-operator/cluster-openshift-apiserver-operator-tests-ext.gz /usr/bin/
 COPY manifests /manifests
