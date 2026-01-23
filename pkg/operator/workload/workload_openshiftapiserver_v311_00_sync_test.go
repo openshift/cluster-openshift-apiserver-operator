@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	configv1 "github.com/openshift/api/config/v1"
 	openshiftcontrolplanev1 "github.com/openshift/api/openshiftcontrolplane/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
@@ -23,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/diff"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
@@ -153,7 +154,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 				LastGeneration: tc.deploymentGeneration,
 			}
 			if !equality.Semantic.DeepEqual(actualGenerationStatus, expectedGenerationStatus) {
-				t.Errorf("generation status mismatch, diff = %s", diff.ObjectDiff(actualGenerationStatus, expectedGenerationStatus))
+				t.Errorf("generation status mismatch, diff = %s", cmp.Diff(actualGenerationStatus, expectedGenerationStatus))
 			}
 		})
 	}
@@ -427,7 +428,7 @@ func TestCapabilities(t *testing.T) {
 
 			config := obj.(*openshiftcontrolplanev1.OpenShiftAPIServerConfig)
 			if !equality.Semantic.DeepEqual(config, expecteOpenShiftAPIServerConfig) {
-				t.Errorf("generation status mismatch, diff = %s", diff.ObjectDiff(config, expecteOpenShiftAPIServerConfig))
+				t.Errorf("generation status mismatch, diff = %s", cmp.Diff(config, expecteOpenShiftAPIServerConfig))
 			}
 		})
 	}

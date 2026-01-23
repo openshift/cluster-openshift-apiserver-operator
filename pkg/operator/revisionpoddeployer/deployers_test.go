@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/diff"
 	apiserverv1 "k8s.io/apiserver/pkg/apis/apiserver/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -140,7 +141,7 @@ func TestUnionRevisionLabelPodDeployer(t *testing.T) {
 				t.Errorf("expected converged to be %v, got %v", scenario.expectedConverged, actualConverged)
 			}
 			if !equality.Semantic.DeepEqual(actualSecret, scenario.expectedSecret) {
-				t.Error(fmt.Errorf("retruned secret mismatch, diff = %s", diff.ObjectDiff(actualSecret, scenario.expectedSecret)))
+				t.Error(fmt.Errorf("retruned secret mismatch, diff = %s", cmp.Diff(actualSecret, scenario.expectedSecret)))
 			}
 		})
 	}

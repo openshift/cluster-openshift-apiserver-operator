@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/util/diff"
 	"k8s.io/client-go/tools/cache"
 	clocktesting "k8s.io/utils/clock/testing"
 
@@ -83,7 +84,7 @@ func TestObserveProjectRequestMessage(t *testing.T) {
 				t.Errorf("unexpected event count: %d != %d (events: %#v)", len(eventRecorder.Events()), test.expectEventCount, eventRecorder.Events())
 			}
 			if !equality.Semantic.DeepEqual(test.expectedConfig, result) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(test.expectedConfig, result))
+				t.Errorf("result does not match expected config: %s", cmp.Diff(test.expectedConfig, result))
 			}
 
 		})
@@ -150,7 +151,7 @@ func TestObserveProjectRequestTemplateName(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(test.expectedConfig, result) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(test.expectedConfig, result))
+				t.Errorf("result does not match expected config: %s", cmp.Diff(test.expectedConfig, result))
 				return
 			}
 
