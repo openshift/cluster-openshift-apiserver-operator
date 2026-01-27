@@ -83,6 +83,14 @@ test-e2e-encryption-rotation: GO_TEST_ARGS += -args -provider=$(ENCRYPTION_PROVI
 test-e2e-encryption-rotation: test-unit
 .PHONY: test-e2e-encryption-rotation
 
+# KMS encryption tests
+test-e2e-encryption-kms: GO_TEST_PACKAGES :=./test/e2e-encryption-kms/...
+test-e2e-encryption-kms: GO_TEST_FLAGS += -v
+test-e2e-encryption-kms: GO_TEST_FLAGS += -timeout 4h
+test-e2e-encryption-kms: GO_TEST_FLAGS += -p 1
+test-e2e-encryption-kms: test-unit
+.PHONY: test-e2e-encryption-kms
+
 .PHONY: $(TEST_E2E_ENCRYPTION_ROTATION_TARGETS)
 $(TEST_E2E_ENCRYPTION_ROTATION_TARGETS): test-e2e-encryption-rotation-%:
 	ENCRYPTION_PROVIDER=$* $(MAKE) test-e2e-encryption-rotation
