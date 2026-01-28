@@ -189,6 +189,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		os.Getenv("IMAGE"),
 		os.Getenv("OPERATOR_IMAGE"),
 		kubeClient,
+		featureGateAccessor,
 		versionRecorder)
 
 	infra, err := configClient.ConfigV1().Infrastructures().Get(ctx, "cluster", metav1.GetOptions{})
