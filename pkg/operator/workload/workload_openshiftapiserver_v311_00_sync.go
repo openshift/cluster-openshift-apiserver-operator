@@ -37,6 +37,8 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
+	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
@@ -76,7 +78,8 @@ type OpenShiftAPIServerWorkload struct {
 	targetImagePullSpec   string
 	operatorImagePullSpec string
 
-	versionRecorder status.VersionGetter
+	featureGateAccessor featuregates.FeatureGateAccess
+	versionRecorder     status.VersionGetter
 }
 
 // NewOpenShiftAPIServerWorkload creates new OpenShiftAPIServerWorkload struct
@@ -91,6 +94,7 @@ func NewOpenShiftAPIServerWorkload(
 	targetImagePullSpec string,
 	operatorImagePullSpec string,
 	kubeClient kubernetes.Interface,
+	featureGateAccessor featuregates.FeatureGateAccess,
 	versionRecorder status.VersionGetter,
 ) *OpenShiftAPIServerWorkload {
 	return &OpenShiftAPIServerWorkload{
@@ -104,6 +108,7 @@ func NewOpenShiftAPIServerWorkload(
 		targetImagePullSpec:       targetImagePullSpec,
 		operatorImagePullSpec:     operatorImagePullSpec,
 		kubeClient:                kubeClient,
+		featureGateAccessor:       featureGateAccessor,
 		versionRecorder:           versionRecorder,
 	}
 }
@@ -184,7 +189,8 @@ func (c *OpenShiftAPIServerWorkload) Sync(ctx context.Context, syncContext facto
 		c.operatorImagePullSpec,
 		operatorConfig,
 		operatorConfig.Status.Generations,
-		c.ensureAtMostOnePodPerNode)
+		c.ensureAtMostOnePodPerNode,
+		c.featureGateAccessor)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("%q: %v", "deployments", err))
 	}
@@ -370,6 +376,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	operatorConfig *operatorv1.OpenShiftAPIServer,
 	generationStatus []operatorv1.GenerationStatus,
 	ensureAtMostOnePodPerNodeFn ensureAtMostOnePodPerNodeFunc,
+	featureGateAccessor featuregates.FeatureGateAccess,
 ) (*appsv1.Deployment, bool, error) {
 	tmpl := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/deploy.yaml")
 
@@ -449,6 +456,10 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 		return nil, false, fmt.Errorf("failed to determine number of master nodes: %v", err)
 	}
 	required.Spec.Replicas = masterNodeCount
+
+	if err := encryptionkms.AddKMSPluginVolumeAndMountToPodSpec(&required.Spec.Template.Spec, "openshift-apiserver", featureGateAccessor); err != nil {
+		return nil, false, fmt.Errorf("failed to add KMS encryption volumes: %w", err)
+	}
 
 	return resourceapply.ApplyDeployment(ctx, client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
 }
