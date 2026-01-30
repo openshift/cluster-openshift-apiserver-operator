@@ -15,6 +15,7 @@ import (
 	operatorfake "github.com/openshift/client-go/operator/clientset/versioned/fake"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/status"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -121,6 +122,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 				versionRecorder:           status.NewVersionGetter(),
 				countNodes:                fakeCountNodes,
 				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
+				featureGateAccessor:       featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, make(chan struct{}), nil),
 			}
 
 			if _, _, err := target.Sync(context.Background(), factory.NewSyncContext("TestSyncCOntext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
@@ -361,6 +363,7 @@ func TestCapabilities(t *testing.T) {
 				versionRecorder:           status.NewVersionGetter(),
 				countNodes:                fakeCountNodes,
 				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
+				featureGateAccessor:       featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, make(chan struct{}), nil),
 			}
 
 			ctx := context.Background()
