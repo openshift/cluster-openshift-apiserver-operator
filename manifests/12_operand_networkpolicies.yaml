@@ -1,0 +1,162 @@
+# NetworkPolicy for openshift-apiserver operand pods in the openshift-apiserver namespace.
+#
+# Unlike kube-apiserver and etcd, the openshift-apiserver pods run on the pod network
+# (they do NOT use hostNetwork: true), so NetworkPolicy applies to them.
+---
+# Default-deny policy for the openshift-apiserver namespace.
+# This policy selects all pods in the namespace and enables default-deny for both
+# ingress and egress by specifying policyTypes without any allow rules.
+#
+# NetworkPolicies are additive (use OR logic):
+# - This policy enables default-deny for all pods
+# - Subsequent policies add specific allow rules
+# - If any policy allows traffic, that traffic is permitted
+# - Policies cannot override or block traffic allowed by other policies
+#
+# Without this policy, all pods would have unrestricted network access (allow-all).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: openshift-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Allow egress to DNS for openshift-apiserver pods.
+# The apiserver needs DNS resolution to resolve service names.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-dns
+  namespace: openshift-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector: {}
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+      podSelector:
+        matchLabels:
+          dns.operator.openshift.io/daemonset-dns: default
+    ports:
+    - protocol: TCP
+      port: 5353
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  policyTypes:
+  - Egress
+---
+# Allow egress to the Kubernetes API server.
+# The openshift-apiserver needs to communicate with the Kubernetes API server for:
+# - Delegated authentication and authorization
+# - Validating admission requests
+# - Accessing Kubernetes resources
+#
+# Note: We allow all egress because the API server IP address and port can vary.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-kube-apiserver
+  namespace: openshift-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector:
+    matchLabels:
+      apiserver: "true"
+  egress:
+  - {}
+  policyTypes:
+  - Egress
+---
+# Allow egress to etcd.
+# The openshift-apiserver stores its data in etcd and needs to communicate with
+# the etcd cluster on port 2379.
+#
+# etcd pods use hostNetwork: true and bypass NetworkPolicy, so we allow egress
+# to port 2379 without destination restrictions.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-etcd
+  namespace: openshift-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector:
+    matchLabels:
+      apiserver: "true"
+  egress:
+  - ports:
+    - protocol: TCP
+      port: 2379
+  policyTypes:
+  - Egress
+---
+# Allow ingress from any source to the openshift-apiserver.
+# The openshift-apiserver serves API requests from various clients including:
+# - Users and service accounts
+# - Other control plane components
+# - Operators and controllers
+# - Applications using OpenShift-specific APIs
+#
+# The apiserver listens on port 8443 and performs its own authentication/authorization.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-apiserver
+  namespace: openshift-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector:
+    matchLabels:
+      apiserver: "true"
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8443
+  policyTypes:
+  - Ingress
+---
+# Allow ingress to the metrics endpoint from Prometheus.
+# The openshift-apiserver exposes metrics on port 8443 for monitoring.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-to-metrics
+  namespace: openshift-apiserver
+  annotations:
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  podSelector:
+    matchLabels:
+      apiserver: "true"
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          policy-group.network.openshift.io/host-network: ""
+    ports:
+    - protocol: TCP
+      port: 8443
+  policyTypes:
+  - Ingress
