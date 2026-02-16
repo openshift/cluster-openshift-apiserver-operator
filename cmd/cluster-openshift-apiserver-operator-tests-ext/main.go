@@ -18,39 +18,26 @@ import (
 	g "github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo"
 
 	"github.com/spf13/cobra"
-
-	// The import below is necessary to ensure that the OAS operator tests are registered with the extension.
-	_ "github.com/openshift/cluster-openshift-apiserver-operator/test/extended"
 )
 
 func main() {
 	registry := e.NewRegistry()
 	ext := e.NewExtension("openshift", "payload", "cluster-openshift-apiserver-operator")
 
-	// Suite: conformance/parallel (fast, parallel-safe)
+	// Suite: operator/parallel (fast, parallel-safe operator tests)
 	ext.AddSuite(e.Suite{
-		Name:    "openshift/cluster-openshift-apiserver-operator/conformance/parallel",
-		Parents: []string{"openshift/conformance/parallel"},
+		Name: "openshift/cluster-openshift-apiserver-operator/operator/parallel",
 		Qualifiers: []string{
-			`!(name.contains("[Serial]") || name.contains("[Slow]"))`,
+			`name.contains("[Operator]") && !name.contains("[Serial]")`,
 		},
 	})
 
-	// Suite: conformance/serial (explicitly serial tests)
+	// Suite: operator/serial (explicitly serial operator tests)
 	ext.AddSuite(e.Suite{
-		Name:    "openshift/cluster-openshift-apiserver-operator/conformance/serial",
-		Parents: []string{"openshift/conformance/serial"},
+		Name:        "openshift/cluster-openshift-apiserver-operator/operator/serial",
+		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("[Serial]")`,
-		},
-	})
-
-	// Suite: optional/slow (long-running tests)
-	ext.AddSuite(e.Suite{
-		Name:    "openshift/cluster-openshift-apiserver-operator/optional/slow",
-		Parents: []string{"openshift/optional/slow"},
-		Qualifiers: []string{
-			`name.contains("[Slow]")`,
+			`name.contains("[Operator]") && name.contains("[Serial]")`,
 		},
 	})
 
