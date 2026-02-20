@@ -88,6 +88,11 @@ apiServerArguments:
   - "true"
 servingInfo:
   bindNetwork: "tcp"
+imagePolicyConfig:
+    allowedRegistriesForImport:
+      - domainName: image-registry.openshift-image-registry.svc:5000
+      - domainName: quay.io
+      - domainName: registry.redhat.io
 `)
 
 func v3110ConfigDefaultconfigYamlBytes() ([]byte, error) {

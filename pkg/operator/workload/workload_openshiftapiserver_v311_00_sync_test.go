@@ -399,6 +399,13 @@ func TestCapabilities(t *testing.T) {
 					"shutdown-delay-duration":   {"50s"},
 					"shutdown-send-retry-after": {"true"},
 				},
+				ImagePolicyConfig: openshiftcontrolplanev1.ImagePolicyConfig{
+					AllowedRegistriesForImport: openshiftcontrolplanev1.AllowedRegistries{
+						{DomainName: "image-registry.openshift-image-registry.svc:5000"},
+						{DomainName: "quay.io"},
+						{DomainName: "registry.redhat.io"},
+					},
+				},
 				APIServers: openshiftcontrolplanev1.APIServers{
 					PerGroupOptions: tc.expectedPerGroupOptions,
 				},
