@@ -93,6 +93,7 @@ imagePolicyConfig:
       - domainName: image-registry.openshift-image-registry.svc:5000
       - domainName: quay.io
       - domainName: registry.redhat.io
+      - domainName: registry.access.redhat.com
 `)
 
 func v3110ConfigDefaultconfigYamlBytes() ([]byte, error) {

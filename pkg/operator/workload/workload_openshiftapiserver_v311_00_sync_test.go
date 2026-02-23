@@ -404,6 +404,7 @@ func TestCapabilities(t *testing.T) {
 						{DomainName: "image-registry.openshift-image-registry.svc:5000"},
 						{DomainName: "quay.io"},
 						{DomainName: "registry.redhat.io"},
+						{DomainName: "registry.access.redhat.com"},
 					},
 				},
 				APIServers: openshiftcontrolplanev1.APIServers{
