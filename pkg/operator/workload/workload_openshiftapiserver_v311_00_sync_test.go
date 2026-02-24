@@ -405,6 +405,7 @@ func TestCapabilities(t *testing.T) {
 						{DomainName: "quay.io"},
 						{DomainName: "registry.redhat.io"},
 						{DomainName: "registry.access.redhat.com"},
+						{DomainName: "quay-proxy.ci.openshift.org"},
 					},
 				},
 				APIServers: openshiftcontrolplanev1.APIServers{

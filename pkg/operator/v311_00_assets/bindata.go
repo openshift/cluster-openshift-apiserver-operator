@@ -94,6 +94,7 @@ imagePolicyConfig:
       - domainName: quay.io
       - domainName: registry.redhat.io
       - domainName: registry.access.redhat.com
+      - domainName: quay-proxy.ci.openshift.org
 `)
 
 func v3110ConfigDefaultconfigYamlBytes() ([]byte, error) {
