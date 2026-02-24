@@ -238,6 +238,110 @@ func TestPreconditionFulfilled(t *testing.T) {
 	}
 }
 
+func TestCheckEndpointsBindIPFromConfig(t *testing.T) {
+	testCases := []struct {
+		name           string
+		config         map[string]any
+		expectedBindIP string
+		expectError    bool
+	}{
+		{
+			name: "tcp6 network returns IPv6 bind address",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "tcp6",
+				},
+			},
+			expectedBindIP: "[::]",
+			expectError:    false,
+		},
+		{
+			name: "tcp4 network returns IPv4 bind address",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "tcp4",
+				},
+			},
+			expectedBindIP: "0.0.0.0",
+			expectError:    false,
+		},
+		{
+			name: "tcp network returns IPv4 bind address",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "tcp",
+				},
+			},
+			expectedBindIP: "0.0.0.0",
+			expectError:    false,
+		},
+		{
+			name: "missing bindNetwork returns IPv4 bind address",
+			config: map[string]any{
+				"servingInfo": map[string]any{},
+			},
+			expectedBindIP: "0.0.0.0",
+			expectError:    false,
+		},
+		{
+			name: "empty string bindNetwork returns IPv4 bind address",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": "",
+				},
+			},
+			expectedBindIP: "0.0.0.0",
+			expectError:    false,
+		},
+		{
+			name:           "missing servingInfo returns IPv4 bind address",
+			config:         map[string]any{},
+			expectedBindIP: "0.0.0.0",
+			expectError:    false,
+		},
+		{
+			name:           "nil config returns IPv4 bind address",
+			config:         nil,
+			expectedBindIP: "0.0.0.0",
+			expectError:    false,
+		},
+		{
+			name: "servingInfo as non-map returns error",
+			config: map[string]any{
+				"servingInfo": "not-a-map",
+			},
+			expectedBindIP: "",
+			expectError:    true,
+		},
+		{
+			name: "bindNetwork as non-string returns error",
+			config: map[string]any{
+				"servingInfo": map[string]any{
+					"bindNetwork": map[string]any{"nested": "value"},
+				},
+			},
+			expectedBindIP: "",
+			expectError:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			bindIP, err := checkEndpointsBindIPFromConfig(tc.config)
+
+			if tc.expectError && err == nil {
+				t.Fatal("expected an error but got none")
+			}
+			if !tc.expectError && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if bindIP != tc.expectedBindIP {
+				t.Errorf("expected bind IP %q, got %q", tc.expectedBindIP, bindIP)
+			}
+		})
+	}
+}
+
 func TestCapabilities(t *testing.T) {
 	testCases := []struct {
 		name                    string
@@ -432,6 +536,164 @@ func TestCapabilities(t *testing.T) {
 			config := obj.(*openshiftcontrolplanev1.OpenShiftAPIServerConfig)
 			if !equality.Semantic.DeepEqual(config, expecteOpenShiftAPIServerConfig) {
 				t.Errorf("generation status mismatch, diff = %s", cmp.Diff(config, expecteOpenShiftAPIServerConfig))
+			}
+		})
+	}
+}
+
+func TestCheckEndpointsContainerRendering(t *testing.T) {
+	testCases := []struct {
+		name              string
+		observedConfig    string
+		expectedListenArg string
+	}{
+		{
+			name: "tcp6 network renders IPv6 bind address in check-endpoints container",
+			observedConfig: `{
+				"servingInfo": {
+					"bindNetwork": "tcp6"
+				}
+			}`,
+			expectedListenArg: "[::]:17698",
+		},
+		{
+			name: "tcp4 network renders IPv4 bind address in check-endpoints container",
+			observedConfig: `{
+				"servingInfo": {
+					"bindNetwork": "tcp4"
+				}
+			}`,
+			expectedListenArg: "0.0.0.0:17698",
+		},
+		{
+			name: "tcp network renders IPv4 bind address in check-endpoints container",
+			observedConfig: `{
+				"servingInfo": {
+					"bindNetwork": "tcp"
+				}
+			}`,
+			expectedListenArg: "0.0.0.0:17698",
+		},
+		{
+			name: "missing bindNetwork renders IPv4 bind address in check-endpoints container",
+			observedConfig: `{
+				"servingInfo": {}
+			}`,
+			expectedListenArg: "0.0.0.0:17698",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeKubeClient := fake.NewSimpleClientset(
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "serving-cert",
+						Namespace: "openshift-apiserver",
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "etcd-client",
+						Namespace: operatorclient.GlobalUserSpecifiedConfigNamespace,
+					},
+				},
+			)
+
+			operatorConfig := &operatorv1.OpenShiftAPIServer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "cluster",
+					Generation: 100,
+				},
+				Spec: operatorv1.OpenShiftAPIServerSpec{
+					OperatorSpec: operatorv1.OperatorSpec{
+						ObservedConfig: runtime.RawExtension{
+							Raw: []byte(tc.observedConfig),
+						},
+					},
+				},
+				Status: operatorv1.OpenShiftAPIServerStatus{
+					OperatorStatus: operatorv1.OperatorStatus{
+						ObservedGeneration: 100,
+					},
+				},
+			}
+			apiServiceOperatorClient := operatorfake.NewSimpleClientset(operatorConfig)
+
+			clusterVersion := &configv1.ClusterVersion{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "version",
+				},
+			}
+			openshiftConfigClient := configfake.NewSimpleClientset(
+				&configv1.Image{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+				},
+				clusterVersion,
+			)
+
+			fakeOperatorClient := operatorv1helpers.NewFakeOperatorClient(
+				&operatorv1.OperatorSpec{ManagementState: operatorv1.Managed},
+				&operatorv1.OperatorStatus{},
+				nil,
+			)
+
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			indexer.Add(clusterVersion)
+
+			target := OpenShiftAPIServerWorkload{
+				kubeClient:                fakeKubeClient,
+				operatorClient:            fakeOperatorClient,
+				operatorConfigClient:      apiServiceOperatorClient.OperatorV1(),
+				openshiftConfigClient:     openshiftConfigClient.ConfigV1(),
+				clusterVersionLister:      configlistersv1.NewClusterVersionLister(indexer),
+				versionRecorder:           status.NewVersionGetter(),
+				countNodes:                fakeCountNodes,
+				ensureAtMostOnePodPerNode: func(spec *appsv1.DeploymentSpec, componentName string) error { return nil },
+				featureGateAccessor:       featuregates.NewHardcodedFeatureGateAccessForTesting(nil, nil, make(chan struct{}), nil),
+			}
+
+			ctx := context.Background()
+			if _, _, err := target.Sync(ctx, factory.NewSyncContext("TestSyncContext", events.NewInMemoryRecorder("", clocktesting.NewFakePassiveClock(time.Now())))); len(err) > 0 {
+				t.Fatal(err)
+			}
+
+			deployment, err := fakeKubeClient.AppsV1().Deployments("openshift-apiserver").Get(ctx, "apiserver", metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("failed to get deployment: %v", err)
+			}
+
+			// find the check-endpoints container
+			var checkEndpointsContainer *corev1.Container
+			for i := range deployment.Spec.Template.Spec.Containers {
+				if deployment.Spec.Template.Spec.Containers[i].Name != "openshift-apiserver-check-endpoints" {
+					continue
+				}
+				checkEndpointsContainer = &deployment.Spec.Template.Spec.Containers[i]
+				break
+			}
+			if checkEndpointsContainer == nil {
+				t.Fatalf("check-endpoints container not found in deployment")
+			}
+
+			// verify the --listen argument
+			var actualListenArg string
+			for i, arg := range checkEndpointsContainer.Args {
+				if arg != "--listen" || i+1 >= len(checkEndpointsContainer.Args) {
+					continue
+				}
+				actualListenArg = checkEndpointsContainer.Args[i+1]
+				break
+			}
+
+			if actualListenArg == "" {
+				t.Fatalf("--listen argument not found in check-endpoints container args: %v", checkEndpointsContainer.Args)
+			}
+
+			if actualListenArg != tc.expectedListenArg {
+				t.Errorf("expected --listen arg %q, got %q", tc.expectedListenArg, actualListenArg)
 			}
 		})
 	}
