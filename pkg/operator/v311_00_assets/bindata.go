@@ -514,7 +514,7 @@ metadata:
   namespace: openshift-apiserver
   name: api
   annotations:
-    service.alpha.openshift.io/serving-cert-secret-name: serving-cert
+    service.beta.openshift.io/serving-cert-secret-name: serving-cert
   labels:
     prometheus: openshift-apiserver
 spec:
