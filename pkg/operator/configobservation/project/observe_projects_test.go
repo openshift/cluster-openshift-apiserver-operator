@@ -83,7 +83,7 @@ func TestObserveProjectRequestMessage(t *testing.T) {
 				t.Errorf("unexpected event count: %d != %d (events: %#v)", len(eventRecorder.Events()), test.expectEventCount, eventRecorder.Events())
 			}
 			if !equality.Semantic.DeepEqual(test.expectedConfig, result) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(test.expectedConfig, result))
+				t.Errorf("result does not match expected config: %s", diff.Diff(test.expectedConfig, result))
 			}
 
 		})
@@ -150,7 +150,7 @@ func TestObserveProjectRequestTemplateName(t *testing.T) {
 			}
 
 			if !equality.Semantic.DeepEqual(test.expectedConfig, result) {
-				t.Errorf("result does not match expected config: %s", diff.ObjectDiff(test.expectedConfig, result))
+				t.Errorf("result does not match expected config: %s", diff.Diff(test.expectedConfig, result))
 				return
 			}
 

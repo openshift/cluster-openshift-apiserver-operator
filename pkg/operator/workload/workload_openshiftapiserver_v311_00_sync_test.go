@@ -153,7 +153,7 @@ func TestOperatorConfigProgressingCondition(t *testing.T) {
 				LastGeneration: tc.deploymentGeneration,
 			}
 			if !equality.Semantic.DeepEqual(actualGenerationStatus, expectedGenerationStatus) {
-				t.Errorf("generation status mismatch, diff = %s", diff.ObjectDiff(actualGenerationStatus, expectedGenerationStatus))
+				t.Errorf("generation status mismatch, diff = %s", diff.Diff(actualGenerationStatus, expectedGenerationStatus))
 			}
 		})
 	}
@@ -427,7 +427,7 @@ func TestCapabilities(t *testing.T) {
 
 			config := obj.(*openshiftcontrolplanev1.OpenShiftAPIServerConfig)
 			if !equality.Semantic.DeepEqual(config, expecteOpenShiftAPIServerConfig) {
-				t.Errorf("generation status mismatch, diff = %s", diff.ObjectDiff(config, expecteOpenShiftAPIServerConfig))
+				t.Errorf("generation status mismatch, diff = %s", diff.Diff(config, expecteOpenShiftAPIServerConfig))
 			}
 		})
 	}
