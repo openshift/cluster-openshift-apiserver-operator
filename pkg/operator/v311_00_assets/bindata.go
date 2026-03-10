@@ -4,6 +4,8 @@
 // bindata/v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml
 // bindata/v3.11.0/openshift-apiserver/cm.yaml
 // bindata/v3.11.0/openshift-apiserver/deploy.yaml
+// bindata/v3.11.0/openshift-apiserver/networkpolicy-allow.yaml
+// bindata/v3.11.0/openshift-apiserver/networkpolicy-default-deny.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
 // bindata/v3.11.0/openshift-apiserver/pdb.yaml
 // bindata/v3.11.0/openshift-apiserver/sa.yaml
@@ -424,6 +426,92 @@ func v3110OpenshiftApiserverDeployYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverNetworkpolicyAllowYaml = []byte(`# Network policy for openshift-apiserver operand pods.
+#
+# Unlike kube-apiserver and etcd, the openshift-apiserver pods run on the pod
+# network (they do NOT use hostNetwork), so NetworkPolicy applies to them.
+#
+# Egress:
+# - Allow all egress for API server communication, etcd access, and DNS
+#   resolution. All egress is permitted because destination addresses can vary
+#   by cluster configuration.
+#
+# Ingress:
+# - Allow ingress on port 8443 for API requests and metrics scraping.
+#   The apiserver performs its own authentication/authorization.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apiserver
+  namespace: openshift-apiserver
+spec:
+  podSelector:
+    matchLabels:
+      apiserver: "true"
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8443
+  egress:
+  - {}
+  policyTypes:
+  - Ingress
+  - Egress
+`)
+
+func v3110OpenshiftApiserverNetworkpolicyAllowYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverNetworkpolicyAllowYaml, nil
+}
+
+func v3110OpenshiftApiserverNetworkpolicyAllowYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverNetworkpolicyAllowYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/networkpolicy-allow.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml = []byte(`# Default-deny policy for the openshift-apiserver namespace.
+# This policy selects all pods in the namespace and enables default-deny for both
+# ingress and egress by specifying policyTypes without any allow rules.
+#
+# NetworkPolicies are additive (use OR logic):
+# - This policy enables default-deny for all pods
+# - Subsequent policies add specific allow rules
+# - If any policy allows traffic, that traffic is permitted
+# - Policies cannot override or block traffic allowed by other policies
+#
+# Without this policy, all pods would have unrestricted network access (allow-all).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: openshift-apiserver
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+`)
+
+func v3110OpenshiftApiserverNetworkpolicyDefaultDenyYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml, nil
+}
+
+func v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverNetworkpolicyDefaultDenyYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/networkpolicy-default-deny.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110OpenshiftApiserverNsYaml = []byte(`apiVersion: v1
 kind: Namespace
 metadata:
@@ -621,6 +709,8 @@ var _bindata = map[string]func() (*asset, error){
 	"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml": v3110OpenshiftApiserverApiserverClusterrolebindingYaml,
 	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
 	"v3.11.0/openshift-apiserver/deploy.yaml":                       v3110OpenshiftApiserverDeployYaml,
+	"v3.11.0/openshift-apiserver/networkpolicy-allow.yaml":          v3110OpenshiftApiserverNetworkpolicyAllowYaml,
+	"v3.11.0/openshift-apiserver/networkpolicy-default-deny.yaml":   v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml,
 	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
 	"v3.11.0/openshift-apiserver/pdb.yaml":                          v3110OpenshiftApiserverPdbYaml,
 	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
@@ -679,6 +769,8 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"apiserver-clusterrolebinding.yaml": {v3110OpenshiftApiserverApiserverClusterrolebindingYaml, map[string]*bintree{}},
 			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
 			"deploy.yaml":                       {v3110OpenshiftApiserverDeployYaml, map[string]*bintree{}},
+			"networkpolicy-allow.yaml":          {v3110OpenshiftApiserverNetworkpolicyAllowYaml, map[string]*bintree{}},
+			"networkpolicy-default-deny.yaml":   {v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml, map[string]*bintree{}},
 			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
 			"pdb.yaml":                          {v3110OpenshiftApiserverPdbYaml, map[string]*bintree{}},
 			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
