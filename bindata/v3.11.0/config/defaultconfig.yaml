@@ -24,3 +24,6 @@ apiServerArguments:
   - "true"
 servingInfo:
   bindNetwork: "tcp"
+imagePolicyConfig:
+  allowedRegistriesForImport:
+    - domainName: "*:*" # allow-all by default to preserve existing behavior
