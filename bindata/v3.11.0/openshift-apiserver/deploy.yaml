@@ -154,9 +154,11 @@ spec:
           - check-endpoints
         args:
           - --listen
-          - 0.0.0.0:17698
+          - '${CHECK_ENDPOINTS_BIND_IP}:17698'
           - --namespace
           - $(POD_NAMESPACE)
+          - --config
+          - /var/run/configmaps/config/config.yaml
           - --v
           - '2'
         env:
@@ -176,6 +178,9 @@ spec:
           requests:
             memory: 50Mi
             cpu: 10m
+        volumeMounts:
+          - mountPath: /var/run/configmaps/config
+            name: config
       terminationGracePeriodSeconds: 120 # a bit more than the 60 seconds timeout of non-long-running requests + the shutdown delay
       volumes:
       - name: node-pullsecrets

@@ -365,6 +365,21 @@ func loglevelToKlog(logLevel operatorv1.LogLevel) string {
 	}
 }
 
+// checkEndpointsBindIPFromConfig returns the bind ip address to be used by the
+// check-endpoints container inside the apiserver pod. The bind IP is derived
+// from the bindNetwork property of the config.
+func checkEndpointsBindIPFromConfig(config map[string]any) (string, error) {
+	var bindNetworkPath = []string{"servingInfo", "bindNetwork"}
+	observedBindNetwork, _, err := unstructured.NestedString(config, bindNetworkPath...)
+	if err != nil {
+		return "", fmt.Errorf("unable to extract bindNetwork from the observed config: %v, path = %v", err, bindNetworkPath)
+	}
+	if observedBindNetwork == "tcp6" {
+		return "[::]", nil
+	}
+	return "0.0.0.0", nil
+}
+
 func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	ctx context.Context,
 	kubeClient kubernetes.Interface,
@@ -380,12 +395,23 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 ) (*appsv1.Deployment, bool, error) {
 	tmpl := v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/deploy.yaml")
 
+	var observedConfig map[string]interface{}
+	if err := yaml.Unmarshal(operatorConfig.Spec.ObservedConfig.Raw, &observedConfig); err != nil {
+		return nil, false, fmt.Errorf("failed to unmarshal the observedConfig: %v", err)
+	}
+
+	checkEndpointsBindIP, err := checkEndpointsBindIPFromConfig(observedConfig)
+	if err != nil {
+		return nil, false, err
+	}
+
 	r := strings.NewReplacer(
 		"${IMAGE}", imagePullSpec,
 		"${OPERATOR_IMAGE}", operatorImagePullSpec,
 		"${REVISION}", strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision)),
 		"${VERBOSITY}", loglevelToKlog(operatorConfig.Spec.LogLevel),
 		"${KUBE_APISERVER_OPERATOR_IMAGE}", os.Getenv("KUBE_APISERVER_OPERATOR_IMAGE"),
+		"${CHECK_ENDPOINTS_BIND_IP}", checkEndpointsBindIP,
 	)
 	tmpl = []byte(r.Replace(string(tmpl)))
 
@@ -408,10 +434,6 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	required.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
 	required.Spec.Template.Labels["revision"] = strconv.Itoa(int(operatorConfig.Status.LatestAvailableRevision))
 
-	var observedConfig map[string]interface{}
-	if err := yaml.Unmarshal(operatorConfig.Spec.ObservedConfig.Raw, &observedConfig); err != nil {
-		return nil, false, fmt.Errorf("failed to unmarshal the observedConfig: %v", err)
-	}
 	proxyConfig, _, err := unstructured.NestedStringMap(observedConfig, "workloadcontroller", "proxy")
 	if err != nil {
 		return nil, false, fmt.Errorf("couldn't get the proxy config from observedConfig: %v", err)
