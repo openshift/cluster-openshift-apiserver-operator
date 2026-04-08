@@ -1,0 +1,31 @@
+# Network policy for openshift-apiserver operand pods.
+#
+# Unlike kube-apiserver and etcd, the openshift-apiserver pods run on the pod
+# network (they do NOT use hostNetwork), so NetworkPolicy applies to them.
+#
+# Egress:
+# - Allow all egress for API server communication, etcd access, and DNS
+#   resolution. All egress is permitted because destination addresses can vary
+#   by cluster configuration.
+#
+# Ingress:
+# - Allow ingress on port 8443 for API requests and metrics scraping.
+#   The apiserver performs its own authentication/authorization.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apiserver
+  namespace: openshift-apiserver
+spec:
+  podSelector:
+    matchLabels:
+      apiserver: "true"
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8443
+  egress:
+  - {}
+  policyTypes:
+  - Ingress
+  - Egress
