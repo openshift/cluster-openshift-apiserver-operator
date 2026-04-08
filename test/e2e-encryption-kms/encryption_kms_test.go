@@ -20,6 +20,7 @@ import (
 
 // TestKMSEncryptionOnOff tests KMS encryption on/off cycle.
 // This test:
+// Add comment to test
 // 1. Deploys the mock KMS plugin
 // 2. Creates a test OAuth access token (TokenOfLife)
 // 3. Enables KMS encryption
