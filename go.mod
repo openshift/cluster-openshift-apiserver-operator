@@ -133,4 +133,9 @@ require (
 )
 
 // This replace is required for we use the OCP fork of Ginkgo.
-replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+replace (
+	github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+	github.com/openshift/api => github.com/ardaguclu/openshift-api v0.0.0-20260403070409-bdd7b164d997
+	github.com/openshift/client-go => github.com/ardaguclu/client-go v0.0.0-20260403071921-17e9d7ec447b
+	githun.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20260408060936-021a41885eac
+)

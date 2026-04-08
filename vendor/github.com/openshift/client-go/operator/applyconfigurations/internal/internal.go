@@ -2271,6 +2271,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: clientTimeout
       type:
         namedType: Duration.v1.meta.apis.pkg.apimachinery.k8s.io
+    - name: configurationManagement
+      type:
+        scalar: string
     - name: connectTimeout
       type:
         namedType: Duration.v1.meta.apis.pkg.apimachinery.k8s.io

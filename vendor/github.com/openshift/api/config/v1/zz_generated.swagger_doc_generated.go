@@ -137,7 +137,7 @@ func (GenericAPIServerConfig) SwaggerDoc() map[string]string {
 }
 
 var map_GenericControllerConfig = map[string]string{
-	"":               "GenericControllerConfig provides information to configure a controller",
+	"":               "GenericControllerConfig provides information to configure a controller\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"servingInfo":    "servingInfo is the HTTP serving information for the controller's endpoints",
 	"leaderElection": "leaderElection provides information to elect a leader. Only override this if you have a specific need",
 	"authentication": "authentication allows configuration of authentication for the endpoints",
@@ -2340,13 +2340,30 @@ func (AWSKMSConfig) SwaggerDoc() map[string]string {
 }
 
 var map_KMSConfig = map[string]string{
-	"":     "KMSConfig defines the configuration for the KMS instance that will be used with KMSEncryptionProvider encryption",
-	"type": "type defines the kind of platform for the KMS provider. Available provider types are AWS only.",
-	"aws":  "aws defines the key config for using an AWS KMS instance for the encryption. The AWS KMS instance is managed by the user outside the purview of the control plane.",
+	"":      "KMSConfig defines the configuration for the KMS instance that will be used with KMSEncryptionProvider encryption",
+	"type":  "type defines the kind of platform for the KMS provider. Available provider types are AWS and Vault.",
+	"aws":   "aws defines the key config for using an AWS KMS instance for the encryption. The AWS KMS instance is managed by the user outside the purview of the control plane.",
+	"vault": "vault defines the key config for using a HashiCorp Vault instance for the encryption. The Vault instance is managed by the user outside the purview of the control plane.",
 }
 
 func (KMSConfig) SwaggerDoc() map[string]string {
 	return map_KMSConfig
+}
+
+var map_VaultKMSConfig = map[string]string{
+	"":                 "VaultKMSConfig defines the KMS config specific to HashiCorp Vault KMS provider",
+	"image":            "image specifies the container image for the Vault KMS plugin sidecar. The value must be a valid container image reference using a sha256 digest, e.g. \"quay.io/org/vault-kms-plugin@sha256:abc123...\".",
+	"vaultAddress":     "vaultAddress specifies the URL of the Vault server. The value must start with either \"http://\" or \"https://\".",
+	"vaultNamespace":   "vaultNamespace specifies the Vault namespace where the Transit secrets engine is mounted. This is only applicable for Vault Enterprise installations. The value can be between 1 and 256 characters. When this field is not set, no namespace is used.",
+	"tlsCA":            "tlsCA is a reference to a ConfigMap in the openshift-config namespace containing the CA certificate bundle used to verify the TLS connection to the Vault server. The ConfigMap must contain the CA bundle in the key \"ca-bundle.crt\". When this field is not set, the system's trusted CA certificates are used.\n\nThe namespace for the ConfigMap referenced by tlsCA is openshift-config.\n\nExample ConfigMap:\n  apiVersion: v1\n  kind: ConfigMap\n  metadata:\n    name: vault-ca-bundle\n    namespace: openshift-config\n  data:\n    ca-bundle.crt: |",
+	"tlsServerName":    "tlsServerName specifies the Server Name Indication (SNI) to use when connecting to Vault via TLS. This is useful when the Vault server's hostname doesn't match its TLS certificate. When this field is not set, no SNI value is sent during the TLS connection.",
+	"approleSecretRef": "approleSecretRef references a secret in the openshift-config namespace containing the AppRole credentials used to authenticate with Vault. The secret must contain the following keys:\n  - \"roleID\": The AppRole Role ID\n  - \"secretID\": The AppRole Secret ID",
+	"transitMount":     "transitMount specifies the mount path of the Vault Transit engine. The value can be between 1 and 128 characters. When this field is not set, it defaults to \"transit\".",
+	"transitKey":       "transitKey specifies the name of the encryption key in Vault's Transit engine. This key is used to encrypt and decrypt data. The value must be between 1 and 128 characters.",
+}
+
+func (VaultKMSConfig) SwaggerDoc() map[string]string {
+	return map_VaultKMSConfig
 }
 
 var map_ClusterNetworkEntry = map[string]string{
