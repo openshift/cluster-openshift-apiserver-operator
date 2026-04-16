@@ -10,9 +10,9 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/openshift-eng/openshift-tests-extension v0.0.0-20250804142706-7b3ab438a292
-	github.com/openshift/api v0.0.0-20260327065519-582dc3d316b7
+	github.com/openshift/api v0.0.0-20260429122012-1180c0f5c3e9
 	github.com/openshift/build-machinery-go v0.0.0-20251023084048-5d77c1a5e5af
-	github.com/openshift/client-go v0.0.0-20260320040014-4b5fc2cdad98
+	github.com/openshift/client-go v0.0.0-20260429123927-c81f86abfa6a
 	github.com/openshift/library-go v0.0.0-20260420070738-cfbe44813dd8
 	github.com/spf13/cobra v1.10.0
 	github.com/stretchr/testify v1.11.1
@@ -133,4 +133,7 @@ require (
 )
 
 // This replace is required for we use the OCP fork of Ginkgo.
-replace github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+replace (
+	github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+	github.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20260506114222-b2ffad286095
+)
