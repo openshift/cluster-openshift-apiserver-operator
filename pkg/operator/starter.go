@@ -442,7 +442,7 @@ func apiServices(clusterVersionLister configlisterv1.ClusterVersionLister) ([]*a
 			ObjectMeta: metav1.ObjectMeta{
 				Name: apiServiceGroupVersion.Version + "." + apiServiceGroupVersion.Group,
 				Annotations: map[string]string{
-					"service.alpha.openshift.io/inject-cabundle": "true",
+					"service.beta.openshift.io/inject-cabundle": "true",
 				},
 			},
 			Spec: apiregistrationv1.APIServiceSpec{
