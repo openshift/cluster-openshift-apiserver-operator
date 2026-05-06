@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/openshift/library-go/pkg/operator/encryption/encryptiondata"
+	encryptiondatatesting "github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -13,8 +15,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/revisionpoddeployer"
-	"github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig"
-	encryptiontesting "github.com/openshift/library-go/pkg/operator/encryption/testing"
 )
 
 func TestUnionRevisionLabelPodDeployer(t *testing.T) {
@@ -42,7 +42,7 @@ func TestUnionRevisionLabelPodDeployer(t *testing.T) {
 				newFakeDeployer(createDefaultSecretWithEncryptionConfig(t), true, false, nil),
 				newFakeDeployer(func() *corev1.Secret {
 					ec := createDefaultEncryptionConfig()
-					ec.Resources = append(ec.Resources, apiserverv1.ResourceConfiguration{Resources: []string{"pods"}})
+					ec.Encryption.Resources = append(ec.Encryption.Resources, apiserverv1.ResourceConfiguration{Resources: []string{"pods"}})
 					return encryptionCfgToSecret(t, ec)
 				}(), true, false, nil),
 			},
@@ -152,16 +152,16 @@ func createDefaultSecretWithEncryptionConfig(t *testing.T) *corev1.Secret {
 	return encryptionCfgToSecret(t, ec)
 }
 
-func encryptionCfgToSecret(t *testing.T, ec *apiserverv1.EncryptionConfiguration) *corev1.Secret {
-	s, err := encryptionconfig.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec)
+func encryptionCfgToSecret(t *testing.T, ec *encryptiondata.Config) *corev1.Secret {
+	s, err := encryptiondata.ToSecret("targetNs", fmt.Sprintf("%s-%s", "encryption-config", "1"), ec)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return s
 }
 
-func createDefaultEncryptionConfig() *apiserverv1.EncryptionConfiguration {
-	keysResForSecrets := encryptiontesting.EncryptionKeysResourceTuple{
+func createDefaultEncryptionConfig() *encryptiondata.Config {
+	keysResForSecrets := encryptiondatatesting.EncryptionKeysResourceTuple{
 		Resource: "secrets",
 		Keys: []apiserverv1.Key{
 			{
@@ -170,7 +170,7 @@ func createDefaultEncryptionConfig() *apiserverv1.EncryptionConfiguration {
 			},
 		},
 	}
-	keysResForConfigMaps := encryptiontesting.EncryptionKeysResourceTuple{
+	keysResForConfigMaps := encryptiondatatesting.EncryptionKeysResourceTuple{
 		Resource: "configmaps",
 		Keys: []apiserverv1.Key{
 			{
@@ -180,7 +180,7 @@ func createDefaultEncryptionConfig() *apiserverv1.EncryptionConfiguration {
 		},
 	}
 
-	return encryptiontesting.CreateEncryptionCfgWithWriteKey([]encryptiontesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
+	return encryptiondatatesting.CreateEncryptionCfgWithWriteKey([]encryptiondatatesting.EncryptionKeysResourceTuple{keysResForConfigMaps, keysResForSecrets})
 }
 
 type fakeDeployer struct {

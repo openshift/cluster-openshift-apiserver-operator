@@ -258,7 +258,7 @@ github.com/openshift-eng/openshift-tests-extension/pkg/ginkgo
 github.com/openshift-eng/openshift-tests-extension/pkg/junit
 github.com/openshift-eng/openshift-tests-extension/pkg/util/sets
 github.com/openshift-eng/openshift-tests-extension/pkg/version
-# github.com/openshift/api v0.0.0-20260327065519-582dc3d316b7
+# github.com/openshift/api v0.0.0-20260429122012-1180c0f5c3e9
 ## explicit; go 1.25.0
 github.com/openshift/api
 github.com/openshift/api/annotations
@@ -281,6 +281,7 @@ github.com/openshift/api/config/v1alpha2
 github.com/openshift/api/console
 github.com/openshift/api/console/v1
 github.com/openshift/api/etcd
+github.com/openshift/api/etcd/v1
 github.com/openshift/api/etcd/v1alpha1
 github.com/openshift/api/features
 github.com/openshift/api/helm
@@ -347,7 +348,7 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20260320040014-4b5fc2cdad98
+# github.com/openshift/client-go v0.0.0-20260429123927-c81f86abfa6a
 ## explicit; go 1.25.0
 github.com/openshift/client-go/config/applyconfigurations
 github.com/openshift/client-go/config/applyconfigurations/config/v1
@@ -404,7 +405,7 @@ github.com/openshift/client-go/route/applyconfigurations/internal
 github.com/openshift/client-go/route/applyconfigurations/route/v1
 github.com/openshift/client-go/route/clientset/versioned/scheme
 github.com/openshift/client-go/route/clientset/versioned/typed/route/v1
-# github.com/openshift/library-go v0.0.0-20260420070738-cfbe44813dd8
+# github.com/openshift/library-go v0.0.0-20260420070738-cfbe44813dd8 => github.com/ardaguclu/library-go v0.0.0-20260506114222-b2ffad286095
 ## explicit; go 1.25.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/apps/deployment
@@ -442,13 +443,14 @@ github.com/openshift/library-go/pkg/operator/encryption/controllers
 github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators
 github.com/openshift/library-go/pkg/operator/encryption/crypto
 github.com/openshift/library-go/pkg/operator/encryption/deployer
-github.com/openshift/library-go/pkg/operator/encryption/encryptionconfig
+github.com/openshift/library-go/pkg/operator/encryption/encoding
+github.com/openshift/library-go/pkg/operator/encryption/encryptiondata
+github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing
 github.com/openshift/library-go/pkg/operator/encryption/kms
 github.com/openshift/library-go/pkg/operator/encryption/observer
 github.com/openshift/library-go/pkg/operator/encryption/secrets
 github.com/openshift/library-go/pkg/operator/encryption/state
 github.com/openshift/library-go/pkg/operator/encryption/statemachine
-github.com/openshift/library-go/pkg/operator/encryption/testing
 github.com/openshift/library-go/pkg/operator/events
 github.com/openshift/library-go/pkg/operator/genericoperatorclient
 github.com/openshift/library-go/pkg/operator/loglevel
@@ -1679,3 +1681,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+# github.com/openshift/library-go => github.com/ardaguclu/library-go v0.0.0-20260506114222-b2ffad286095
