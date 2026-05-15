@@ -71,6 +71,6 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "RouteOfLife",
-		EncryptionProvider:             configv1.EncryptionType(*provider),
+		EncryptionProvider:             configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)},
 	})
 }
