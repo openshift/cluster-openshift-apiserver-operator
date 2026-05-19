@@ -46,6 +46,15 @@ func main() {
 		Name: "openshift/cluster-openshift-apiserver-operator/all",
 	})
 
+	// Suite: encryption-kms (KMS encryption tests, serial execution)
+	ext.AddSuite(e.Suite{
+		Name:        "openshift/cluster-openshift-apiserver-operator/encryption-kms",
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("KMSEncryption")`,
+		},
+	})
+
 	specs, err := g.BuildExtensionTestSpecsFromOpenShiftGinkgoSuite()
 	if err != nil {
 		panic(fmt.Sprintf("couldn't build extension test specs from ginkgo: %+v", err.Error()))

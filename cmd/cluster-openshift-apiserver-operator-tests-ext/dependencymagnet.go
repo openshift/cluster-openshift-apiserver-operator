@@ -6,5 +6,6 @@ import (
 	// Import test packages to register Ginkgo tests
 	// The import below is necessary to ensure that the OAS operator tests are registered with the extension.
 	_ "github.com/openshift/cluster-openshift-apiserver-operator/test/e2e"
+	_ "github.com/openshift/cluster-openshift-apiserver-operator/test/e2e-encryption-kms"
 	_ "github.com/openshift/cluster-openshift-apiserver-operator/test/extended"
 )
