@@ -72,10 +72,10 @@ func testKMSEncryptionOnOff(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
-		EncryptionProvider: configv1.APIServerEncryption{
+		EncryptionProvider: library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{
 			Type: configv1.EncryptionTypeKMS,
 			KMS:  librarykms.DefaultFakeKMSPluginConfig,
-		},
+		}},
 	})
 }
 
@@ -115,8 +115,8 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
-		EncryptionProviders: library.ShuffleEncryptionProviders([]configv1.APIServerEncryption{
-			{Type: configv1.EncryptionTypeKMS, KMS: librarykms.DefaultFakeKMSPluginConfig},
+		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
+			{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: librarykms.DefaultFakeKMSPluginConfig}},
 			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 		}),
 	})
