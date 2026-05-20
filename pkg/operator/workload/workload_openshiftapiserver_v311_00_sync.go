@@ -38,7 +38,7 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/controller/factory"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
-	encryptionkms "github.com/openshift/library-go/pkg/operator/encryption/kms"
+	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcehash"
@@ -479,8 +479,15 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	}
 	required.Spec.Replicas = masterNodeCount
 
-	if err := encryptionkms.AddKMSPluginVolumeAndMountToPodSpec(&required.Spec.Template.Spec, "openshift-apiserver", featureGateAccessor); err != nil {
-		return nil, false, fmt.Errorf("failed to add KMS encryption volumes: %w", err)
+	if err := kmspluginlifecycle.AddKMSPluginSidecarToPodSpec(
+		ctx,
+		&required.Spec.Template.Spec,
+		"openshift-apiserver",
+		operatorclient.TargetNamespace,
+		fmt.Sprintf("encryption-config-%d", operatorConfig.Status.LatestAvailableRevision),
+		kubeClient.CoreV1(),
+		featureGateAccessor); err != nil {
+		return nil, false, fmt.Errorf("failed to add KMS plugin to pod spec: %w", err)
 	}
 
 	return resourceapply.ApplyDeployment(ctx, client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
