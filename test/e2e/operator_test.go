@@ -106,12 +106,13 @@ func TestRedeployOnConfigChange(t *testing.T) {
 }
 
 func TestEncryptionTypeAESCBC(t *testing.T) {
+	ctx := context.TODO()
 	// make sure that deployment is not in progress before and after the test
 	cs := library.GetClients(t)
 	libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, cs.Kube.CoreV1().Pods(operatorclient.TargetNamespace))
 	defer libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, cs.Kube.CoreV1().Pods(operatorclient.TargetNamespace))
 
-	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
+	library.TestEncryptionTypeAESCBC(ctx, t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),

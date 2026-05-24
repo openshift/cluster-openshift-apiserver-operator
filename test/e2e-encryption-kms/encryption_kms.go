@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -55,7 +54,7 @@ func testKMSEncryptionOnOff(t testing.TB) {
 	require.NoError(t, err)
 	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
-	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
+	library.TestEncryptionTurnOnAndOff(ctx, t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -72,10 +71,7 @@ func testKMSEncryptionOnOff(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
-		EncryptionProvider: library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{
-			Type: configv1.EncryptionTypeKMS,
-			KMS:  librarykms.DefaultFakeKMSPluginConfig,
-		}},
+		EncryptionProvider:             librarykms.DefaultFakeVaultEncryptionProvider,
 	})
 }
 
@@ -98,7 +94,7 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 	require.NoError(t, err)
 	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
-	library.TestEncryptionProvidersMigration(t, library.ProvidersMigrationScenario{
+	library.TestEncryptionProvidersMigration(ctx, t, library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -116,7 +112,7 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-			{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: librarykms.DefaultFakeKMSPluginConfig}},
+			librarykms.DefaultFakeVaultEncryptionProvider,
 			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 		}),
 	})

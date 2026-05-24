@@ -22,7 +22,8 @@ import (
 var provider = flag.String("provider", "aescbc", "encryption provider used by the tests")
 
 func TestEncryptionTypeIdentity(t *testing.T) {
-	library.TestEncryptionTypeIdentity(t, library.BasicScenario{
+	ctx := context.TODO()
+	library.TestEncryptionTypeIdentity(ctx, t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
@@ -34,7 +35,8 @@ func TestEncryptionTypeIdentity(t *testing.T) {
 }
 
 func TestEncryptionTypeUnset(t *testing.T) {
-	library.TestEncryptionTypeUnset(t, library.BasicScenario{
+	ctx := context.TODO()
+	library.TestEncryptionTypeUnset(ctx, t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
@@ -54,7 +56,7 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 	require.NoError(t, err)
 	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
-	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
+	library.TestEncryptionTurnOnAndOff(ctx, t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
