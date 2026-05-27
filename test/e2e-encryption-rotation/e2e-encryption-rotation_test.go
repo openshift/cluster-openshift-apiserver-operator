@@ -32,7 +32,7 @@ func TestEncryptionRotation(t *testing.T) {
 	require.NoError(t, err)
 	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
-	library.TestEncryptionRotation(t, library.RotationScenario{
+	library.TestEncryptionRotation(t.Context(), t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,

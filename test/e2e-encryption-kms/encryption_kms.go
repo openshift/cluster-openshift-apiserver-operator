@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
@@ -20,12 +19,12 @@ import (
 )
 
 var _ = g.Describe("[sig-openshift-apiserver] cluster-openshift-apiserver-operator", func() {
-	g.It("TestKMSEncryptionOnOff [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func() {
-		testKMSEncryptionOnOff(g.GinkgoTB())
+	g.It("TestKMSEncryptionOnOff [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+		testKMSEncryptionOnOff(ctx, g.GinkgoTB())
 	})
 
-	g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func() {
-		testKMSEncryptionProvidersMigration(g.GinkgoTB())
+	g.It("TestKMSEncryptionProvidersMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m]", func(ctx context.Context) {
+		testKMSEncryptionProvidersMigration(ctx, g.GinkgoTB())
 	})
 })
 
@@ -41,13 +40,12 @@ var _ = g.Describe("[sig-openshift-apiserver] cluster-openshift-apiserver-operat
 // 8. Verifies token is encrypted again
 // 9. Disables encryption (Identity) again
 // 10. Verifies token is NOT encrypted again
-func testKMSEncryptionOnOff(t testing.TB) {
+func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 	// Deploy the mock KMS plugin for testing.
 	// NOTE: This manual deployment is only required for KMS v1. In the future,
 	// the platform will manage the KMS plugins, and this code will no longer be needed.
-	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
+	librarykms.DeployUpstreamMockKMSPlugin(ctx, t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
 
-	ctx := context.TODO()
 	cs := operatorencryption.GetClients(t)
 
 	ns := fmt.Sprintf("test-kms-encryption-on-off-%d", rand.IntN(4))
@@ -55,7 +53,7 @@ func testKMSEncryptionOnOff(t testing.TB) {
 	require.NoError(t, err)
 	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
-	library.TestEncryptionTurnOnAndOff(t, library.OnOffScenario{
+	library.TestEncryptionTurnOnAndOff(ctx, t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -72,10 +70,7 @@ func testKMSEncryptionOnOff(t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
-		EncryptionProvider: library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{
-			Type: configv1.EncryptionTypeKMS,
-			KMS:  librarykms.DefaultFakeKMSPluginConfig,
-		}},
+		EncryptionProvider:             library.EncryptionProvider{APIServerEncryption: librarykms.DefaultFakeKMSPluginConfig},
 	})
 }
 
@@ -87,10 +82,9 @@ func testKMSEncryptionOnOff(t testing.TB) {
 // 4. Shuffles the selected AES provider with KMS to create a randomized migration order
 // 5. Migrates between the providers in the shuffled order
 // 6. Verifies token is correctly encrypted after each migration
-func testKMSEncryptionProvidersMigration(t testing.TB) {
-	librarykms.DeployUpstreamMockKMSPlugin(context.Background(), t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
+func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
+	librarykms.DeployUpstreamMockKMSPlugin(ctx, t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
 
-	ctx := context.TODO()
 	cs := operatorencryption.GetClients(t)
 
 	ns := fmt.Sprintf("test-kms-encryption-shuffle-%d", rand.IntN(4))
@@ -98,7 +92,7 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 	require.NoError(t, err)
 	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
-	library.TestEncryptionProvidersMigration(t, library.ProvidersMigrationScenario{
+	library.TestEncryptionProvidersMigration(ctx, t, library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
@@ -116,7 +110,7 @@ func testKMSEncryptionProvidersMigration(t testing.TB) {
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-			{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionTypeKMS, KMS: librarykms.DefaultFakeKMSPluginConfig}},
+			{APIServerEncryption: librarykms.DefaultFakeKMSPluginConfig},
 			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 		}),
 	})
