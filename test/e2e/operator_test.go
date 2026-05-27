@@ -111,7 +111,7 @@ func TestEncryptionTypeAESCBC(t *testing.T) {
 	libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, cs.Kube.CoreV1().Pods(operatorclient.TargetNamespace))
 	defer libraryapi.WaitForAPIServerToStabilizeOnTheSameRevision(t, cs.Kube.CoreV1().Pods(operatorclient.TargetNamespace))
 
-	library.TestEncryptionTypeAESCBC(t, library.BasicScenario{
+	library.TestEncryptionTypeAESCBC(t.Context(), t, library.BasicScenario{
 		Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
