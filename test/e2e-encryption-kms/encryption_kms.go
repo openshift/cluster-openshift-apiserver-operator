@@ -41,11 +41,6 @@ var _ = g.Describe("[sig-openshift-apiserver] cluster-openshift-apiserver-operat
 // 9. Disables encryption (Identity) again
 // 10. Verifies token is NOT encrypted again
 func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
-	// Deploy the mock KMS plugin for testing.
-	// NOTE: This manual deployment is only required for KMS v1. In the future,
-	// the platform will manage the KMS plugins, and this code will no longer be needed.
-	librarykms.DeployUpstreamMockKMSPlugin(ctx, t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
-
 	cs := operatorencryption.GetClients(t)
 
 	ns := fmt.Sprintf("test-kms-encryption-on-off-%d", rand.IntN(4))
@@ -83,8 +78,6 @@ func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 // 5. Migrates between the providers in the shuffled order
 // 6. Verifies token is correctly encrypted after each migration
 func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
-	librarykms.DeployUpstreamMockKMSPlugin(ctx, t, library.GetClients(t).Kube, librarykms.WellKnownUpstreamMockKMSPluginNamespace, librarykms.WellKnownUpstreamMockKMSPluginImage, librarykms.DefaultKMSPluginCount)
-
 	cs := operatorencryption.GetClients(t)
 
 	ns := fmt.Sprintf("test-kms-encryption-shuffle-%d", rand.IntN(4))
