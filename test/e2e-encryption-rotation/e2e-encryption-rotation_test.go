@@ -32,6 +32,17 @@ func TestEncryptionRotation(t *testing.T) {
 	require.NoError(t, err)
 	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
+	updateUnsupportedConfig := func(raw []byte) error {
+		cs := operatorencryption.GetClients(t)
+		apiServerOperator, err := cs.OperatorClient.Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
+		_, err = cs.OperatorClient.Update(ctx, apiServerOperator, metav1.UpdateOptions{})
+		return err
+	}
+
 	library.TestEncryptionRotation(t.Context(), t, library.RotationScenario{
 		BasicScenario: library.BasicScenario{
 			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
@@ -48,16 +59,8 @@ func TestEncryptionRotation(t *testing.T) {
 		GetRawResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) string {
 			return operatorencryption.GetRawRouteOfLife(t, clientSet, ns)
 		},
-		UnsupportedConfigFunc: func(raw []byte) error {
-			cs := operatorencryption.GetClients(t)
-			apiServerOperator, err := cs.OperatorClient.Get(ctx, "cluster", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			apiServerOperator.Spec.UnsupportedConfigOverrides.Raw = raw
-			_, err = cs.OperatorClient.Update(ctx, apiServerOperator, metav1.UpdateOptions{})
-			return err
-		},
-		EncryptionProvider: library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)}},
+		ForceRotationFunc:           library.StaticEncryptionForceRotation(updateUnsupportedConfig),
+		WaitForRotationCompleteFunc: library.WaitForNextEncryptionKeyRotation(),
+		EncryptionProvider:          library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)}},
 	})
 }
