@@ -30,7 +30,7 @@ var _ = g.Describe("[sig-openshift-apiserver] cluster-openshift-apiserver-operat
 
 // testKMSEncryptionOnOff tests KMS encryption on/off cycle.
 // This test:
-// 1. Deploys the mock KMS plugin
+// 1. Deploys the real Vault KMS plugin
 // 2. Creates a test OAuth access token (TokenOfLife)
 // 3. Enables KMS encryption
 // 4. Verifies token is encrypted
@@ -65,13 +65,13 @@ func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
-		EncryptionProvider:             librarykms.DefaultFakeVaultEncryptionProvider,
+		EncryptionProvider:             librarykms.DefaultVaultEncryptionProvider(ctx, t),
 	})
 }
 
 // testKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers.
 // This test:
-// 1. Deploys the mock KMS plugin
+// 1. Deploys the real Vault KMS plugin
 // 2. Creates a test OAuth access token (TokenOfLife)
 // 3. Randomly picks one AES encryption provider (AESGCM or AESCBC)
 // 4. Shuffles the selected AES provider with KMS to create a randomized migration order
@@ -103,7 +103,7 @@ func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
 		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
 		ResourceName:                   "TokenOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-			librarykms.DefaultFakeVaultEncryptionProvider,
+			librarykms.DefaultVaultEncryptionProvider(ctx, t),
 			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
 		}),
 	})
