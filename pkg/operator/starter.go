@@ -328,6 +328,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		openshiftDeployer,
 		migrator,
 		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
