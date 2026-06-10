@@ -405,7 +405,7 @@ github.com/openshift/client-go/route/applyconfigurations/internal
 github.com/openshift/client-go/route/applyconfigurations/route/v1
 github.com/openshift/client-go/route/clientset/versioned/scheme
 github.com/openshift/client-go/route/clientset/versioned/typed/route/v1
-# github.com/openshift/library-go v0.0.0-20260608110537-04693132679d
+# github.com/openshift/library-go v0.0.0-20260608110537-04693132679d => github.com/kevinrizza/library-go v0.0.0-20260610202501-42a0e5fc0061
 ## explicit; go 1.25.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/apps/deployment
@@ -1681,3 +1681,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+# github.com/openshift/library-go => github.com/kevinrizza/library-go v0.0.0-20260610202501-42a0e5fc0061
