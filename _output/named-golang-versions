@@ -1,0 +1,3 @@
+.ci-operator.yaml: 1.25
+go.mod: 1.25
+Dockerfile: 1.25
