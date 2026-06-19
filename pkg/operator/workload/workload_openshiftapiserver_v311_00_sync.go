@@ -487,6 +487,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 		fmt.Sprintf("encryption-config-%d", operatorConfig.Status.LatestAvailableRevision),
 		kubeClient.CoreV1(),
 		featureGateAccessor,
+		"cluster-openshift-apiserver-operator",
 		operatorImagePullSpec); err != nil {
 		return nil, false, fmt.Errorf("failed to add KMS plugin to pod spec: %w", err)
 	}
