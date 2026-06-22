@@ -9,7 +9,8 @@
 #   by cluster configuration.
 #
 # Ingress:
-# - Allow ingress on port 8443 for API requests and metrics scraping.
+# - Allow ingress on port 8443 for API requests and metrics scraping,
+#   and on port 17698 for checkendpoints.
 #   The apiserver performs its own authentication/authorization.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -24,7 +25,6 @@ spec:
   - ports:
     - protocol: TCP
       port: 8443
-  - ports:
     - protocol: TCP
       port: 17698      
   egress:
