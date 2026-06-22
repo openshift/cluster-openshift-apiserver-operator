@@ -24,6 +24,9 @@ spec:
   - ports:
     - protocol: TCP
       port: 8443
+  - ports:
+    - protocol: TCP
+      port: 17698      
   egress:
   - {}
   policyTypes:
