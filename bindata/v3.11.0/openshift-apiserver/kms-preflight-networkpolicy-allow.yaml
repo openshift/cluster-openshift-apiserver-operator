@@ -1,0 +1,14 @@
+# This NP allows the kms preflight checker pod to communicate with the external/in-cluster vault instance.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kms-preflight
+  namespace: openshift-apiserver
+spec:
+  podSelector:
+    matchLabels:
+      app: openshift-kms-preflight
+  egress:
+    - {}
+  policyTypes:
+    - Egress
