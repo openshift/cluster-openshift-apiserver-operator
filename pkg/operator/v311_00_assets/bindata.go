@@ -4,6 +4,7 @@
 // bindata/v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml
 // bindata/v3.11.0/openshift-apiserver/cm.yaml
 // bindata/v3.11.0/openshift-apiserver/deploy.yaml
+// bindata/v3.11.0/openshift-apiserver/kms-preflight-networkpolicy-allow.yaml
 // bindata/v3.11.0/openshift-apiserver/networkpolicy-allow.yaml
 // bindata/v3.11.0/openshift-apiserver/networkpolicy-default-deny.yaml
 // bindata/v3.11.0/openshift-apiserver/ns.yaml
@@ -431,6 +432,37 @@ func v3110OpenshiftApiserverDeployYaml() (*asset, error) {
 	return a, nil
 }
 
+var _v3110OpenshiftApiserverKmsPreflightNetworkpolicyAllowYaml = []byte(`# This NP allows the kms preflight checker pod to communicate with the external/in-cluster vault instance.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kms-preflight
+  namespace: openshift-apiserver
+spec:
+  podSelector:
+    matchLabels:
+      app: openshift-kms-preflight
+  egress:
+    - {}
+  policyTypes:
+    - Egress
+`)
+
+func v3110OpenshiftApiserverKmsPreflightNetworkpolicyAllowYamlBytes() ([]byte, error) {
+	return _v3110OpenshiftApiserverKmsPreflightNetworkpolicyAllowYaml, nil
+}
+
+func v3110OpenshiftApiserverKmsPreflightNetworkpolicyAllowYaml() (*asset, error) {
+	bytes, err := v3110OpenshiftApiserverKmsPreflightNetworkpolicyAllowYamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "v3.11.0/openshift-apiserver/kms-preflight-networkpolicy-allow.yaml", size: 0, mode: os.FileMode(0), modTime: time.Unix(0, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 var _v3110OpenshiftApiserverNetworkpolicyAllowYaml = []byte(`# Network policy for openshift-apiserver operand pods.
 #
 # Unlike kube-apiserver and etcd, the openshift-apiserver pods run on the pod
@@ -710,17 +742,18 @@ func AssetNames() []string {
 
 // _bindata is a table, holding each asset generator, mapped to its name.
 var _bindata = map[string]func() (*asset, error){
-	"v3.11.0/config/defaultconfig.yaml":                             v3110ConfigDefaultconfigYaml,
-	"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml": v3110OpenshiftApiserverApiserverClusterrolebindingYaml,
-	"v3.11.0/openshift-apiserver/cm.yaml":                           v3110OpenshiftApiserverCmYaml,
-	"v3.11.0/openshift-apiserver/deploy.yaml":                       v3110OpenshiftApiserverDeployYaml,
-	"v3.11.0/openshift-apiserver/networkpolicy-allow.yaml":          v3110OpenshiftApiserverNetworkpolicyAllowYaml,
-	"v3.11.0/openshift-apiserver/networkpolicy-default-deny.yaml":   v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml,
-	"v3.11.0/openshift-apiserver/ns.yaml":                           v3110OpenshiftApiserverNsYaml,
-	"v3.11.0/openshift-apiserver/pdb.yaml":                          v3110OpenshiftApiserverPdbYaml,
-	"v3.11.0/openshift-apiserver/sa.yaml":                           v3110OpenshiftApiserverSaYaml,
-	"v3.11.0/openshift-apiserver/svc.yaml":                          v3110OpenshiftApiserverSvcYaml,
-	"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml":                v3110OpenshiftApiserverTrusted_ca_cmYaml,
+	"v3.11.0/config/defaultconfig.yaml":                                  v3110ConfigDefaultconfigYaml,
+	"v3.11.0/openshift-apiserver/apiserver-clusterrolebinding.yaml":      v3110OpenshiftApiserverApiserverClusterrolebindingYaml,
+	"v3.11.0/openshift-apiserver/cm.yaml":                                v3110OpenshiftApiserverCmYaml,
+	"v3.11.0/openshift-apiserver/deploy.yaml":                            v3110OpenshiftApiserverDeployYaml,
+	"v3.11.0/openshift-apiserver/kms-preflight-networkpolicy-allow.yaml": v3110OpenshiftApiserverKmsPreflightNetworkpolicyAllowYaml,
+	"v3.11.0/openshift-apiserver/networkpolicy-allow.yaml":               v3110OpenshiftApiserverNetworkpolicyAllowYaml,
+	"v3.11.0/openshift-apiserver/networkpolicy-default-deny.yaml":        v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml,
+	"v3.11.0/openshift-apiserver/ns.yaml":                                v3110OpenshiftApiserverNsYaml,
+	"v3.11.0/openshift-apiserver/pdb.yaml":                               v3110OpenshiftApiserverPdbYaml,
+	"v3.11.0/openshift-apiserver/sa.yaml":                                v3110OpenshiftApiserverSaYaml,
+	"v3.11.0/openshift-apiserver/svc.yaml":                               v3110OpenshiftApiserverSvcYaml,
+	"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml":                     v3110OpenshiftApiserverTrusted_ca_cmYaml,
 }
 
 // AssetDir returns the file names below a certain
@@ -771,16 +804,17 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"defaultconfig.yaml": {v3110ConfigDefaultconfigYaml, map[string]*bintree{}},
 		}},
 		"openshift-apiserver": {nil, map[string]*bintree{
-			"apiserver-clusterrolebinding.yaml": {v3110OpenshiftApiserverApiserverClusterrolebindingYaml, map[string]*bintree{}},
-			"cm.yaml":                           {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
-			"deploy.yaml":                       {v3110OpenshiftApiserverDeployYaml, map[string]*bintree{}},
-			"networkpolicy-allow.yaml":          {v3110OpenshiftApiserverNetworkpolicyAllowYaml, map[string]*bintree{}},
-			"networkpolicy-default-deny.yaml":   {v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml, map[string]*bintree{}},
-			"ns.yaml":                           {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
-			"pdb.yaml":                          {v3110OpenshiftApiserverPdbYaml, map[string]*bintree{}},
-			"sa.yaml":                           {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
-			"svc.yaml":                          {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
-			"trusted_ca_cm.yaml":                {v3110OpenshiftApiserverTrusted_ca_cmYaml, map[string]*bintree{}},
+			"apiserver-clusterrolebinding.yaml":      {v3110OpenshiftApiserverApiserverClusterrolebindingYaml, map[string]*bintree{}},
+			"cm.yaml":                                {v3110OpenshiftApiserverCmYaml, map[string]*bintree{}},
+			"deploy.yaml":                            {v3110OpenshiftApiserverDeployYaml, map[string]*bintree{}},
+			"kms-preflight-networkpolicy-allow.yaml": {v3110OpenshiftApiserverKmsPreflightNetworkpolicyAllowYaml, map[string]*bintree{}},
+			"networkpolicy-allow.yaml":               {v3110OpenshiftApiserverNetworkpolicyAllowYaml, map[string]*bintree{}},
+			"networkpolicy-default-deny.yaml":        {v3110OpenshiftApiserverNetworkpolicyDefaultDenyYaml, map[string]*bintree{}},
+			"ns.yaml":                                {v3110OpenshiftApiserverNsYaml, map[string]*bintree{}},
+			"pdb.yaml":                               {v3110OpenshiftApiserverPdbYaml, map[string]*bintree{}},
+			"sa.yaml":                                {v3110OpenshiftApiserverSaYaml, map[string]*bintree{}},
+			"svc.yaml":                               {v3110OpenshiftApiserverSvcYaml, map[string]*bintree{}},
+			"trusted_ca_cm.yaml":                     {v3110OpenshiftApiserverTrusted_ca_cmYaml, map[string]*bintree{}},
 		}},
 	}},
 }}

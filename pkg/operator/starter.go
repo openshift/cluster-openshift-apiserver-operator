@@ -268,6 +268,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 					"v3.11.0/openshift-apiserver/sa.yaml",
 					"v3.11.0/openshift-apiserver/trusted_ca_cm.yaml",
 					"v3.11.0/openshift-apiserver/networkpolicy-allow.yaml",
+					"v3.11.0/openshift-apiserver/kms-preflight-networkpolicy-allow.yaml",
 					"v3.11.0/openshift-apiserver/networkpolicy-default-deny.yaml",
 				},
 			},
