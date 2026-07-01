@@ -51,7 +51,17 @@ func main() {
 		Name:        "openshift/cluster-openshift-apiserver-operator/encryption-kms",
 		Parallelism: 1,
 		Qualifiers: []string{
-			`name.contains("KMSEncryption")`,
+			`name.contains("KMSEncryption") && !name.contains("[Suite:encryption-kms-2]")`,
+		},
+	})
+
+	// Suite: encryption-kms-2 (KMS to KMS migration tests, serial execution)
+	ext.AddSuite(e.Suite{
+		Name:        "openshift/cluster-openshift-apiserver-operator/encryption-kms-2",
+		Parents:     []string{"openshift/kms"},
+		Parallelism: 1,
+		Qualifiers: []string{
+			`name.contains("[Suite:encryption-kms-2]")`,
 		},
 	})
 
