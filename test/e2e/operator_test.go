@@ -14,7 +14,6 @@ import (
 	operatorv1client "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	test "github.com/openshift/cluster-openshift-apiserver-operator/test/library"
-	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
 	libraryapi "github.com/openshift/library-go/test/library/apiserver"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
@@ -117,7 +116,7 @@ func TestEncryptionTypeAESCBC(t *testing.T) {
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertRoutes,
+		TargetGRs:                       library.OASTargetGRs,
+		AssertFunc:                      library.AssertRoutes,
 	})
 }

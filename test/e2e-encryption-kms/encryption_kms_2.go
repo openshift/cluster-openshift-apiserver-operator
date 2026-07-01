@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
 )
@@ -32,12 +31,12 @@ var _ = g.Describe("[sig-openshift-apiserver] cluster-openshift-apiserver-operat
 // 3. Verifies route is correctly encrypted after each migration
 // 4. Switches to identity (off) to verify the resource is re-written unencrypted
 func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
-	cs := operatorencryption.GetClients(t)
+	cs := library.GetClients(t)
 
 	ns := fmt.Sprintf("test-kms-encryption-kms-to-kms-%d", rand.IntN(4))
-	_, err := cs.KubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+	_, err := cs.Kube.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
 	require.NoError(t, err)
-	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+	defer cs.Kube.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
 	library.TestEncryptionProvidersMigration(ctx, t, library.ProvidersMigrationScenario{
 		BasicScenario: library.BasicScenario{
@@ -46,15 +45,15 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertRoutes,
+			TargetGRs:                       library.OASTargetGRs,
+			AssertFunc:                      library.AssertRoutes,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, namespace string) runtime.Object {
-			return operatorencryption.CreateAndStoreRouteOfLife(context.TODO(), t, operatorencryption.GetClients(t), ns)
+			return library.CreateAndStoreRouteOfLife(context.TODO(), t, library.GetClients(t), ns)
 		},
-		AssertResourceEncryptedFunc:    operatorencryption.AssertRouteOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
-		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
+		AssertResourceEncryptedFunc:    library.AssertRouteOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: library.AssertRouteOfLifeNotEncrypted,
+		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return library.RouteOfLife(t, ns) },
 		ResourceName:                   "RouteOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
 			librarykms.DefaultVaultEncryptionProvider(ctx, t),

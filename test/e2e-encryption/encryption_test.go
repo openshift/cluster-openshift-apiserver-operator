@@ -15,7 +15,6 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
-	operatorencryption "github.com/openshift/cluster-openshift-apiserver-operator/test/library/encryption"
 	library "github.com/openshift/library-go/test/library/encryption"
 )
 
@@ -28,8 +27,8 @@ func TestEncryptionTypeIdentity(t *testing.T) {
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertRoutes,
+		TargetGRs:                       library.OASTargetGRs,
+		AssertFunc:                      library.AssertRoutes,
 	})
 }
 
@@ -40,19 +39,19 @@ func TestEncryptionTypeUnset(t *testing.T) {
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       operatorencryption.DefaultTargetGRs,
-		AssertFunc:                      operatorencryption.AssertRoutes,
+		TargetGRs:                       library.OASTargetGRs,
+		AssertFunc:                      library.AssertRoutes,
 	})
 }
 
 func TestEncryptionTurnOnAndOff(t *testing.T) {
 	ctx := context.TODO()
-	cs := operatorencryption.GetClients(t)
+	cs := library.GetClients(t)
 
 	ns := fmt.Sprintf("test-encryption-on-off-%s", rand.String(4))
-	_, err := cs.KubeClient.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
+	_, err := cs.Kube.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
 	require.NoError(t, err)
-	defer cs.KubeClient.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
+	defer cs.Kube.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
 
 	library.TestEncryptionTurnOnAndOff(t.Context(), t, library.OnOffScenario{
 		BasicScenario: library.BasicScenario{
@@ -61,15 +60,15 @@ func TestEncryptionTurnOnAndOff(t *testing.T) {
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       operatorencryption.DefaultTargetGRs,
-			AssertFunc:                      operatorencryption.AssertRoutes,
+			TargetGRs:                       library.OASTargetGRs,
+			AssertFunc:                      library.AssertRoutes,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, namespace string) runtime.Object {
-			return operatorencryption.CreateAndStoreRouteOfLife(context.TODO(), t, operatorencryption.GetClients(t), ns)
+			return library.CreateAndStoreRouteOfLife(context.TODO(), t, library.GetClients(t), ns)
 		},
-		AssertResourceEncryptedFunc:    operatorencryption.AssertRouteOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: operatorencryption.AssertRouteOfLifeNotEncrypted,
-		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return operatorencryption.RouteOfLife(t, ns) },
+		AssertResourceEncryptedFunc:    library.AssertRouteOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: library.AssertRouteOfLifeNotEncrypted,
+		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return library.RouteOfLife(t, ns) },
 		ResourceName:                   "RouteOfLife",
 		EncryptionProvider:             library.EncryptionProvider{APIServerEncryption: configv1.APIServerEncryption{Type: configv1.EncryptionType(*provider)}},
 	})
