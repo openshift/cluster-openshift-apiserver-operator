@@ -13,10 +13,9 @@ require (
 	github.com/openshift/api v0.0.0-20260623101811-c5eb460d04e3
 	github.com/openshift/build-machinery-go v0.0.0-20251023084048-5d77c1a5e5af
 	github.com/openshift/client-go v0.0.0-20260622130833-df412d4d283e
-	github.com/openshift/library-go v0.0.0-20260629134817-a64e9a6e21ca
+	github.com/openshift/library-go v0.0.0-20260701063745-f28aaa5d5ec1
 	github.com/spf13/cobra v1.10.0
 	github.com/stretchr/testify v1.11.1
-	go.etcd.io/etcd/client/v3 v3.6.5
 	k8s.io/api v0.35.2
 	k8s.io/apiextensions-apiserver v0.35.2
 	k8s.io/apimachinery v0.35.2
@@ -98,6 +97,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.etcd.io/etcd/api/v3 v3.6.5 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.6.5 // indirect
+	go.etcd.io/etcd/client/v3 v3.6.5 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
