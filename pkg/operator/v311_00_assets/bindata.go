@@ -475,7 +475,8 @@ var _v3110OpenshiftApiserverNetworkpolicyAllowYaml = []byte(`# Network policy fo
 #
 # Ingress:
 # - Allow ingress on port 8443 for API requests and metrics scraping.
-#   The apiserver performs its own authentication/authorization.
+# - Allow ingress on port 17698 for check-endpoints metrics scraping.
+#   Both the apiserver and check-endpoints perform their own authentication/authorization.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -489,6 +490,8 @@ spec:
   - ports:
     - protocol: TCP
       port: 8443
+    - protocol: TCP
+      port: 17698
   egress:
   - {}
   policyTypes:
