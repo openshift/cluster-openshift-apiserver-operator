@@ -1714,3 +1714,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+# github.com/openshift/library-go => github.com/gangwgr/library-go v0.0.0-20260710132204-4be7f73d568e
