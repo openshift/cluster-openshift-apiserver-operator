@@ -429,7 +429,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20260702085952-fd74bb5c4240
+# github.com/openshift/library-go v0.0.0-20260709124617-64c3ee5daeea
 ## explicit; go 1.25.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/apps/deployment
@@ -471,6 +471,7 @@ github.com/openshift/library-go/pkg/operator/encryption/encoding
 github.com/openshift/library-go/pkg/operator/encryption/encryptiondata
 github.com/openshift/library-go/pkg/operator/encryption/encryptiondata/testing
 github.com/openshift/library-go/pkg/operator/encryption/kms/health
+github.com/openshift/library-go/pkg/operator/encryption/kms/health/writers
 github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle
 github.com/openshift/library-go/pkg/operator/encryption/kms/preflight
 github.com/openshift/library-go/pkg/operator/encryption/observer
