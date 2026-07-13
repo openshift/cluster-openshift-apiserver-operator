@@ -322,6 +322,8 @@ spec:
           - /var/run/configmaps/config/config.yaml
           - --v
           - '2'
+          - '--config'
+          - /var/run/configmaps/config/config.yaml
         env:
           - name: POD_NAME
             valueFrom:
@@ -335,6 +337,9 @@ spec:
           - name: check-endpoints
             containerPort: 17698
             protocol: TCP
+        volumeMounts:
+          - name: config
+            mountPath: /var/run/configmaps/config
         resources:
           requests:
             memory: 50Mi
