@@ -45,15 +45,15 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       library.OASTargetGRs,
-			AssertFunc:                      library.AssertRoutes,
+			TargetGRs:                       library.WellKnownOASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownRoutes,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, namespace string) runtime.Object {
-			return library.CreateAndStoreRouteOfLife(context.TODO(), t, library.GetClients(t), ns)
+			return library.CreateAndStoreWellKnownRouteOfLife(context.TODO(), t, library.GetClients(t), ns)
 		},
-		AssertResourceEncryptedFunc:    library.AssertRouteOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: library.AssertRouteOfLifeNotEncrypted,
-		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return library.RouteOfLife(t, ns) },
+		AssertResourceEncryptedFunc:    library.AssertWellKnownRouteOfLifeEncrypted,
+		AssertResourceNotEncryptedFunc: library.AssertWellKnownRouteOfLifeNotEncrypted,
+		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return library.WellKnownRouteOfLife(t, ns) },
 		ResourceName:                   "RouteOfLife",
 		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
 			librarykms.DefaultVaultEncryptionProvider(ctx, t),

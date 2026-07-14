@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,7 +28,11 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 
+	oauthapiv1 "github.com/openshift/api/oauth/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/openshift/library-go/test/library"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -95,21 +100,28 @@ func SetAndWaitForEncryptionType(ctx context.Context, t testing.TB, provider Enc
 	lastMigratedKeyMeta, err := GetLastKeyMeta(t, clientSet.Kube, namespace, labelSelector)
 	require.NoError(t, err)
 
-	apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
-	require.NoError(t, err)
-	previousEncryption := apiServer.Spec.Encryption
-	needsUpdate := !equality.Semantic.DeepEqual(previousEncryption, provider.APIServerEncryption)
-	if needsUpdate {
+	var previousEncryption configv1.APIServerEncryption
+	var needsUpdate bool
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		apiServer, err := clientSet.ApiServerConfig.Get(ctx, "cluster", metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		previousEncryption = apiServer.Spec.Encryption
+		needsUpdate = !equality.Semantic.DeepEqual(previousEncryption, provider.APIServerEncryption)
+		if !needsUpdate {
+			t.Logf("APIServer is already configured to use %q mode", provider.Type)
+			return nil
+		}
 		if provider.Setup != nil {
 			provider.Setup(ctx, t)
 		}
 		t.Logf("Updating encryption configuration for APIServer from %#v to %#v", previousEncryption, provider.APIServerEncryption)
 		apiServer.Spec.Encryption = provider.APIServerEncryption
 		_, err = clientSet.ApiServerConfig.Update(ctx, apiServer, metav1.UpdateOptions{})
-		require.NoError(t, err)
-	} else {
-		t.Logf("APIServer is already configured to use %q mode", provider.Type)
-	}
+		return err
+	})
+	require.NoError(t, err)
 
 	// KMS-to-KMS migration: when both old and new are KMS but the config differs,
 	// the key controller creates a new key. We must wait for the next migrated key
@@ -477,6 +489,53 @@ func WaitForCurrentKeyMigrated(t testing.TB, kubeClient kubernetes.Interface, pr
 	}
 }
 
+const wellKnownSecretOfLifeName = "secret-of-life"
+
+func CreateAndStoreWellKnownSecretOfLife(t testing.TB, clientSet ClientSet, namespace string) runtime.Object {
+	t.Helper()
+	ctx := context.TODO()
+
+	oldSecret, err := clientSet.Kube.CoreV1().Secrets(namespace).Get(ctx, wellKnownSecretOfLifeName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		t.Fatalf("Failed to check if the secret already exists: %v", err)
+	}
+	if oldSecret != nil && len(oldSecret.Name) > 0 {
+		t.Log("The secret already exists, removing it first")
+		require.NoError(t, clientSet.Kube.CoreV1().Secrets(namespace).Delete(ctx, oldSecret.Name, metav1.DeleteOptions{}))
+	}
+
+	t.Logf("Creating %q in %s namespace", wellKnownSecretOfLifeName, namespace)
+	rawSecret := WellKnownSecretOfLife(t, namespace)
+	secret, err := clientSet.Kube.CoreV1().Secrets(namespace).Create(ctx, rawSecret.(*corev1.Secret), metav1.CreateOptions{})
+	require.NoError(t, err)
+	return secret
+}
+
+func WellKnownSecretOfLife(_ testing.TB, namespace string) runtime.Object {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      wellKnownSecretOfLifeName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"quote": []byte("I have no special talents. I am only passionately curious"),
+		},
+	}
+}
+
+func GetRawWellKnownSecretOfLife(t testing.TB, clientSet ClientSet, namespace string) string {
+	t.Helper()
+	timeout, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	secretOfLifeKey := fmt.Sprintf("/kubernetes.io/secrets/%s/%s", namespace, wellKnownSecretOfLifeName)
+	resp, err := clientSet.Etcd.Get(timeout, secretOfLifeKey)
+	require.NoError(t, err)
+	require.Len(t, resp.Kvs, 1, "expected exactly one key from etcd for secret-of-life")
+
+	return string(resp.Kvs[0].Value)
+}
+
 // inParallel returns a single testStep that runs the given steps
 // concurrently and waits for all to finish before returning.
 // Panics are caught and reported via t.Errorf. Failures from
@@ -507,4 +566,120 @@ func inParallel(steps ...testStep) testStep {
 			wg.Wait()
 		},
 	}
+}
+
+var wellKnownRouteGVR = schema.GroupVersionResource{Group: "route.openshift.io", Version: "v1", Resource: "routes"}
+
+func CreateAndStoreWellKnownRouteOfLife(ctx context.Context, t testing.TB, cs ClientSet, ns string) runtime.Object {
+	t.Helper()
+	t.Logf("Creating %q in %q namespace", "route-of-life", ns)
+
+	route := WellKnownRouteOfLife(t, ns)
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(route)
+	require.NoError(t, err)
+
+	created, err := cs.DynamicClient.Resource(wellKnownRouteGVR).Namespace(ns).Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	var result routev1.Route
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &result)
+	require.NoError(t, err)
+	return &result
+}
+
+func WellKnownRouteOfLife(_ testing.TB, ns string) runtime.Object {
+	return &routev1.Route{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "route.openshift.io/v1",
+			Kind:       "Route",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "route-of-life",
+			Namespace: ns,
+		},
+		Spec: routev1.RouteSpec{
+			Host: "devcluster.openshift.io",
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromInt(2014),
+			},
+			To: routev1.RouteTargetReference{
+				Name: "dummyroute",
+			},
+		},
+	}
+}
+
+func GetRawWellKnownRouteOfLife(t testing.TB, clientSet ClientSet, ns string) string {
+	t.Helper()
+	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	routeOfLifeKey := fmt.Sprintf("/openshift.io/routes/%s/%s", ns, "route-of-life")
+	resp, err := clientSet.Etcd.Get(timeout, routeOfLifeKey)
+	require.NoError(t, err)
+	require.Len(t, resp.Kvs, 1, "expected exactly one key from etcd for route-of-life")
+
+	return string(resp.Kvs[0].Value)
+}
+
+var wellKnownOAuthAccessTokenGVR = schema.GroupVersionResource{Group: "oauth.openshift.io", Version: "v1", Resource: "oauthaccesstokens"}
+
+const wellKnownTokenOfLifeName = "sha256~token-aaaaaaaa-of-aaaaaaaa-life-aaaaaaaa"
+
+func CreateAndStoreWellKnownTokenOfLife(ctx context.Context, t testing.TB, cs ClientSet) runtime.Object {
+	t.Helper()
+	tokens := cs.DynamicClient.Resource(wellKnownOAuthAccessTokenGVR)
+
+	oldToken, err := tokens.Get(ctx, wellKnownTokenOfLifeName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		t.Fatalf("Failed to check if the token already exists: %v", err)
+	}
+	if oldToken != nil && len(oldToken.GetName()) > 0 {
+		t.Log("The access token already exists, removing it first")
+		require.NoError(t, tokens.Delete(ctx, oldToken.GetName(), metav1.DeleteOptions{}))
+	}
+
+	t.Logf("Creating %q at cluster scope level", wellKnownTokenOfLifeName)
+	token := WellKnownTokenOfLife(t, "")
+	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(token)
+	require.NoError(t, err)
+
+	created, err := tokens.Create(ctx, &unstructured.Unstructured{Object: obj}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	var result oauthapiv1.OAuthAccessToken
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(created.Object, &result)
+	require.NoError(t, err)
+	return &result
+}
+
+func WellKnownTokenOfLife(_ testing.TB, _ string) runtime.Object {
+	return &oauthapiv1.OAuthAccessToken{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "oauth.openshift.io/v1",
+			Kind:       "OAuthAccessToken",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: wellKnownTokenOfLifeName,
+		},
+		RefreshToken: "I have no special talents. I am only passionately curious",
+		UserName:     "kube:admin",
+		Scopes:       []string{"user:full"},
+		RedirectURI:  "redirect.me.to.token.of.life",
+		ClientName:   "console",
+		UserUID:      "non-existing-user-id",
+	}
+}
+
+func GetRawWellKnownTokenOfLife(t testing.TB, clientSet ClientSet) string {
+	t.Helper()
+	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	tokenOfLifeKey := fmt.Sprintf("/openshift.io/oauth/accesstokens/%s", wellKnownTokenOfLifeName)
+	resp, err := clientSet.Etcd.Get(timeout, tokenOfLifeKey)
+	require.NoError(t, err)
+	require.Len(t, resp.Kvs, 1, "expected exactly one key from etcd for token-of-life")
+
+	return string(resp.Kvs[0].Value)
 }

@@ -116,7 +116,7 @@ func TestEncryptionTypeAESCBC(t *testing.T) {
 		EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 		EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 		OperatorNamespace:               operatorclient.OperatorNamespace,
-		TargetGRs:                       library.OASTargetGRs,
-		AssertFunc:                      library.AssertRoutes,
+		TargetGRs:                       library.WellKnownOASTargetGRs,
+		AssertFunc:                      library.AssertWellKnownRoutes,
 	})
 }

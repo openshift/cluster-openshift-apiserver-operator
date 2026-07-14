@@ -55,14 +55,14 @@ func TestEncryptionRotation(t *testing.T) {
 			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
 			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
 			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       library.OASTargetGRs,
-			AssertFunc:                      library.AssertRoutes,
+			TargetGRs:                       library.WellKnownOASTargetGRs,
+			AssertFunc:                      library.AssertWellKnownRoutes,
 		},
 		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, _ string) runtime.Object {
-			return library.CreateAndStoreRouteOfLife(ctx, t, library.GetClients(t), ns)
+			return library.CreateAndStoreWellKnownRouteOfLife(ctx, t, library.GetClients(t), ns)
 		},
 		GetRawResourceFunc: func(t testing.TB, clientSet library.ClientSet, _ string) string {
-			return library.GetRawRouteOfLife(t, clientSet, ns)
+			return library.GetRawWellKnownRouteOfLife(t, clientSet, ns)
 		},
 		ForceRotationFunc:           library.StaticEncryptionForceRotation(updateUnsupportedConfig),
 		WaitForRotationCompleteFunc: library.WaitForNextEncryptionKeyRotation(),
