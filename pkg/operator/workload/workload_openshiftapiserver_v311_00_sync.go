@@ -479,7 +479,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	}
 	required.Spec.Replicas = masterNodeCount
 
-	if err := kmspluginlifecycle.AddKMSPluginSidecarToPodSpec(
+	if err := kmspluginlifecycle.EnsureKMSPluginSidecarInPodSpec(
 		ctx,
 		&required.Spec.Template.Spec,
 		"openshift-apiserver",
