@@ -9,11 +9,11 @@ import (
 	"k8s.io/component-base/cli"
 
 	kmshealth "github.com/openshift/library-go/pkg/operator/encryption/kms/health"
-	kmswriters "github.com/openshift/library-go/pkg/operator/encryption/kms/health/writers"
 	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/cmd/operator"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/cmd/resourcegraph"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/encryptionstatusprovider"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func NewSSCSCommand() *cobra.Command {
 
 	cmd.AddCommand(operator.NewOperator())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
-	cmd.AddCommand(kmshealth.NewCommand(context.Background(), kmswriters.NewOpenShiftAPIServerWriter))
+	cmd.AddCommand(kmshealth.NewCommand(context.Background(), encryptionstatusprovider.NewOpenShiftAPIServerEncryptionStatusProviderFromConfig))
 	cmd.AddCommand(kmspreflight.NewCommand(context.Background()))
 
 	return cmd
