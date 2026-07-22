@@ -47,3 +47,13 @@ func (p *openShiftAPIServerEncryptionStatusProvider) ApplyKMSEncryptionStatus(ct
 	)
 	return err
 }
+
+func (p *openShiftAPIServerEncryptionStatusProvider) UpdateKMSEncryptionStatus(ctx context.Context, mutateFn func(*operatorv1.KMSEncryptionStatus)) error {
+	obj, err := p.client.Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	mutateFn(&obj.Status.EncryptionStatus)
+	_, err = p.client.UpdateStatus(ctx, obj, metav1.UpdateOptions{})
+	return err
+}
