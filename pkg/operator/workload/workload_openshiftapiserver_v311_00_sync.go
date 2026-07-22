@@ -479,7 +479,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 	}
 	required.Spec.Replicas = masterNodeCount
 
-	if err := kmspluginlifecycle.AddKMSPluginSidecarToPodSpec(
+	if err := kmspluginlifecycle.EnsureKMSPluginSidecarInPodSpec(
 		ctx,
 		&required.Spec.Template.Spec,
 		"openshift-apiserver",
@@ -489,7 +489,7 @@ func manageOpenShiftAPIServerDeployment_v311_00_to_latest(
 		operatorImagePullSpec,
 		kubeClient.CoreV1(),
 		featureGateAccessor); err != nil {
-		return nil, false, fmt.Errorf("failed to add KMS plugin to pod spec: %w", err)
+		return nil, false, fmt.Errorf("failed to ensure KMS plugin in pod spec: %w", err)
 	}
 
 	return resourceapply.ApplyDeployment(ctx, client, recorder, required, resourcemerge.ExpectedDeploymentGeneration(required, generationStatus))
