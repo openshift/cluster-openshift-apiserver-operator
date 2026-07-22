@@ -10,6 +10,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
 	operatorclient "github.com/openshift/client-go/operator/clientset/versioned"
+	operatorv1typed "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 )
@@ -17,21 +18,21 @@ import (
 // NewOpenShiftAPIServerEncryptionStatusProviderFromConfig builds a kms.EncryptionStatusProvider for
 // OpenShiftAPIServer/cluster from a rest.Config.
 func NewOpenShiftAPIServerEncryptionStatusProviderFromConfig(restConfig *rest.Config) (kms.EncryptionStatusProvider, error) {
-	client, err := operatorclient.NewForConfig(restConfig)
+	opClient, err := operatorclient.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("build operator client: %w", err)
 	}
-	return &openShiftAPIServerEncryptionStatusProvider{client: client}, nil
+	return &openShiftAPIServerEncryptionStatusProvider{client: opClient.OperatorV1().OpenShiftAPIServers()}, nil
 }
 
 var _ kms.EncryptionStatusProvider = &openShiftAPIServerEncryptionStatusProvider{}
 
 type openShiftAPIServerEncryptionStatusProvider struct {
-	client *operatorclient.Clientset
+	client operatorv1typed.OpenShiftAPIServerInterface
 }
 
 func (p *openShiftAPIServerEncryptionStatusProvider) GetKMSEncryptionStatus(ctx context.Context) (*operatorv1.KMSEncryptionStatus, error) {
-	obj, err := p.client.OperatorV1().OpenShiftAPIServers().Get(ctx, "cluster", metav1.GetOptions{})
+	obj, err := p.client.Get(ctx, "cluster", metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (p *openShiftAPIServerEncryptionStatusProvider) GetKMSEncryptionStatus(ctx 
 }
 
 func (p *openShiftAPIServerEncryptionStatusProvider) ApplyKMSEncryptionStatus(ctx context.Context, fieldManager string, status *applyoperatorv1.KMSEncryptionStatusApplyConfiguration) error {
-	_, err := p.client.OperatorV1().OpenShiftAPIServers().ApplyStatus(
+	_, err := p.client.ApplyStatus(
 		ctx,
 		applyoperatorv1.OpenShiftAPIServer("cluster").WithStatus(applyoperatorv1.OpenShiftAPIServerStatus().WithEncryptionStatus(status)),
 		metav1.ApplyOptions{FieldManager: fieldManager, Force: true},
