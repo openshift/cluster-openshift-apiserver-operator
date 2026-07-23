@@ -1,9 +1,6 @@
 package configobservercontroller
 
 import (
-	"slices"
-
-	configv1 "github.com/openshift/api/config/v1"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
@@ -21,7 +18,6 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"k8s.io/apiserver/pkg/features"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -79,52 +75,9 @@ func NewConfigObserver(
 			nil,
 			nil,
 			[]string{"apiServerArguments", "feature-gates"},
-			newFeatureGateAccessWithWatchListDisabled(featureGateAccessor),
+			featureGateAccessor,
 		),
 	)
 
 	return c
-}
-
-// newFeatureGateAccessWithWatchListDisabled wraps a FeatureGateAccess to force WatchList to be disabled.
-// This is necessary because Project resource does not support WatchList.
-func newFeatureGateAccessWithWatchListDisabled(featureGateAccess featuregates.FeatureGateAccess) featuregates.FeatureGateAccess {
-	return &featureGateAccessWithWatchListDisabled{
-		FeatureGateAccess: featureGateAccess,
-	}
-}
-
-type featureGateAccessWithWatchListDisabled struct {
-	featuregates.FeatureGateAccess
-}
-
-func (f *featureGateAccessWithWatchListDisabled) CurrentFeatureGates() (featuregates.FeatureGate, error) {
-	fg, err := f.FeatureGateAccess.CurrentFeatureGates()
-	if err != nil {
-		return nil, err
-	}
-	return &featureGateWithWatchListDisabled{FeatureGate: fg}, nil
-}
-
-// featureGateWithWatchListDisabled wraps a FeatureGate to force WatchList.Enabled() to return false
-type featureGateWithWatchListDisabled struct {
-	featuregates.FeatureGate
-}
-
-func (f *featureGateWithWatchListDisabled) Enabled(key configv1.FeatureGateName) bool {
-	if key == configv1.FeatureGateName(features.WatchList) {
-		return false
-	}
-	return f.FeatureGate.Enabled(key)
-}
-
-func (f *featureGateWithWatchListDisabled) KnownFeatures() []configv1.FeatureGateName {
-	knownFeatures := f.FeatureGate.KnownFeatures()
-	watchListName := configv1.FeatureGateName(features.WatchList)
-
-	if slices.Contains(knownFeatures, watchListName) {
-		return knownFeatures
-	}
-
-	return append(knownFeatures, watchListName)
 }
