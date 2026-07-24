@@ -11,8 +11,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/clock"
 
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
+	"github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	"github.com/openshift/library-go/pkg/operator/events"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
 )
@@ -20,6 +23,10 @@ import (
 var _ = g.Describe("[sig-openshift-apiserver] cluster-openshift-apiserver-operator", func() {
 	g.It("TestKMSEncryptionKMSToKMSMigration [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
 		testKMSEncryptionKMSToKMSMigration(ctx, g.GinkgoTB())
+	})
+
+	g.It("TestKMSPreflightDeploy [OCPFeatureGate:KMSEncryption][Serial][Timeout:120m][Suite:encryption-kms-2]", func(ctx context.Context) {
+		testKMSPreflightDeploy(ctx, g.GinkgoTB())
 	})
 })
 
@@ -65,5 +72,31 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 			librarykms.DefaultVaultEncryptionProvider(ctx, t),
 			librarykms.SecondaryVaultEncryptionProvider(ctx, t),
 		}),
+	})
+}
+
+func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
+	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, library.PreflightDeployScenario{
+		BasicScenario: library.BasicScenario{
+			Namespace:     operatorclient.TargetNamespace,
+			LabelSelector: "app=openshift-apiserver-a,apiserver=true",
+		},
+		CreateDeployerFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet) *preflight.PodPreflightDeployer {
+			image := library.OperatorImageFromDeployment(ctx, t,
+				operatorclient.OperatorNamespace, "openshift-apiserver-operator", "openshift-apiserver-operator")
+			recorder := events.NewInMemoryRecorder("kms-preflight-e2e", clock.RealClock{})
+			return preflight.NewPodPreflightDeployer(
+				operatorclient.TargetNamespace, cs.Kube.CoreV1(), cs.Kube.RbacV1(),
+				recorder, image, []string{"cluster-openshift-apiserver-operator", "kms-preflight"}, library.PreflightDeployCallTimeout,
+			)
+		},
+		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
+		AssertDeployFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet, namespace string, deployer *preflight.PodPreflightDeployer) {
+			library.AssertPreflightDeploy(ctx, t, cs, namespace, deployer)
+			pod, err := cs.Kube.CoreV1().Pods(namespace).Get(ctx, preflight.PodName, metav1.GetOptions{})
+			require.NoError(t, err)
+			require.False(t, pod.Spec.HostNetwork, "non-static preflight should not use hostNetwork")
+		},
+		EncryptionProvider: librarykms.DefaultVaultEncryptionProvider(ctx, t),
 	})
 }
