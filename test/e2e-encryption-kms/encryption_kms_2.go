@@ -81,7 +81,7 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 			// Preflight deploys into the operand namespace because the library-go
 			// scenario validates the actual workload pod wiring there, unlike the
 			// migration scenarios that operate on the rendered encryption config.
-			Namespace:     operatorclient.TargetNamespace,
+			Namespace: operatorclient.TargetNamespace,
 			// The deployment-managed openshift-apiserver pods intentionally use
 			// app=openshift-apiserver-a in their template labels.
 			LabelSelector: "app=openshift-apiserver-a,apiserver=true",
@@ -97,6 +97,6 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 		},
 		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
 		AssertDeployFunc:           library.AssertPreflightDeploy,
-		EncryptionProvider: librarykms.DefaultVaultEncryptionProvider(ctx, t),
+		EncryptionProvider:         librarykms.DefaultVaultEncryptionProvider(ctx, t),
 	})
 }
