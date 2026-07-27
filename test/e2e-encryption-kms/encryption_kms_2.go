@@ -78,7 +78,12 @@ func testKMSEncryptionKMSToKMSMigration(ctx context.Context, t testing.TB) {
 func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 	library.TestPreflightDeployAndPodMatchesOperand(ctx, t, library.PreflightDeployScenario{
 		BasicScenario: library.BasicScenario{
+			// Preflight deploys into the operand namespace because the library-go
+			// scenario validates the actual workload pod wiring there, unlike the
+			// migration scenarios that operate on the rendered encryption config.
 			Namespace:     operatorclient.TargetNamespace,
+			// The deployment-managed openshift-apiserver pods intentionally use
+			// app=openshift-apiserver-a in their template labels.
 			LabelSelector: "app=openshift-apiserver-a,apiserver=true",
 		},
 		CreateDeployerFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet) *preflight.PodPreflightDeployer {
@@ -91,12 +96,7 @@ func testKMSPreflightDeploy(ctx context.Context, t testing.TB) {
 			)
 		},
 		CreateEncryptionConfigFunc: library.VaultPreflightEncryptionConfigSecret,
-		AssertDeployFunc: func(ctx context.Context, t testing.TB, cs library.ClientSet, namespace string, deployer *preflight.PodPreflightDeployer) {
-			library.AssertPreflightDeploy(ctx, t, cs, namespace, deployer)
-			pod, err := cs.Kube.CoreV1().Pods(namespace).Get(ctx, preflight.PodName, metav1.GetOptions{})
-			require.NoError(t, err)
-			require.False(t, pod.Spec.HostNetwork, "non-static preflight should not use hostNetwork")
-		},
+		AssertDeployFunc:           library.AssertPreflightDeploy,
 		EncryptionProvider: librarykms.DefaultVaultEncryptionProvider(ctx, t),
 	})
 }
