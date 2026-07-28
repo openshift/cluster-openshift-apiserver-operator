@@ -2,10 +2,8 @@ package encryptionstatusprovider
 
 import (
 	"context"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	applyoperatorv1 "github.com/openshift/client-go/operator/applyconfigurations/operator/v1"
@@ -15,14 +13,10 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption/kms"
 )
 
-// NewOpenShiftAPIServerEncryptionStatusProviderFromConfig builds a kms.EncryptionStatusProvider for
-// OpenShiftAPIServer/cluster from a rest.Config.
-func NewOpenShiftAPIServerEncryptionStatusProviderFromConfig(restConfig *rest.Config) (kms.EncryptionStatusProvider, error) {
-	opClient, err := operatorclient.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("build operator client: %w", err)
-	}
-	return &openShiftAPIServerEncryptionStatusProvider{client: opClient.OperatorV1().OpenShiftAPIServers()}, nil
+// NewOpenShiftAPIServerEncryptionStatusProvider builds a kms.EncryptionStatusProvider for
+// OpenShiftAPIServer/cluster from an operator client.
+func NewOpenShiftAPIServerEncryptionStatusProvider(client operatorclient.Interface) (kms.EncryptionStatusProvider, error) {
+	return &openShiftAPIServerEncryptionStatusProvider{client: client.OperatorV1().OpenShiftAPIServers()}, nil
 }
 
 var _ kms.EncryptionStatusProvider = &openShiftAPIServerEncryptionStatusProvider{}
