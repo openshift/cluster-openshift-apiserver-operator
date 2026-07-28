@@ -34,7 +34,7 @@ func NewSSCSCommand() *cobra.Command {
 
 	cmd.AddCommand(operator.NewOperator())
 	cmd.AddCommand(resourcegraph.NewResourceChainCommand())
-	cmd.AddCommand(kmshealth.NewCommand(context.Background(), encryptionstatusprovider.NewOpenShiftAPIServerEncryptionStatusProviderFromConfig))
+	cmd.AddCommand(kmshealth.NewCommand(context.Background(), encryptionstatusprovider.NewOpenShiftAPIServerEncryptionStatusProvider))
 	cmd.AddCommand(kmspreflight.NewCommand(context.Background()))
 
 	return cmd
