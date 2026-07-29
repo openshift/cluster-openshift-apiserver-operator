@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: openshift-apiserver-operator-alerts
+  namespace: openshift-apiserver-operator
+  annotations:
+    include.release.openshift.io/hypershift: "true"
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
+spec:
+  groups:
+  - name: openshift-apiserver-operator.rules
+    rules:
+    - alert: ImageStreamImportFailed
+      expr: |
+        (openshift_imagestreamcontroller_error_count > 0
+        or
+        increase(openshift_imagestreamcontroller_error_count[10m]) > 0)
+      for: 0m
+      labels:
+        severity: warning
+        component: imagestream-controller
+      annotations:
+        summary: "ImageStream import failure detected"
+        description: |
+          One or more ImageStreams failed to import new image tags in the last 10 minutes.
+          Each failure indicates that the ImageStream controller reported ImportSuccess=False for a registry.
+        message: |
+          ImageStream import failure ({{ $value }} errors in 10m).
+          Investigate failing ImageStreams:
+            List all ImageStreams with import failures
+              (`oc get imagestreams --all-namespaces -o wide | grep -v True`);
+            Check status of a specific ImageStream
+              (`oc get -o json imagestream <name> -n <namespace> | jq .status`).
+          The `.status.tags[].conditions` will show specific import failure reasons.
+        runbook_url: https://github.com/openshift/runbooks/blob/master/alerts/cluster-openshift-apiserver-operator/ImageStreamImportFailed.md
