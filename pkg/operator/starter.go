@@ -19,6 +19,7 @@ import (
 	operatorcontrolplaneclient "github.com/openshift/client-go/operatorcontrolplane/clientset/versioned"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/configobservercontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/connectivitycheckcontroller"
+	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/encryptionstatusprovider"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
@@ -31,6 +32,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/encryption"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
+	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	staticpodcommon "github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
@@ -203,6 +205,11 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		statusControllerOptions = append(statusControllerOptions, apiservercontrollerset.WithStatusControllerPdbCompatibleHighInertia("APIServer"))
 	}
 
+	oasEncryptionStatusProvider, err := encryptionstatusprovider.NewOpenShiftAPIServerEncryptionStatusProvider(operatorConfigClient)
+	if err != nil {
+		return err
+	}
+
 	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
 		"openshift-apiserver",
 		operatorClient,
@@ -334,6 +341,8 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
 		resourceSyncController,
+		oasEncryptionStatusProvider,
+		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
 	).WithSecretRevisionPruneController(
 		operatorclient.TargetNamespace,
 		[]string{"encryption-config-"},
