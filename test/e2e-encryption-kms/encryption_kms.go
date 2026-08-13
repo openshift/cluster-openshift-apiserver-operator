@@ -2,17 +2,10 @@ package e2e_encryption_kms
 
 import (
 	"context"
-	"fmt"
-	"math/rand/v2"
 	"testing"
 
 	g "github.com/onsi/ginkgo/v2"
-	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	library "github.com/openshift/library-go/test/library/encryption"
 	librarykms "github.com/openshift/library-go/test/library/encryption/kms"
 )
@@ -40,32 +33,7 @@ var _ = g.Describe("[sig-openshift-apiserver] cluster-openshift-apiserver-operat
 // 8. Disables encryption (Identity) again
 // 9. Verifies route is NOT encrypted again
 func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
-	cs := library.GetClients(t)
-
-	ns := fmt.Sprintf("test-kms-encryption-on-off-%d", rand.IntN(4))
-	_, err := cs.Kube.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
-	require.NoError(t, err)
-	defer cs.Kube.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
-
-	library.TestEncryptionTurnOnAndOff(ctx, t, library.OnOffScenario{
-		BasicScenario: library.BasicScenario{
-			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
-			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       library.WellKnownOASTargetGRs,
-			AssertFunc:                      library.AssertWellKnownRoutes,
-		},
-		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, namespace string) runtime.Object {
-			return library.CreateAndStoreWellKnownRouteOfLife(context.TODO(), t, library.GetClients(t), ns)
-		},
-		AssertResourceEncryptedFunc:    library.AssertWellKnownRouteOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: library.AssertWellKnownRouteOfLifeNotEncrypted,
-		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return library.WellKnownRouteOfLife(t, ns) },
-		ResourceName:                   "TokenOfLife",
-		EncryptionProvider:             librarykms.DefaultVaultEncryptionProvider(ctx, t),
-	})
+	library.TestEncryptionTurnOnAndOff(ctx, t, librarykms.EncryptionTurnOnAndOffScenarios(ctx, t)...)
 }
 
 // testKMSEncryptionProvidersMigration tests migration between KMS and AES encryption providers.
@@ -76,33 +44,5 @@ func testKMSEncryptionOnOff(ctx context.Context, t testing.TB) {
 // 4. Migrates between the providers in the shuffled order
 // 5. Verifies route is correctly encrypted after each migration
 func testKMSEncryptionProvidersMigration(ctx context.Context, t testing.TB) {
-	cs := library.GetClients(t)
-
-	ns := fmt.Sprintf("test-kms-encryption-shuffle-%d", rand.IntN(4))
-	_, err := cs.Kube.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}, metav1.CreateOptions{})
-	require.NoError(t, err)
-	defer cs.Kube.CoreV1().Namespaces().Delete(ctx, ns, metav1.DeleteOptions{})
-
-	library.TestEncryptionProvidersMigration(ctx, t, library.ProvidersMigrationScenario{
-		BasicScenario: library.BasicScenario{
-			Namespace:                       operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			LabelSelector:                   "encryption.apiserver.operator.openshift.io/component" + "=" + operatorclient.TargetNamespace,
-			EncryptionConfigSecretName:      fmt.Sprintf("encryption-config-%s", operatorclient.TargetNamespace),
-			EncryptionConfigSecretNamespace: operatorclient.GlobalMachineSpecifiedConfigNamespace,
-			OperatorNamespace:               operatorclient.OperatorNamespace,
-			TargetGRs:                       library.WellKnownOASTargetGRs,
-			AssertFunc:                      library.AssertWellKnownRoutes,
-		},
-		CreateResourceFunc: func(t testing.TB, _ library.ClientSet, namespace string) runtime.Object {
-			return library.CreateAndStoreWellKnownRouteOfLife(context.TODO(), t, library.GetClients(t), ns)
-		},
-		AssertResourceEncryptedFunc:    library.AssertWellKnownRouteOfLifeEncrypted,
-		AssertResourceNotEncryptedFunc: library.AssertWellKnownRouteOfLifeNotEncrypted,
-		ResourceFunc:                   func(t testing.TB, _ string) runtime.Object { return library.WellKnownRouteOfLife(t, ns) },
-		ResourceName:                   "TokenOfLife",
-		EncryptionProviders: library.ShuffleEncryptionProviders([]library.EncryptionProvider{
-			librarykms.DefaultVaultEncryptionProvider(ctx, t),
-			library.SupportedStaticEncryptionProviders[rand.IntN(len(library.SupportedStaticEncryptionProviders))],
-		}),
-	})
+	library.TestEncryptionProvidersMigration(ctx, t, librarykms.EncryptionProvidersMigrationScenarios(ctx, t)...)
 }
