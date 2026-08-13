@@ -255,6 +255,7 @@ spec:
         - mountPath: /var/lib/kubelet/
           name: node-pullsecrets
           readOnly: true
+          mountPropagation: HostToContainer
         - mountPath: /var/run/configmaps/config
           name: config
         - mountPath: /var/run/configmaps/audit
