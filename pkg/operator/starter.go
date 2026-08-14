@@ -30,6 +30,7 @@ import (
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	encryptioncontrollers "github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
@@ -343,6 +344,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		resourceSyncController,
 		oasEncryptionStatusProvider,
 		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
+		encryptioncontrollers.NoopEncryptionConfigurationComputer{},
 	).WithSecretRevisionPruneController(
 		operatorclient.TargetNamespace,
 		[]string{"encryption-config-"},
