@@ -179,13 +179,15 @@ func ObserveImagestreamImportMode(genericListers configobserver.Listers, recorde
 		return prevObservedConfig, append(errs, err)
 	}
 
-	imageStreamImportMode := ""
-	if len(string(configImage.Status.ImageStreamImportMode)) > 0 {
-		imageStreamImportMode = string(configImage.Status.ImageStreamImportMode)
-		err = unstructured.SetNestedField(observedConfig, imageStreamImportMode, imageStreamImportModePath...)
-		if err != nil {
-			return prevObservedConfig, append(errs, err)
-		}
+	// no import mode reported in the status, keep the previously observed value
+	imageStreamImportMode := string(configImage.Status.ImageStreamImportMode)
+	if len(imageStreamImportMode) == 0 {
+		return prevObservedConfig, errs
+	}
+
+	err = unstructured.SetNestedField(observedConfig, imageStreamImportMode, imageStreamImportModePath...)
+	if err != nil {
+		return prevObservedConfig, append(errs, err)
 	}
 
 	// no change, return early to skip the event

@@ -216,6 +216,46 @@ func TestObserveImageConfig(t *testing.T) {
 
 }
 
+func TestObserveImagestreamImportModeNoSpuriousEventWhenStatusEmpty(t *testing.T) {
+	// Setup: image config exists but Status.ImageStreamImportMode is not set.
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	if err := indexer.Add(&configv1.Image{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+	}); err != nil {
+		t.Fatalf("failed to add image to indexer: %v", err)
+	}
+	listers := configobservation.Listers{
+		ImageConfigLister: configlistersv1.NewImageLister(indexer),
+	}
+
+	// Simulate a previously observed "Legacy" mode in existingConfig.
+	existingConfig := map[string]any{}
+	if err := unstructured.SetNestedField(existingConfig, string(configv1.ImportModeLegacy), "imagePolicyConfig", "imageStreamImportMode"); err != nil {
+		t.Fatalf("failed to set existingConfig field: %v", err)
+	}
+
+	recorder := events.NewInMemoryRecorder("test", clocktesting.NewFakePassiveClock(time.Now()))
+	result, errs := ObserveImagestreamImportMode(listers, recorder, existingConfig)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+
+	// The previously observed value must be preserved, not dropped.
+	got, _, err := unstructured.NestedString(result, "imagePolicyConfig", "imageStreamImportMode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != string(configv1.ImportModeLegacy) {
+		t.Errorf("expected previous import mode %q to be preserved, got %q", configv1.ImportModeLegacy, got)
+	}
+
+	// No "ImageStreamImportModeChanged" event should fire — the status is empty so
+	// nothing actually changed from the previous observation's perspective.
+	if got := recorder.Events(); len(got) != 0 {
+		t.Errorf("expected no events, got %d: %v", len(got), got)
+	}
+}
+
 func TestObserveImageConfigImageStreamImportMode(t *testing.T) {
 	tests := []imageConfigTest{
 		{
