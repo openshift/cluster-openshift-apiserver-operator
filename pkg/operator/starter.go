@@ -30,7 +30,6 @@ import (
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
-	encryptioncontrollers "github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
@@ -343,8 +342,17 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeInformersForNamespaces,
 		resourceSyncController,
 		oasEncryptionStatusProvider,
-		kmspreflight.NewAlwaysSucceedKMSPreflightDeployer(),
-		encryptioncontrollers.NoopEncryptionConfigurationComputer{},
+		kmspreflight.NewPodPreflightDeployer(
+			operatorclient.TargetNamespace,
+			kubeClient.CoreV1(),
+			kubeClient.RbacV1(),
+			controllerConfig.EventRecorder,
+			os.Getenv("OPERATOR_IMAGE"),
+			[]string{"cluster-openshift-apiserver-operator", "kms-preflight"},
+			10*time.Second,
+		),
+		// nil selects the real EncryptionPlanner-based encryption config computation in the KMS preflight controller instead of the no-op
+		nil,
 	).WithSecretRevisionPruneController(
 		operatorclient.TargetNamespace,
 		[]string{"encryption-config-"},
