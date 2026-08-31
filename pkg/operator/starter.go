@@ -204,6 +204,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if infra == nil || infra.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
 		statusControllerOptions = append(statusControllerOptions, apiservercontrollerset.WithStatusControllerPdbCompatibleHighInertia("APIServer"))
 	}
+	// Add inertia for APIServicesAvailable to prevent brief transient errors
+	statusControllerOptions = append(statusControllerOptions,
+	        apiservercontrollerset.WithStatusControllerAPIServicesAvailableInertia())
+
 
 	oasEncryptionStatusProvider, err := encryptionstatusprovider.NewOpenShiftAPIServerEncryptionStatusProvider(operatorConfigClient)
 	if err != nil {
