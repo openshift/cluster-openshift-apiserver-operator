@@ -210,6 +210,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		return err
 	}
 
+	encryptionProvider := encryption.StaticEncryptionProvider{
+		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
+	}
+
 	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
 		"openshift-apiserver",
 		operatorClient,
@@ -330,9 +334,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		v1helpers.CachedSecretGetter(kubeClient.CoreV1(), kubeInformersForNamespaces),
 	).WithEncryptionControllers(
 		operatorclient.TargetNamespace,
-		encryption.StaticEncryptionProvider{
-			schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
-		},
+		encryptionProvider,
 		openshiftDeployer,
 		migrator,
 		kubeClient.CoreV1(),
