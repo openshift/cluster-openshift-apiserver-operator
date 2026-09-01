@@ -30,9 +30,11 @@ import (
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	"github.com/openshift/library-go/pkg/operator/encryption"
+	encryptioncontrollers "github.com/openshift/library-go/pkg/operator/encryption/controllers"
 	"github.com/openshift/library-go/pkg/operator/encryption/controllers/migrators"
 	encryptiondeployer "github.com/openshift/library-go/pkg/operator/encryption/deployer"
 	kmspreflight "github.com/openshift/library-go/pkg/operator/encryption/kms/preflight"
+	encryptionsecrets "github.com/openshift/library-go/pkg/operator/encryption/secrets"
 	"github.com/openshift/library-go/pkg/operator/genericoperatorclient"
 	"github.com/openshift/library-go/pkg/operator/staleconditions"
 	staticpodcommon "github.com/openshift/library-go/pkg/operator/staticpod/controller/common"
@@ -213,6 +215,18 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	encryptionProvider := encryption.StaticEncryptionProvider{
 		schema.GroupResource{Group: "route.openshift.io", Resource: "routes"}, // routes can contain embedded TLS private keys
 	}
+	encryptionSecretSelector := metav1.ListOptions{LabelSelector: encryptionsecrets.EncryptionKeySecretsLabel + "=" + operatorclient.TargetNamespace}
+	encryptionConfigurationComputer := encryptioncontrollers.NewEncryptionConfigurationComputer(
+		operatorclient.TargetNamespace,
+		nil,
+		encryptionProvider,
+		openshiftDeployer,
+		kubeClient.CoreV1(),
+		kubeClient.CoreV1(),
+		configClient.ConfigV1().APIServers(),
+		operatorClient,
+		encryptionSecretSelector,
+	)
 
 	apiServerControllers := apiservercontrollerset.NewAPIServerControllerSet(
 		"openshift-apiserver",
@@ -353,8 +367,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 			[]string{"cluster-openshift-apiserver-operator", "kms-preflight"},
 			10*time.Second,
 		),
-		// nil selects the real EncryptionPlanner-based encryption config computation in the KMS preflight controller instead of the no-op
-		nil,
+		encryptionConfigurationComputer,
 	).WithSecretRevisionPruneController(
 		operatorclient.TargetNamespace,
 		[]string{"encryption-config-"},
