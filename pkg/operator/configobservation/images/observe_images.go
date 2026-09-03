@@ -179,7 +179,7 @@ func ObserveImagestreamImportMode(genericListers configobserver.Listers, recorde
 		return prevObservedConfig, append(errs, err)
 	}
 
-	imageStreamImportMode := ""
+	imageStreamImportMode := currentImageStreamImportMode
 	if len(string(configImage.Status.ImageStreamImportMode)) > 0 {
 		imageStreamImportMode = string(configImage.Status.ImageStreamImportMode)
 		err = unstructured.SetNestedField(observedConfig, imageStreamImportMode, imageStreamImportModePath...)
