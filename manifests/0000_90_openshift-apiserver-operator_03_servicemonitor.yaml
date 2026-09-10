@@ -31,3 +31,4 @@ spec:
   selector:
     matchLabels:
       app: openshift-apiserver-operator
+  serviceDiscoveryRole: EndpointSlice
