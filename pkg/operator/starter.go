@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -206,6 +207,9 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 	if infra == nil || infra.Status.ControlPlaneTopology != configv1.SingleReplicaTopologyMode {
 		statusControllerOptions = append(statusControllerOptions, apiservercontrollerset.WithStatusControllerPdbCompatibleHighInertia("APIServer"))
 	}
+	statusControllerOptions = append(statusControllerOptions, func(s *status.StatusSyncer) *status.StatusSyncer {
+		return s.WithAvailableInertia(newAvailableInertia())
+	})
 
 	oasEncryptionStatusProvider, err := encryptionstatusprovider.NewOpenShiftAPIServerEncryptionStatusProvider(operatorConfigClient)
 	if err != nil {
@@ -540,4 +544,24 @@ func extractOperatorStatus(obj *unstructured.Unstructured, fieldManager string) 
 		return nil, nil
 	}
 	return &ret.Status.OperatorStatusApplyConfiguration, nil
+}
+
+func newAvailableInertia() status.Inertia {
+	return status.MustNewInertia(
+		0,
+		// Suppress brief Available=False blips (1–4 s) that occur when the
+		// openshift-apiserver deployment is rolled: endpoint slices momentarily
+		// lose all addresses, or the deployment object is briefly unretrievable
+		// while the CVO patches it.  Zero default so no other Available
+		// sub-condition is affected.
+		inertiaForCondition("APIServicesAvailable", 10*time.Second),
+		inertiaForCondition("APIServerDeploymentAvailable", 10*time.Second),
+	).Inertia
+}
+
+func inertiaForCondition(cond string, duration time.Duration) status.InertiaCondition {
+	return status.InertiaCondition{
+		ConditionTypeMatcher: regexp.MustCompile("^" + cond + "$"),
+		Duration:             duration,
+	}
 }
