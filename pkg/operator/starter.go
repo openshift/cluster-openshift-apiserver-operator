@@ -48,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -97,6 +98,10 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		return err
 	}
 	apiextensionsClient, err := apiextensionsclient.NewForConfig(controllerConfig.KubeConfig)
+	if err != nil {
+		return err
+	}
+	dynamicClient, err := dynamic.NewForConfig(controllerConfig.KubeConfig)
 	if err != nil {
 		return err
 	}
@@ -225,6 +230,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		kubeClient.CoreV1(),
 		configClient.ConfigV1().APIServers(),
 		operatorClient,
+		dynamicClient,
 		encryptionSecretSelector,
 	)
 
@@ -353,6 +359,7 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		migrator,
 		kubeClient.CoreV1(),
 		kubeClient.CoreV1(),
+		dynamicClient,
 		configClient.ConfigV1().APIServers(),
 		configInformers.Config().V1().APIServers(),
 		kubeInformersForNamespaces,
