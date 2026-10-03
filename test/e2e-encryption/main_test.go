@@ -5,7 +5,6 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
 	"unsafe"
 )
 
@@ -24,7 +23,6 @@ func randomizeTestOrder(m *testing.M) {
 
 	tests := *realPtrToTests
 
-	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(tests), func(i, j int) { tests[i], tests[j] = tests[j], tests[i] })
 
 	*realPtrToTests = tests
