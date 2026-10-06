@@ -2,6 +2,8 @@ package workload
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -694,6 +697,153 @@ func TestCheckEndpointsContainerRendering(t *testing.T) {
 
 			if actualListenArg != tc.expectedListenArg {
 				t.Errorf("expected --listen arg %q, got %q", tc.expectedListenArg, actualListenArg)
+			}
+		})
+	}
+}
+
+func TestCreateCurvePreferencesOverride(t *testing.T) {
+	tests := []struct {
+		name                     string
+		inputObservedConfig      map[string]interface{}
+		expectedCurvePreferences []int32
+		expectOverride           bool
+		expectedError            string
+	}{
+		{
+			name: "creates override with curve preferences from groups",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:8443",
+					"groups":      []interface{}{"X25519", "secp256r1", "secp384r1"},
+				},
+			},
+			expectedCurvePreferences: []int32{29, 23, 24},
+			expectOverride:           true,
+		},
+		{
+			name: "no groups field - no override",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:8443",
+				},
+			},
+			expectOverride: false,
+		},
+		{
+			name: "empty groups array - no override",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:8443",
+					"groups":      []interface{}{},
+				},
+			},
+			expectOverride: false,
+		},
+		{
+			name: "unrecognized groups - error",
+			inputObservedConfig: map[string]interface{}{
+				"servingInfo": map[string]interface{}{
+					"bindAddress": "0.0.0.0:8443",
+					"groups":      []interface{}{"invalid-group"},
+				},
+			},
+			expectedError: "unrecognized groups when reading curve preferences",
+		},
+		{
+			name:           "empty observed config - no override",
+			expectOverride: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var inputRaw []byte
+			var err error
+			if tt.inputObservedConfig != nil {
+				inputRaw, err = json.Marshal(tt.inputObservedConfig)
+				if err != nil {
+					t.Fatalf("failed to marshal input: %v", err)
+				}
+			}
+
+			overrideRaw, err := createCurvePreferencesOverride(inputRaw)
+
+			if tt.expectedError != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.expectedError)
+				}
+				if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Fatalf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !tt.expectOverride {
+				if overrideRaw != nil {
+					t.Fatalf("expected nil override, got: %s", string(overrideRaw))
+				}
+				return
+			}
+
+			if overrideRaw == nil {
+				t.Fatal("expected override, got nil")
+			}
+
+			// Parse the override
+			var override map[string]interface{}
+			err = json.Unmarshal(overrideRaw, &override)
+			if err != nil {
+				t.Fatalf("failed to unmarshal override: %v", err)
+			}
+
+			// Check that it contains servingInfo.curvePreferences
+			curvePrefs, found, err := unstructured.NestedSlice(override, "servingInfo", "curvePreferences")
+			if err != nil {
+				t.Fatalf("failed to get curvePreferences: %v", err)
+			}
+			if !found {
+				t.Fatal("curvePreferences should be set in servingInfo")
+			}
+
+			var curvePrefsInt32 []int32
+			for _, v := range curvePrefs {
+				// JSON unmarshaling makes numbers float64
+				if f, ok := v.(float64); ok {
+					curvePrefsInt32 = append(curvePrefsInt32, int32(f))
+				} else {
+					t.Fatalf("unexpected type for curve preference: %T", v)
+				}
+			}
+
+			if len(curvePrefsInt32) != len(tt.expectedCurvePreferences) {
+				t.Fatalf("expected %d curve preferences, got %d", len(tt.expectedCurvePreferences), len(curvePrefsInt32))
+			}
+			for i := range curvePrefsInt32 {
+				if curvePrefsInt32[i] != tt.expectedCurvePreferences[i] {
+					t.Errorf("curve preference[%d]: expected %d, got %d", i, tt.expectedCurvePreferences[i], curvePrefsInt32[i])
+				}
+			}
+
+			// Verify that groups is set to nil in the override to remove it from final config
+			servingInfo, found, err := unstructured.NestedMap(override, "servingInfo")
+			if err != nil {
+				t.Fatalf("failed to get servingInfo: %v", err)
+			}
+			if !found {
+				t.Fatal("servingInfo should exist in override")
+			}
+
+			groupsValue, exists := servingInfo["groups"]
+			if !exists {
+				t.Fatal("groups field should exist in override")
+			}
+			if groupsValue != nil {
+				t.Errorf("groups should be set to nil to remove it from final config, got %v", groupsValue)
 			}
 		})
 	}
