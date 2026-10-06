@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/api/features"
 	configinformers "github.com/openshift/client-go/config/informers/externalversions"
 	operatorv1informers "github.com/openshift/client-go/operator/informers/externalversions"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation"
@@ -21,7 +22,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
-	"k8s.io/apiserver/pkg/features"
+	k8sfeatures "k8s.io/apiserver/pkg/features"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -70,7 +71,28 @@ func NewConfigObserver(
 		images.ObserveAllowedRegistriesForImport,
 		ingresses.ObserveIngressDomain,
 		libgoetcd.ObserveStorageURLs,
-		libgoapiserver.ObserveTLSSecurityProfile,
+		func(listers configobserver.Listers, recorder events.Recorder, existingConfig map[string]interface{}) (observedConfig map[string]interface{}, errs []error) {
+			featureGate, err := featureGateAccessor.CurrentFeatureGates()
+			if err != nil {
+				return existingConfig, append(errs, err)
+			}
+			if featureGate.Enabled(features.FeatureGateTLSGroupPreferences) {
+				return libgoapiserver.ObserveTLSSecurityProfileWithGroupPaths(
+					listers,
+					recorder,
+					existingConfig,
+					[]string{"servingInfo", "minTLSVersion"},
+					[]string{"servingInfo", "cipherSuites"},
+					[]string{"servingInfo", "groups"},
+				)
+			} else {
+				return libgoapiserver.ObserveTLSSecurityProfile(
+					listers,
+					recorder,
+					existingConfig,
+				)
+			}
+		},
 		project.ObserveProjectRequestMessage,
 		project.ObserveProjectRequestTemplateName,
 		proxy.NewProxyObserveFunc([]string{"workloadcontroller", "proxy"}),
@@ -112,7 +134,7 @@ type featureGateWithWatchListDisabled struct {
 }
 
 func (f *featureGateWithWatchListDisabled) Enabled(key configv1.FeatureGateName) bool {
-	if key == configv1.FeatureGateName(features.WatchList) {
+	if key == configv1.FeatureGateName(k8sfeatures.WatchList) {
 		return false
 	}
 	return f.FeatureGate.Enabled(key)
@@ -120,7 +142,7 @@ func (f *featureGateWithWatchListDisabled) Enabled(key configv1.FeatureGateName)
 
 func (f *featureGateWithWatchListDisabled) KnownFeatures() []configv1.FeatureGateName {
 	knownFeatures := f.FeatureGate.KnownFeatures()
-	watchListName := configv1.FeatureGateName(features.WatchList)
+	watchListName := configv1.FeatureGateName(k8sfeatures.WatchList)
 
 	if slices.Contains(knownFeatures, watchListName) {
 		return knownFeatures

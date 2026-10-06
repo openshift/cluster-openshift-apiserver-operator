@@ -37,6 +37,7 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/v311_00_assets"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/configobserver/featuregates"
 	kmspluginlifecycle "github.com/openshift/library-go/pkg/operator/encryption/kms/pluginlifecycle"
 	"github.com/openshift/library-go/pkg/operator/events"
@@ -297,6 +298,57 @@ func manageOpenShiftAPIServerImageImportCA_v311_00_to_latest(ctx context.Context
 	return resourceapply.ApplyConfigMap(ctx, client, recorder, requiredConfigMap)
 }
 
+// createCurvePreferencesOverride reads servingInfo.groups from observedConfig and creates
+// a JSON override containing servingInfo.curvePreferences to be passed to MergePrunedConfigMap.
+// This avoids modifying the observedConfig or deserializing the final ConfigMap.
+func createCurvePreferencesOverride(observedConfigRaw []byte) ([]byte, error) {
+	if len(observedConfigRaw) == 0 {
+		return nil, nil
+	}
+
+	var observedConfig map[string]interface{}
+	if err := json.Unmarshal(observedConfigRaw, &observedConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal observedConfig: %w", err)
+	}
+
+	// Check if servingInfo.groups exists
+	groups, groupsFound, err := unstructured.NestedStringSlice(observedConfig, "servingInfo", "groups")
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get servingInfo.groups from observedConfig: %w", err)
+	}
+
+	if !groupsFound || len(groups) == 0 {
+		return nil, nil
+	}
+
+	// Convert groups to curve preferences
+	curvePreferences, unrecognizedGroups := crypto.TLSGroupsToCurvePreferences(groups)
+	if len(unrecognizedGroups) > 0 {
+		return nil, fmt.Errorf("unrecognized groups when reading curve preferences: %v", unrecognizedGroups)
+	}
+
+	// If conversion resulted in empty list, return nil to avoid explicitly resetting the field
+	if len(curvePreferences) == 0 {
+		return nil, nil
+	}
+
+	// Create override with servingInfo.curvePreferences and remove groups
+	// (groups is not part of the upstream Kubernetes ServingInfo type)
+	override := map[string]interface{}{
+		"servingInfo": map[string]interface{}{
+			"curvePreferences": curvePreferences,
+			"groups":           nil, // Remove groups field from final config
+		},
+	}
+
+	overrideJSON, err := json.Marshal(override)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal curvePreferences override: %w", err)
+	}
+
+	return overrideJSON, nil
+}
+
 func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, client coreclientv1.ConfigMapsGetter, clusterVersionLister configlisterv1.ClusterVersionLister, recorder events.Recorder, operatorConfig *operatorv1.OpenShiftAPIServer) (*corev1.ConfigMap, bool, error) {
 	configMap := resourceread.ReadConfigMapV1OrDie(v311_00_assets.MustAsset("v3.11.0/openshift-apiserver/cm.yaml"))
 	defaultConfig := v311_00_assets.MustAsset("v3.11.0/config/defaultconfig.yaml")
@@ -333,15 +385,32 @@ func manageOpenShiftAPIServerConfigMap_v311_00_to_latest(ctx context.Context, cl
 		return nil, false, fmt.Errorf("unable to marshal OpenShiftAPIServerConfig struct: %v", err)
 	}
 
+	// Create curve preferences override from servingInfo.groups in observedConfig
+	curvePreferencesOverride, err := createCurvePreferencesOverride(operatorConfig.Spec.ObservedConfig.Raw)
+	if err != nil {
+		return nil, false, err
+	}
+
+	// Build the list of config sources to merge
+	configSources := [][]byte{
+		defaultConfig,
+		configYaml,
+		operatorConfig.Spec.ObservedConfig.Raw,
+	}
+
+	// Add curvePreferences override if it exists (after observedConfig so it takes precedence)
+	if curvePreferencesOverride != nil {
+		configSources = append(configSources, curvePreferencesOverride)
+	}
+
+	configSources = append(configSources, operatorConfig.Spec.UnsupportedConfigOverrides.Raw)
+
 	requiredConfigMap, _, err := resourcemerge.MergePrunedConfigMap(
 		&openshiftcontrolplanev1.OpenShiftAPIServerConfig{},
 		configMap,
 		"config.yaml",
 		nil,
-		defaultConfig,
-		configYaml,
-		operatorConfig.Spec.ObservedConfig.Raw,
-		operatorConfig.Spec.UnsupportedConfigOverrides.Raw,
+		configSources...,
 	)
 	if err != nil {
 		return nil, false, err
