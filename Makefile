@@ -51,6 +51,8 @@ $(call add-bindata,v3.11.0,./bindata/v3.11.0/...,bindata,v311_00_assets,pkg/oper
 
 $(call verify-golang-versions,Dockerfile)
 
+build: GO_BUILD_FLAGS += -tags=no_openssl
+
 clean:
 	$(RM) ./cluster-openshift-apiserver-operator
 .PHONY: clean
