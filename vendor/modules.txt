@@ -428,7 +428,7 @@ github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/i
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane
 github.com/openshift/client-go/operatorcontrolplane/informers/externalversions/operatorcontrolplane/v1alpha1
 github.com/openshift/client-go/operatorcontrolplane/listers/operatorcontrolplane/v1alpha1
-# github.com/openshift/library-go v0.0.0-20261008081759-c51f6ebeb7cb
+# github.com/openshift/library-go v0.0.0-20261008081759-c51f6ebeb7cb => github.com/bertinatto/library-go v0.0.0-20261013204507-86b909992e7f
 ## explicit; go 1.26.0
 github.com/openshift/library-go/pkg/apiserver/jsonpatch
 github.com/openshift/library-go/pkg/apps/deployment
@@ -1747,3 +1747,4 @@ sigs.k8s.io/structured-merge-diff/v6/value
 ## explicit; go 1.22
 sigs.k8s.io/yaml
 # github.com/onsi/ginkgo/v2 => github.com/openshift/onsi-ginkgo/v2 v2.6.1-0.20260303184444-1cc650aa0565
+# github.com/openshift/library-go => github.com/bertinatto/library-go v0.0.0-20261013204507-86b909992e7f
