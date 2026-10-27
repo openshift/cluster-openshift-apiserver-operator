@@ -59,10 +59,6 @@ import (
 	migrationv1alpha1informer "sigs.k8s.io/kube-storage-version-migrator/pkg/clients/informer"
 )
 
-const (
-	oauthAPIServerTargetNamespace = "openshift-oauth-apiserver"
-)
-
 var apiServiceGroupVersions = []schema.GroupVersion{
 	// these are all the apigroups we manage
 	{Group: "apps.openshift.io", Version: "v1"},
@@ -116,7 +112,6 @@ func RunOperator(ctx context.Context, controllerConfig *controllercmd.Controller
 		libgoetcd.EtcdEndpointNamespace,
 		metav1.NamespaceSystem,
 		"openshift-kube-apiserver",
-		oauthAPIServerTargetNamespace,
 	)
 	apiregistrationInformers := apiregistrationinformers.NewSharedInformerFactory(apiregistrationv1Client, 10*time.Minute)
 	configInformers := configinformers.NewSharedInformerFactory(configClient, 10*time.Minute)
