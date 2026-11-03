@@ -8,6 +8,7 @@ metadata:
     apiserver: "true"
 spec:
   # The number of replicas will be set in code to the number of master nodes.
+  minReadySeconds: 30
   strategy:
     type: RollingUpdate
     rollingUpdate:
