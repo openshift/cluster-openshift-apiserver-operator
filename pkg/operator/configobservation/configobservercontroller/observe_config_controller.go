@@ -1,6 +1,7 @@
 package configobservercontroller
 
 import (
+	"fmt"
 	"slices"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -13,6 +14,7 @@ import (
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/configobservation/project"
 	"github.com/openshift/cluster-openshift-apiserver-operator/pkg/operator/operatorclient"
 	"github.com/openshift/library-go/pkg/controller/factory"
+	"github.com/openshift/library-go/pkg/crypto"
 	"github.com/openshift/library-go/pkg/operator/configobserver"
 	libgoapiserver "github.com/openshift/library-go/pkg/operator/configobserver/apiserver"
 	libgoetcd "github.com/openshift/library-go/pkg/operator/configobserver/etcd"
@@ -22,9 +24,14 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resourcesynccontroller"
 	"github.com/openshift/library-go/pkg/operator/v1helpers"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sfeatures "k8s.io/apiserver/pkg/features"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
+)
+
+const (
+	tempOASGroupsField = "tempOASServingInfoGroupsIgnore"
 )
 
 // NewConfigObserver initializes a new configuration observer.
@@ -77,14 +84,34 @@ func NewConfigObserver(
 				return existingConfig, append(errs, err)
 			}
 			if featureGate.Enabled(features.FeatureGateTLSGroupPreferences) {
-				return libgoapiserver.ObserveTLSSecurityProfileWithGroupPaths(
+				if _, err := crypto.CurvePreferencesToGroups[int64](existingConfig, []string{"servingInfo", "curvePreferences"}, []string{tempOASGroupsField}); err != nil {
+					return existingConfig, []error{err}
+				}
+
+				defer func() {
+					unstructured.RemoveNestedField(existingConfig, tempOASGroupsField)
+					unstructured.RemoveNestedField(observedConfig, tempOASGroupsField)
+				}()
+
+				observedConfig, errs = libgoapiserver.ObserveTLSSecurityProfileWithGroupPaths(
 					listers,
 					recorder,
 					existingConfig,
 					[]string{"servingInfo", "minTLSVersion"},
 					[]string{"servingInfo", "cipherSuites"},
-					[]string{"servingInfo", "groups"},
+					[]string{tempOASGroupsField},
 				)
+				if len(errs) > 0 {
+					return observedConfig, errs
+				}
+
+				if unrecognizedGroups, err := crypto.GroupsToCurvePreferences[int64](observedConfig, []string{tempOASGroupsField}, []string{"servingInfo", "curvePreferences"}); err != nil {
+					return observedConfig, []error{err}
+				} else if len(unrecognizedGroups) > 0 {
+					return observedConfig, []error{fmt.Errorf("unrecognized TLS groups: %v", unrecognizedGroups)}
+				}
+
+				return observedConfig, errs
 			} else {
 				return libgoapiserver.ObserveTLSSecurityProfile(
 					listers,
