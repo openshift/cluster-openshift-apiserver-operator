@@ -678,6 +678,39 @@ func TestCheckEndpointsContainerRendering(t *testing.T) {
 				t.Fatalf("check-endpoints container not found in deployment")
 			}
 
+			var servingCertMount *corev1.VolumeMount
+			for i, mount := range checkEndpointsContainer.VolumeMounts {
+				if mount.Name != "serving-cert" {
+					continue
+				}
+				servingCertMount = &checkEndpointsContainer.VolumeMounts[i]
+				break
+			}
+			if servingCertMount == nil {
+				t.Fatalf("serving-cert mount not found in check-endpoints container: %v", checkEndpointsContainer.VolumeMounts)
+			}
+			if servingCertMount.MountPath != "/var/run/secrets/serving-cert" {
+				t.Errorf("expected serving-cert mount path %q, got %q", "/var/run/secrets/serving-cert", servingCertMount.MountPath)
+			}
+			if !servingCertMount.ReadOnly {
+				t.Errorf("expected serving-cert mount to be read-only")
+			}
+
+			var servingCertVolume *corev1.Volume
+			for i, volume := range deployment.Spec.Template.Spec.Volumes {
+				if volume.Name != "serving-cert" {
+					continue
+				}
+				servingCertVolume = &deployment.Spec.Template.Spec.Volumes[i]
+				break
+			}
+			if servingCertVolume == nil {
+				t.Fatalf("serving-cert volume not found in deployment: %v", deployment.Spec.Template.Spec.Volumes)
+			}
+			if servingCertVolume.Secret == nil || servingCertVolume.Secret.SecretName != "serving-cert" {
+				t.Errorf("expected serving-cert volume to reference secret serving-cert, got %#v", servingCertVolume.Secret)
+			}
+
 			// verify the --listen argument
 			var actualListenArg string
 			for i, arg := range checkEndpointsContainer.Args {
