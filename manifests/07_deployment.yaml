@@ -23,11 +23,11 @@ spec:
         app: openshift-apiserver-operator
       annotations:
         target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
-        openshift.io/required-scc: nonroot-v2
+        openshift.io/required-scc: restricted-v3
     spec:
+      hostUsers: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65534
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: openshift-apiserver-operator
