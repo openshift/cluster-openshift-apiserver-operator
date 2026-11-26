@@ -72,7 +72,6 @@ spec:
       - name: serving-cert
         secret:
           secretName: openshift-apiserver-operator-serving-cert
-          optional: true
       - name: config
         configMap:
           name: openshift-apiserver-operator-config
